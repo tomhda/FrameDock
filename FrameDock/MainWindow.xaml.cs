@@ -21,6 +21,7 @@ namespace FrameDock;
 public sealed partial class MainWindow : Window
 {
     private const int VirtualKeyControl = 0x11;
+    private const int ClipboardCannotOpenHResult = unchecked((int)0x800401D0);
     private readonly IntPtr _windowHandle;
     private readonly string? _initialPath;
     private readonly PlayerSettings _settings;
@@ -30,6 +31,7 @@ public sealed partial class MainWindow : Window
     private DispatcherQueueTimer? _statusTimer;
     private DispatcherQueueTimer? _compositionResizeTimer;
     private DispatcherQueueTimer? _settingsSaveTimer;
+    private DispatcherQueueTimer? _noticeTimer;
     private AppWindow? _appWindow;
     private MediaInfo? _mediaInfo;
     private string? _loadedPath;
@@ -75,11 +77,10 @@ public sealed partial class MainWindow : Window
         _isRestoringSettings = true;
         TimelineSlider.ValueChanged += TimelineSlider_ValueChanged;
         VolumeSlider.ValueChanged += VolumeSlider_ValueChanged;
-        SpeedComboBox.SelectionChanged += SpeedComboBox_SelectionChanged;
         VolumeSlider.Value = _settings.Volume;
-        MuteButton.Content = _isMuted ? "音あり" : "消音";
+        UpdateMuteButton();
         UpdateSkipLabels();
-        SelectSpeedItem(_settings.Speed);
+        UpdateSpeedMenu(_settings.Speed);
         _isRestoringSettings = false;
 
         RootGrid.Loaded += RootGrid_Loaded;
@@ -96,6 +97,14 @@ public sealed partial class MainWindow : Window
         _settingsSaveTimer.Interval = TimeSpan.FromMilliseconds(450);
         _settingsSaveTimer.IsRepeating = false;
         _settingsSaveTimer.Tick += async (_, _) => await SaveSettingsAsync();
+        _noticeTimer = DispatcherQueue.CreateTimer();
+        _noticeTimer.Interval = TimeSpan.FromSeconds(6);
+        _noticeTimer.IsRepeating = false;
+        _noticeTimer.Tick += (_, _) =>
+        {
+            InlineNoticeText.Visibility = Visibility.Collapsed;
+            InlineNoticeText.Text = string.Empty;
+        };
         UpdateTitleBarTheme();
     }
 
@@ -263,6 +272,9 @@ public sealed partial class MainWindow : Window
         try
         {
             NotificationBar.IsOpen = false;
+            InlineNoticeText.Visibility = Visibility.Collapsed;
+            InlineNoticeText.Text = string.Empty;
+            _noticeTimer?.Stop();
             _statusTimer?.Stop();
             CancelExportForNewFile();
             var previousPlayer = _player;
@@ -279,7 +291,6 @@ public sealed partial class MainWindow : Window
             CropOverlayCanvas.Visibility = Visibility.Collapsed;
             EmptyState.Visibility = Visibility.Collapsed;
             TimelineSlider.IsEnabled = false;
-            StatusText.Text = Path.GetFileName(fullPath);
             OutputFolderText.Text = "元動画と同じフォルダー";
             OutputNameBox.Text = $"{Path.GetFileNameWithoutExtension(fullPath)}-clip";
             CropInfoText.Text = "クロップなし";
@@ -334,7 +345,6 @@ public sealed partial class MainWindow : Window
                     return;
                 }
 
-                StatusText.Text = Path.GetFileName(fullPath);
                 RefreshStatus();
             });
             player.LoadFile(fullPath);
@@ -405,7 +415,9 @@ public sealed partial class MainWindow : Window
             TimeText.Text = $"{FormatTime(position.Value)} / {FormatTime(duration.Value)}";
         }
 
-        PlayButton.Content = _player.GetFlag("pause") ? "再生" : "一時停止";
+        var isPaused = _player.GetFlag("pause");
+        PlayIcon.Glyph = isPaused ? "\uE768" : "\uE769";
+        PlayButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, isPaused ? "再生" : "一時停止");
     }
 
     private static string FormatTime(double seconds)
@@ -534,7 +546,7 @@ public sealed partial class MainWindow : Window
         try
         {
             _player?.SetMuted(_isMuted);
-            MuteButton.Content = _isMuted ? "音あり" : "消音";
+            UpdateMuteButton();
         }
         catch (Exception ex)
         {
@@ -544,15 +556,22 @@ public sealed partial class MainWindow : Window
         ScheduleSettingsSave();
     }
 
-    private void SpeedComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void UpdateMuteButton()
     {
-        if (_isRestoringSettings || SpeedComboBox.SelectedItem is not ComboBoxItem item ||
+        MuteIcon.Glyph = _isMuted ? "\uE74F" : "\uE767";
+        MuteButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, _isMuted ? "ミュートを解除" : "ミュート");
+    }
+
+    private void SpeedMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ToggleMenuFlyoutItem item ||
             !double.TryParse(item.Tag?.ToString(), CultureInfo.InvariantCulture, out var speed))
         {
             return;
         }
 
         _settings.Speed = speed;
+        UpdateSpeedMenu(speed);
         try
         {
             _player?.SetSpeed(speed);
@@ -565,25 +584,28 @@ public sealed partial class MainWindow : Window
         ScheduleSettingsSave();
     }
 
-    private void SelectSpeedItem(double speed)
+    private void UpdateSpeedMenu(double speed)
     {
-        foreach (var item in SpeedComboBox.Items.OfType<ComboBoxItem>())
+        foreach (var item in SpeedMenuItem.Items.OfType<ToggleMenuFlyoutItem>())
         {
-            if (double.TryParse(item.Tag?.ToString(), CultureInfo.InvariantCulture, out var itemSpeed) && Math.Abs(itemSpeed - speed) < 0.001)
-            {
-                SpeedComboBox.SelectedItem = item;
-                return;
-            }
+            item.IsChecked = double.TryParse(item.Tag?.ToString(), CultureInfo.InvariantCulture, out var itemSpeed) &&
+                Math.Abs(itemSpeed - speed) < 0.001;
         }
 
-        SpeedComboBox.SelectedIndex = 2;
+        SpeedMenuItem.Text = $"再生速度: {speed.ToString("0.##", CultureInfo.InvariantCulture)}×";
     }
 
     private void UpdateSkipLabels()
     {
-        var label = _settings.SkipSeconds.ToString("0.##", CultureInfo.InvariantCulture);
-        BackButton.Content = $"−{label}秒";
-        ForwardButton.Content = $"+{label}秒";
+        var seconds = _settings.SkipSeconds.ToString("0.##", CultureInfo.InvariantCulture);
+        BackSkipText.Text = $"−{seconds}";
+        ForwardSkipText.Text = $"+{seconds}";
+        var backLabel = $"{seconds}秒戻る";
+        var forwardLabel = $"{seconds}秒進む";
+        ToolTipService.SetToolTip(BackButton, $"{backLabel} (←)");
+        ToolTipService.SetToolTip(ForwardButton, $"{forwardLabel} (→)");
+        BackButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, backLabel);
+        ForwardButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, forwardLabel);
     }
 
     private void ScheduleSettingsSave()
@@ -655,7 +677,9 @@ public sealed partial class MainWindow : Window
 
         _isFullscreen = !_isFullscreen;
         _appWindow.SetPresenter(_isFullscreen ? AppWindowPresenterKind.FullScreen : AppWindowPresenterKind.Overlapped);
-        FullscreenButton.Content = _isFullscreen ? "全画面を終了" : "全画面";
+        FullscreenIcon.Glyph = _isFullscreen ? "\uE73F" : "\uE740";
+        ToolTipService.SetToolTip(FullscreenButton, _isFullscreen ? "ウィンドウ表示に戻る (Esc)" : "全画面表示 (F)");
+        FullscreenButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, _isFullscreen ? "ウィンドウ表示に戻る" : "全画面表示");
     }
 
     private void RootGrid_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -754,6 +778,22 @@ public sealed partial class MainWindow : Window
         }
 
         UpdateCropOverlay();
+    }
+
+    private void VideoRegion_RightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        if (_player is null)
+        {
+            return;
+        }
+
+        var menu = new MenuFlyout();
+        var copyItem = new MenuFlyoutItem { Text = "表示中のフレームをコピー" };
+        copyItem.Icon = new FontIcon { Glyph = "\uE8C8" };
+        copyItem.Click += CopyFrameButton_Click;
+        menu.Items.Add(copyItem);
+        menu.ShowAt(VideoRegion, e.GetPosition(VideoRegion));
+        e.Handled = true;
     }
 
     private void TrimBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) => ValidateEditRange();
@@ -1139,11 +1179,13 @@ public sealed partial class MainWindow : Window
             var result = await _exportService.ExportAsync(request, progress, token);
             if (!_isClosing && ReferenceEquals(_exportCancellation, exportCancellation))
             {
-                ShowNotice($"書き出しました: {result.DestinationPath}", InfoBarSeverity.Success);
+                var successMessage = $"書き出しました: {result.DestinationPath}";
                 if (result.BoundariesAreApproximate)
                 {
-                    NotificationBar.Message += " (キーフレーム位置に合わせたため、境界は指定時刻と異なります)";
+                    successMessage += " (キーフレーム位置に合わせたため、境界は指定時刻と異なります)";
                 }
+
+                ShowNotice(successMessage, InfoBarSeverity.Success);
             }
         }
         catch (OperationCanceledException)
@@ -1213,34 +1255,34 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        string? temporary = null;
         try
         {
-            if (!TryChooseScreenshotPath(out var destination))
-            {
-                return;
-            }
-
-            var existedWhenChosen = File.Exists(destination);
-            var directory = Path.GetDirectoryName(destination)!;
-            var temporary = Path.Combine(directory, $".FrameDock-{Guid.NewGuid():N}.png");
+            var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "FrameDock");
+            Directory.CreateDirectory(directory);
+            temporary = Path.Combine(directory, $".FrameDock-{Guid.NewGuid():N}.png");
+            await player.SaveScreenshotAsync(temporary);
+            var destination = MoveScreenshotToAvailablePath(temporary, directory, BuildScreenshotName());
+            temporary = null;
+            ShowNotice($"フレーム画像を保存しました: {destination}", InfoBarSeverity.Success);
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Pictures\\FrameDock へのフレーム画像の保存に失敗しました: {ex.Message}");
+        }
+        finally
+        {
             try
             {
-                await player.SaveScreenshotAsync(temporary);
-                File.Move(temporary, destination, overwrite: existedWhenChosen);
-            }
-            finally
-            {
-                if (File.Exists(temporary))
+                if (temporary is not null && File.Exists(temporary))
                 {
                     File.Delete(temporary);
                 }
             }
-
-            ShowNotice($"画像を保存しました: {destination}", InfoBarSeverity.Success);
-        }
-        catch (Exception ex)
-        {
-            ShowError($"画像を保存できませんでした: {ex.Message}");
+            catch
+            {
+                // The user has already received the save result or error; ignore temp cleanup failures.
+            }
         }
     }
 
@@ -1249,6 +1291,24 @@ public sealed partial class MainWindow : Window
         var stem = _loadedPath is null ? "FrameDock" : Path.GetFileNameWithoutExtension(_loadedPath);
         var position = _player?.GetNumber("time-pos") ?? 0;
         return $"{stem}-{FormatTimeFileSafe(position)}";
+    }
+
+    private static string MoveScreenshotToAvailablePath(string temporaryPath, string directory, string baseName)
+    {
+        for (var collision = 0; ; collision++)
+        {
+            var suffix = collision == 0 ? string.Empty : $" ({collision + 1})";
+            var destination = Path.Combine(directory, $"{baseName}{suffix}.png");
+            try
+            {
+                File.Move(temporaryPath, destination, overwrite: false);
+                return destination;
+            }
+            catch (IOException) when (File.Exists(destination))
+            {
+                // Keep the existing image and try the next available name.
+            }
+        }
     }
 
     private async void CopyFrameButton_Click(object sender, RoutedEventArgs e)
@@ -1272,96 +1332,52 @@ public sealed partial class MainWindow : Window
             await player.SaveScreenshotAsync(path);
             phase = "保存した画像を開く";
             var file = await StorageFile.GetFileFromPathAsync(path);
-            var package = new DataPackage();
-            package.SetBitmap(RandomAccessStreamReference.CreateFromFile(file));
-            package.RequestedOperation = DataPackageOperation.Copy;
             phase = "クリップボードへ転送";
-            Clipboard.SetContent(package);
-            phase = "クリップボードへの転送を確定";
-            Clipboard.Flush();
+            await SetClipboardImageWithRetryAsync(file);
             ShowNotice("表示中のフレームを画像としてコピーしました。", InfoBarSeverity.Success);
         }
         catch (Exception ex)
         {
-            ShowError($"画像をコピーできませんでした（{phase}、{ex.GetType().Name} 0x{ex.HResult:X8}）: {ex.Message}");
+            var cause = ex.InnerException ?? ex;
+            ShowError($"画像をコピーできませんでした（{phase}、{cause.GetType().Name} 0x{cause.HResult:X8}）: {ex.Message}");
         }
     }
 
-    private bool TryChooseScreenshotPath(out string path)
+    private static async Task SetClipboardImageWithRetryAsync(StorageFile file)
     {
-        path = string.Empty;
-        var buffer = Marshal.AllocHGlobal(65_536);
-        var filter = Marshal.StringToHGlobalUni("PNG 画像 (*.png)\0*.png\0\0");
-        var defaultExtension = Marshal.StringToHGlobalUni("png");
-        var title = Marshal.StringToHGlobalUni("フレーム画像を保存");
-        try
+        const int maxAttempts = 5;
+        Exception? lastBusyError = null;
+
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
         {
-            Marshal.WriteInt16(buffer, 0);
-            var dialog = new OpenFileName
+            try
             {
-                StructSize = (uint)Marshal.SizeOf<OpenFileName>(),
-                Owner = _windowHandle,
-                Filter = filter,
-                FilterIndex = 1,
-                File = buffer,
-                MaxFile = 32_768,
-                Title = title,
-                Flags = 0x00080000 | 0x00000800 | 0x00000008 | 0x00000002,
-                DefaultExtension = defaultExtension
-            };
-            if (!GetSaveFileNameW(ref dialog))
+                // SetContentWithOptions reports a busy clipboard as false instead of throwing.
+                // Flush persists the data after FrameDock closes, so retry both operations together.
+                var package = new DataPackage();
+                package.SetBitmap(RandomAccessStreamReference.CreateFromFile(file));
+                package.RequestedOperation = DataPackageOperation.Copy;
+                if (Clipboard.SetContentWithOptions(package, null))
+                {
+                    Clipboard.Flush();
+                    return;
+                }
+
+                lastBusyError = new COMException("クリップボードは他のアプリで使用中です。", ClipboardCannotOpenHResult);
+            }
+            catch (COMException ex) when (ex.HResult == ClipboardCannotOpenHResult)
             {
-                return false;
+                lastBusyError = ex;
             }
 
-            path = Marshal.PtrToStringUni(buffer) ?? string.Empty;
-            if (!path.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+            if (attempt + 1 < maxAttempts)
             {
-                path += ".png";
+                await Task.Delay(TimeSpan.FromMilliseconds(100 * (attempt + 1)));
             }
-
-            return path.Length > 0;
         }
-        finally
-        {
-            Marshal.FreeHGlobal(buffer);
-            Marshal.FreeHGlobal(filter);
-            Marshal.FreeHGlobal(defaultExtension);
-            Marshal.FreeHGlobal(title);
-        }
-    }
 
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    private struct OpenFileName
-    {
-        public uint StructSize;
-        public IntPtr Owner;
-        public IntPtr Instance;
-        public IntPtr Filter;
-        public IntPtr CustomFilter;
-        public uint MaxCustomFilter;
-        public uint FilterIndex;
-        public IntPtr File;
-        public uint MaxFile;
-        public IntPtr FileTitle;
-        public uint MaxFileTitle;
-        public IntPtr InitialDirectory;
-        public IntPtr Title;
-        public uint Flags;
-        public ushort FileOffset;
-        public ushort FileExtension;
-        public IntPtr DefaultExtension;
-        public IntPtr CustomData;
-        public IntPtr Hook;
-        public IntPtr TemplateName;
-        public IntPtr Reserved;
-        public uint ReservedValue;
-        public uint FlagsEx;
+        throw new IOException("Windowsのクリップボードを使用中です。しばらくしてからもう一度お試しください。", lastBusyError);
     }
-
-    [DllImport("comdlg32.dll", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "GetSaveFileNameW")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GetSaveFileNameW(ref OpenFileName dialog);
 
     [DllImport("user32.dll")]
     private static extern short GetKeyState(int key);
@@ -1375,6 +1391,20 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        _noticeTimer?.Stop();
+        if (severity is InfoBarSeverity.Success or InfoBarSeverity.Informational)
+        {
+            NotificationBar.IsOpen = false;
+            InlineNoticeText.Text = message;
+            ToolTipService.SetToolTip(InlineNoticeText, message);
+            InlineNoticeText.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, message);
+            InlineNoticeText.Visibility = Visibility.Visible;
+            _noticeTimer?.Start();
+            return;
+        }
+
+        InlineNoticeText.Visibility = Visibility.Collapsed;
+        InlineNoticeText.Text = string.Empty;
         NotificationBar.Severity = severity;
         NotificationBar.Title = severity switch
         {
@@ -1391,6 +1421,7 @@ public sealed partial class MainWindow : Window
     {
         _isClosing = true;
         _settingsSaveTimer?.Stop();
+        _noticeTimer?.Stop();
         _statusTimer?.Stop();
         _compositionResizeTimer?.Stop();
         _exportCancellation?.Cancel();

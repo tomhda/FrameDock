@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$InstallRoot = (Split-Path -Parent $PSScriptRoot),
     [string]$CacheRoot = (Join-Path $PSScriptRoot '.cache'),
