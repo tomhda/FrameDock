@@ -1,0 +1,13 @@
+# Dependency archives and staged native binaries are recreated by the bootstrap script.
+/tools/.cache/
+/vendor/
+/ffmpeg-9.0.2-essentials_build-test.7z
+/ffmpeg-lgpl-test.7z
+/mpv-dev-lgpl-test.7z
+/mpv-dev-test.7z
+
+# Local build and release outputs.
+**/bin/
+**/obj/
+/.vs/
+/artifacts/release/
