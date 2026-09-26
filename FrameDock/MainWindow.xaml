@@ -3,15 +3,40 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="FrameDock">
-    <Grid x:Name="RootGrid" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" RowDefinitions="*,Auto,Auto" KeyDown="RootGrid_KeyDown" IsTabStop="True" AllowDrop="True" DragOver="RootGrid_DragOver" Drop="RootGrid_Drop">
+    <Grid x:Name="RootGrid" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" RowDefinitions="*,Auto,Auto" KeyDown="RootGrid_KeyDown" PointerEntered="RootGrid_PointerEntered" PointerMoved="RootGrid_PointerMoved" PointerExited="RootGrid_PointerExited" IsTabStop="True" AllowDrop="True" DragOver="RootGrid_DragOver" Drop="RootGrid_Drop">
         <Grid.Resources>
             <Style x:Key="TransportButtonStyle" TargetType="Button">
-                <Setter Property="Width" Value="36" />
-                <Setter Property="Height" Value="34" />
-                <Setter Property="MinWidth" Value="36" />
+                <Setter Property="Width" Value="40" />
+                <Setter Property="Height" Value="40" />
+                <Setter Property="MinWidth" Value="40" />
                 <Setter Property="Padding" Value="0" />
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderThickness" Value="0" />
+            </Style>
+            <Style x:Key="SkipButtonStyle" TargetType="Button" BasedOn="{StaticResource TransportButtonStyle}">
+                <Setter Property="Width" Value="48" />
+                <Setter Property="Height" Value="46" />
+                <Setter Property="MinWidth" Value="48" />
+            </Style>
+            <Style x:Key="PlayButtonStyle" TargetType="Button" BasedOn="{StaticResource TransportButtonStyle}">
+                <Setter Property="Width" Value="62" />
+                <Setter Property="Height" Value="62" />
+                <Setter Property="MinWidth" Value="62" />
+            </Style>
+            <Style x:Key="MenuFlyoutItemStyle" TargetType="MenuFlyoutItem">
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="MinHeight" Value="40" />
+                <Setter Property="Padding" Value="12,7" />
+            </Style>
+            <Style x:Key="ToggleMenuFlyoutItemStyle" TargetType="ToggleMenuFlyoutItem">
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="MinHeight" Value="38" />
+                <Setter Property="Padding" Value="12,6" />
+            </Style>
+            <Style x:Key="MenuFlyoutSubItemStyle" TargetType="MenuFlyoutSubItem">
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="MinHeight" Value="40" />
+                <Setter Property="Padding" Value="12,7" />
             </Style>
         </Grid.Resources>
         <Grid x:Name="VideoRegion" Background="#000000" SizeChanged="VideoRegion_SizeChanged" RightTapped="VideoRegion_RightTapped">
@@ -65,78 +90,92 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="2" Padding="12,3" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+        <Border x:Name="ControlsBorder" Grid.Row="2" Padding="12,3" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Visibility="Collapsed" PointerEntered="ControlsBorder_PointerEntered" PointerExited="ControlsBorder_PointerExited" GotFocus="ControlsBorder_GotFocus" LostFocus="ControlsBorder_LostFocus">
             <Grid RowDefinitions="18,Auto,Auto" RowSpacing="1">
                 <Slider x:Name="TimelineSlider" Grid.Row="0" Height="18" MinHeight="18" Margin="0" Minimum="0" Maximum="1" Value="0" IsEnabled="False" PointerPressed="TimelineSlider_PointerPressed" PointerReleased="TimelineSlider_PointerReleased" AutomationProperties.Name="再生位置" ToolTipService.ToolTip="再生位置" />
-                <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="2">
-                    <Button x:Name="OpenButton" Style="{StaticResource TransportButtonStyle}" Click="OpenButton_Click" ToolTipService.ToolTip="動画を開く (Ctrl+O)" AutomationProperties.Name="動画を開く">
-                        <FontIcon Glyph="&#xE8E5;" FontSize="17" />
-                    </Button>
-                    <Button x:Name="BackButton" Grid.Column="2" Style="{StaticResource TransportButtonStyle}" Click="BackButton_Click" ToolTipService.ToolTip="設定した秒数だけ戻る (←)" AutomationProperties.Name="設定した秒数だけ戻る">
-                        <TextBlock x:Name="BackSkipText" Text="−10" FontSize="12" FontWeight="SemiBold" />
-                    </Button>
-                    <Button x:Name="PreviousFrameButton" Grid.Column="3" Style="{StaticResource TransportButtonStyle}" Click="PreviousFrameButton_Click" ToolTipService.ToolTip="一時停止して前のフレームへ (,)" AutomationProperties.Name="前のフレーム">
-                        <Grid ColumnDefinitions="2,Auto" ColumnSpacing="1">
-                            <Rectangle Width="1.5" Height="12" Fill="{ThemeResource TextFillColorPrimaryBrush}" VerticalAlignment="Center" />
-                            <FontIcon Grid.Column="1" Glyph="&#xE100;" FontSize="14" />
-                        </Grid>
-                    </Button>
-                    <Button x:Name="PlayButton" Grid.Column="4" Style="{StaticResource TransportButtonStyle}" Click="PlayButton_Click" ToolTipService.ToolTip="再生または一時停止 (Space)" AutomationProperties.Name="再生または一時停止">
-                        <FontIcon x:Name="PlayIcon" Glyph="&#xE768;" FontSize="17" />
-                    </Button>
-                    <Button x:Name="NextFrameButton" Grid.Column="5" Style="{StaticResource TransportButtonStyle}" Click="NextFrameButton_Click" ToolTipService.ToolTip="一時停止して次のフレームへ (.)" AutomationProperties.Name="次のフレーム">
-                        <Grid ColumnDefinitions="Auto,2" ColumnSpacing="1">
-                            <FontIcon Glyph="&#xE101;" FontSize="14" />
-                            <Rectangle Grid.Column="1" Width="1.5" Height="12" Fill="{ThemeResource TextFillColorPrimaryBrush}" VerticalAlignment="Center" />
-                        </Grid>
-                    </Button>
-                    <Button x:Name="ForwardButton" Grid.Column="6" Style="{StaticResource TransportButtonStyle}" Click="ForwardButton_Click" ToolTipService.ToolTip="設定した秒数だけ進む (→)" AutomationProperties.Name="設定した秒数だけ進む">
-                        <TextBlock x:Name="ForwardSkipText" Text="+10" FontSize="12" FontWeight="SemiBold" />
-                    </Button>
-                    <TextBlock x:Name="TimeText" Grid.Column="7" Text="00:00 / 00:00" VerticalAlignment="Center" MinWidth="108" Margin="8,0,10,0" AutomationProperties.Name="再生時間" />
-                    <TextBlock x:Name="InlineNoticeText" Grid.Column="9" MaxWidth="260" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextAlignment="Right" TextTrimming="CharacterEllipsis" Visibility="Collapsed" />
-                    <Button x:Name="MuteButton" Grid.Column="10" Style="{StaticResource TransportButtonStyle}" Click="MuteButton_Click" ToolTipService.ToolTip="ミュートの切り替え" AutomationProperties.Name="ミュート">
-                        <FontIcon x:Name="MuteIcon" Glyph="&#xE767;" FontSize="17" />
-                    </Button>
-                    <Slider x:Name="VolumeSlider" Grid.Column="11" Width="92" Minimum="0" Maximum="100" Value="75" VerticalAlignment="Center" AutomationProperties.Name="音量" ToolTipService.ToolTip="音量" />
-                    <Button x:Name="SaveFrameButton" Grid.Column="12" Style="{StaticResource TransportButtonStyle}" Click="SaveFrameButton_Click" ToolTipService.ToolTip="現在のフレームを Pictures\FrameDock に保存 (Ctrl+S)" AutomationProperties.Name="フレーム画像を保存">
-                        <FontIcon Glyph="&#xE722;" FontSize="17" />
-                    </Button>
-                    <Button x:Name="FullscreenButton" Grid.Column="13" Style="{StaticResource TransportButtonStyle}" Click="FullscreenButton_Click" ToolTipService.ToolTip="全画面表示 (F)" AutomationProperties.Name="全画面表示">
-                        <FontIcon x:Name="FullscreenIcon" Glyph="&#xE740;" FontSize="17" />
-                    </Button>
-                    <Button x:Name="OverflowButton" Grid.Column="14" Style="{StaticResource TransportButtonStyle}" ToolTipService.ToolTip="編集とその他の操作" AutomationProperties.Name="編集とその他の操作">
+                <Grid Grid.Row="1" ColumnDefinitions="*,Auto,*">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Left" VerticalAlignment="Center">
+                        <Button x:Name="OpenButton" Style="{StaticResource TransportButtonStyle}" Click="OpenButton_Click" ToolTipService.ToolTip="動画を開く (Ctrl+O)" AutomationProperties.Name="動画を開く">
+                            <FontIcon Glyph="&#xE8E5;" FontSize="18" />
+                        </Button>
+                        <TextBlock x:Name="TimeText" Text="00:00 / 00:00" VerticalAlignment="Center" MinWidth="108" Margin="4,0,0,0" FontSize="13" AutomationProperties.Name="再生時間" />
+                        <TextBlock x:Name="InlineNoticeText" MaxWidth="200" Margin="8,0,0,0" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" Visibility="Collapsed" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Button x:Name="BackButton" Style="{StaticResource SkipButtonStyle}" Click="BackButton_Click" ToolTipService.ToolTip="設定した秒数だけ戻る (←)" AutomationProperties.Name="設定した秒数だけ戻る">
+                            <Grid Width="25" Height="25">
+                                <Path Data="M19,16 C19,10.8 15.5,6.5 10.5,6.5 C7.4,6.5 5.1,8.1 3.8,10.5 M3.8,10.5 L4,5.5 M3.8,10.5 L8.6,10.1" Stroke="{ThemeResource TextFillColorPrimaryBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+                                <TextBlock x:Name="BackSkipText" Text="10" FontSize="8" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="1,4,0,0" />
+                            </Grid>
+                        </Button>
+                        <Button x:Name="PreviousFrameButton" Style="{StaticResource TransportButtonStyle}" Click="PreviousFrameButton_Click" ToolTipService.ToolTip="一時停止して前のフレームへ (,)" AutomationProperties.Name="前のフレーム">
+                            <Grid ColumnDefinitions="2,Auto" ColumnSpacing="1">
+                                <Rectangle Width="1.5" Height="13" Fill="{ThemeResource TextFillColorPrimaryBrush}" VerticalAlignment="Center" />
+                                <FontIcon Grid.Column="1" Glyph="&#xE100;" FontSize="15" />
+                            </Grid>
+                        </Button>
+                        <Button x:Name="PlayButton" Style="{StaticResource PlayButtonStyle}" Click="PlayButton_Click" ToolTipService.ToolTip="再生または一時停止 (Space)" AutomationProperties.Name="再生または一時停止">
+                            <Border Width="52" Height="52" CornerRadius="26" BorderThickness="2" BorderBrush="{ThemeResource AccentFillColorDefaultBrush}" Background="Transparent">
+                                <FontIcon x:Name="PlayIcon" Glyph="&#xE768;" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </Button>
+                        <Button x:Name="NextFrameButton" Style="{StaticResource TransportButtonStyle}" Click="NextFrameButton_Click" ToolTipService.ToolTip="一時停止して次のフレームへ (.)" AutomationProperties.Name="次のフレーム">
+                            <Grid ColumnDefinitions="Auto,2" ColumnSpacing="1">
+                                <FontIcon Glyph="&#xE101;" FontSize="15" />
+                                <Rectangle Grid.Column="1" Width="1.5" Height="13" Fill="{ThemeResource TextFillColorPrimaryBrush}" VerticalAlignment="Center" />
+                            </Grid>
+                        </Button>
+                        <Button x:Name="ForwardButton" Style="{StaticResource SkipButtonStyle}" Click="ForwardButton_Click" ToolTipService.ToolTip="設定した秒数だけ進む (→)" AutomationProperties.Name="設定した秒数だけ進む">
+                            <Grid Width="25" Height="25">
+                                <Path Data="M5,16 C5,10.8 8.5,6.5 13.5,6.5 C16.6,6.5 18.9,8.1 20.2,10.5 M20.2,10.5 L20,5.5 M20.2,10.5 L15.4,10.1" Stroke="{ThemeResource TextFillColorPrimaryBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+                                <TextBlock x:Name="ForwardSkipText" Text="10" FontSize="8" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="-1,4,0,0" />
+                            </Grid>
+                        </Button>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button x:Name="MuteButton" Style="{StaticResource TransportButtonStyle}" Click="MuteButton_Click" ToolTipService.ToolTip="ミュートの切り替え" AutomationProperties.Name="ミュート">
+                            <FontIcon x:Name="MuteIcon" Glyph="&#xE767;" FontSize="18" />
+                        </Button>
+                        <Slider x:Name="VolumeSlider" Width="92" Minimum="0" Maximum="100" Value="75" VerticalAlignment="Center" AutomationProperties.Name="音量" ToolTipService.ToolTip="音量" />
+                        <Button x:Name="SaveFrameButton" Style="{StaticResource TransportButtonStyle}" Click="SaveFrameButton_Click" ToolTipService.ToolTip="現在のフレームを Pictures\FrameDock に保存 (Ctrl+S)" AutomationProperties.Name="フレーム画像を保存">
+                            <FontIcon Glyph="&#xE722;" FontSize="18" />
+                        </Button>
+                        <Button x:Name="FullscreenButton" Style="{StaticResource TransportButtonStyle}" Click="FullscreenButton_Click" ToolTipService.ToolTip="全画面表示 (F)" AutomationProperties.Name="全画面表示">
+                            <FontIcon x:Name="FullscreenIcon" Glyph="&#xE740;" FontSize="18" />
+                        </Button>
+                        <Button x:Name="OverflowButton" Style="{StaticResource TransportButtonStyle}" ToolTipService.ToolTip="編集とその他の操作" AutomationProperties.Name="編集とその他の操作">
                         <FontIcon Glyph="&#xE712;" FontSize="17" />
                         <Button.Flyout>
                             <MenuFlyout>
-                                <MenuFlyoutItem Text="フレームをコピー" Click="CopyFrameButton_Click" AutomationProperties.Name="表示中のフレームをコピー">
+                                <MenuFlyoutItem Text="フレームをコピー" Click="CopyFrameButton_Click" Style="{StaticResource MenuFlyoutItemStyle}" AutomationProperties.Name="表示中のフレームをコピー">
                                     <MenuFlyoutItem.Icon>
                                         <FontIcon Glyph="&#xE8C8;" />
                                     </MenuFlyoutItem.Icon>
                                 </MenuFlyoutItem>
-                                <MenuFlyoutItem Text="編集…" Click="EditButton_Click" AutomationProperties.Name="トリム、クロップ、書き出しを編集">
+                                <MenuFlyoutItem Text="編集…" Click="EditButton_Click" Style="{StaticResource MenuFlyoutItemStyle}" AutomationProperties.Name="トリム、クロップ、書き出しを編集">
                                     <MenuFlyoutItem.Icon>
                                         <FontIcon Glyph="&#xE70F;" />
                                     </MenuFlyoutItem.Icon>
                                 </MenuFlyoutItem>
                                 <MenuFlyoutSeparator />
-                                <MenuFlyoutSubItem x:Name="SpeedMenuItem" Text="再生速度" ToolTipService.ToolTip="再生速度">
-                                    <ToggleMenuFlyoutItem Text="0.5×" Tag="0.5" Click="SpeedMenuItem_Click" />
-                                    <ToggleMenuFlyoutItem Text="0.75×" Tag="0.75" Click="SpeedMenuItem_Click" />
-                                    <ToggleMenuFlyoutItem Text="1×" Tag="1" Click="SpeedMenuItem_Click" />
-                                    <ToggleMenuFlyoutItem Text="1.25×" Tag="1.25" Click="SpeedMenuItem_Click" />
-                                    <ToggleMenuFlyoutItem Text="1.5×" Tag="1.5" Click="SpeedMenuItem_Click" />
-                                    <ToggleMenuFlyoutItem Text="2×" Tag="2" Click="SpeedMenuItem_Click" />
-                                    <ToggleMenuFlyoutItem Text="4×" Tag="4" Click="SpeedMenuItem_Click" />
+                                <MenuFlyoutSubItem x:Name="SpeedMenuItem" Text="再生速度" ToolTipService.ToolTip="再生速度" Style="{StaticResource MenuFlyoutSubItemStyle}">
+                                    <ToggleMenuFlyoutItem Text="0.5×" Tag="0.5" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                    <ToggleMenuFlyoutItem Text="0.75×" Tag="0.75" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                    <ToggleMenuFlyoutItem Text="1×" Tag="1" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                    <ToggleMenuFlyoutItem Text="1.25×" Tag="1.25" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                    <ToggleMenuFlyoutItem Text="1.5×" Tag="1.5" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                    <ToggleMenuFlyoutItem Text="2×" Tag="2" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                    <ToggleMenuFlyoutItem Text="4×" Tag="4" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
                                 </MenuFlyoutSubItem>
-                                <MenuFlyoutItem Text="設定…" Click="SettingsButton_Click" AutomationProperties.Name="再生設定">
+                                <MenuFlyoutItem Text="設定…" Click="SettingsButton_Click" Style="{StaticResource MenuFlyoutItemStyle}" AutomationProperties.Name="再生設定">
                                     <MenuFlyoutItem.Icon>
                                         <FontIcon Glyph="&#xE713;" />
                                     </MenuFlyoutItem.Icon>
                                 </MenuFlyoutItem>
                             </MenuFlyout>
                         </Button.Flyout>
-                    </Button>
+                        </Button>
+                    </StackPanel>
                 </Grid>
                 <InfoBar x:Name="NotificationBar" Grid.Row="2" Margin="0,2,0,0" IsOpen="False" IsClosable="True" Severity="Error" Title="エラー" />
             </Grid>

@@ -22,6 +22,8 @@ public sealed partial class MainWindow : Window
 {
     private const int VirtualKeyControl = 0x11;
     private const int ClipboardCannotOpenHResult = unchecked((int)0x800401D0);
+    private const double ControlsRevealDepth = 72;
+    private static readonly TimeSpan ControlsHideDelay = TimeSpan.FromMilliseconds(850);
     private readonly IntPtr _windowHandle;
     private readonly string? _initialPath;
     private readonly PlayerSettings _settings;
@@ -32,6 +34,7 @@ public sealed partial class MainWindow : Window
     private DispatcherQueueTimer? _compositionResizeTimer;
     private DispatcherQueueTimer? _settingsSaveTimer;
     private DispatcherQueueTimer? _noticeTimer;
+    private DispatcherQueueTimer? _controlsHideTimer;
     private AppWindow? _appWindow;
     private MediaInfo? _mediaInfo;
     private string? _loadedPath;
@@ -49,6 +52,10 @@ public sealed partial class MainWindow : Window
     private bool _isRestoringSettings;
     private bool _isClosing;
     private bool _isExporting;
+    private bool _isPointerOverControls;
+    private bool _isPointerNearControls;
+    private bool _isSettingsDialogOpen;
+    private int _openFlyoutCount;
     private int _compositionWidth;
     private int _compositionHeight;
 
@@ -104,7 +111,28 @@ public sealed partial class MainWindow : Window
         {
             InlineNoticeText.Visibility = Visibility.Collapsed;
             InlineNoticeText.Text = string.Empty;
+            ScheduleControlsHide();
         };
+        _controlsHideTimer = DispatcherQueue.CreateTimer();
+        _controlsHideTimer.Interval = ControlsHideDelay;
+        _controlsHideTimer.IsRepeating = false;
+        _controlsHideTimer.Tick += (_, _) => HideControlsIfIdle();
+        if (OverflowButton.Flyout is { } overflowFlyout)
+        {
+            overflowFlyout.Opened += (_, _) => ControlsFlyoutOpened();
+            overflowFlyout.Closed += (_, _) => ControlsFlyoutClosed();
+        }
+        NotificationBar.RegisterPropertyChangedCallback(InfoBar.IsOpenProperty, (_, _) =>
+        {
+            if (NotificationBar.IsOpen)
+            {
+                ShowControls();
+            }
+            else
+            {
+                ScheduleControlsHide();
+            }
+        });
         UpdateTitleBarTheme();
     }
 
@@ -117,6 +145,136 @@ public sealed partial class MainWindow : Window
     }
 
     private void RootGrid_ActualThemeChanged(FrameworkElement sender, object args) => UpdateTitleBarTheme();
+
+    private void RootGrid_PointerEntered(object sender, PointerRoutedEventArgs e) => UpdateControlsPointerState(e);
+
+    private void RootGrid_PointerMoved(object sender, PointerRoutedEventArgs e) => UpdateControlsPointerState(e);
+
+    private void RootGrid_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        _isPointerNearControls = false;
+        _isPointerOverControls = false;
+        ScheduleControlsHide();
+    }
+
+    private void ControlsBorder_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        _isPointerOverControls = true;
+        ShowControls();
+    }
+
+    private void ControlsBorder_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        _isPointerOverControls = false;
+        UpdateControlsPointerState(e);
+    }
+
+    private void ControlsBorder_GotFocus(object sender, RoutedEventArgs e) => ShowControls();
+
+    private void ControlsBorder_LostFocus(object sender, RoutedEventArgs e)
+    {
+        DispatcherQueue.TryEnqueue(ScheduleControlsHide);
+    }
+
+    private void UpdateControlsPointerState(PointerRoutedEventArgs e)
+    {
+        if (RootGrid.ActualHeight <= 0)
+        {
+            return;
+        }
+
+        var position = e.GetCurrentPoint(RootGrid).Position;
+        var revealDepth = Math.Max(ControlsRevealDepth, ControlsBorder.ActualHeight + 18);
+        _isPointerNearControls = position.Y >= RootGrid.ActualHeight - revealDepth;
+        if (_isPointerNearControls)
+        {
+            ShowControls();
+        }
+        else
+        {
+            ScheduleControlsHide();
+        }
+    }
+
+    private void ShowControls()
+    {
+        _controlsHideTimer?.Stop();
+        ControlsBorder.Visibility = Visibility.Visible;
+    }
+
+    private void ScheduleControlsHide()
+    {
+        if (_isClosing || _controlsHideTimer is null || ControlsBorder.Visibility != Visibility.Visible || AreControlsPinned())
+        {
+            return;
+        }
+
+        _controlsHideTimer.Stop();
+        _controlsHideTimer.Start();
+    }
+
+    private void HideControlsIfIdle()
+    {
+        if (!_isClosing && !_isPointerNearControls && !_isPointerOverControls && !AreControlsPinned())
+        {
+            ControlsBorder.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private bool AreControlsPinned() =>
+        EditorPanel.Visibility == Visibility.Visible ||
+        NotificationBar.IsOpen ||
+        InlineNoticeText.Visibility == Visibility.Visible ||
+        _isSettingsDialogOpen ||
+        _openFlyoutCount > 0 ||
+        IsKeyboardFocusWithinControls();
+
+    private bool IsKeyboardFocusWithinControls()
+    {
+        if (RootGrid.XamlRoot is not { } xamlRoot)
+        {
+            return false;
+        }
+
+        var focused = FocusManager.GetFocusedElement(xamlRoot) as DependencyObject;
+        while (focused is not null)
+        {
+            if (ReferenceEquals(focused, ControlsBorder))
+            {
+                return false;
+            }
+
+            if (focused is Control control && control.FocusState == FocusState.Keyboard)
+            {
+                var ancestor = focused;
+                while (ancestor is not null && !ReferenceEquals(ancestor, ControlsBorder))
+                {
+                    ancestor = VisualTreeHelper.GetParent(ancestor);
+                }
+
+                if (ReferenceEquals(ancestor, ControlsBorder))
+                {
+                    return true;
+                }
+            }
+
+            focused = VisualTreeHelper.GetParent(focused);
+        }
+
+        return false;
+    }
+
+    private void ControlsFlyoutOpened()
+    {
+        _openFlyoutCount++;
+        ShowControls();
+    }
+
+    private void ControlsFlyoutClosed()
+    {
+        _openFlyoutCount = Math.Max(0, _openFlyoutCount - 1);
+        ScheduleControlsHide();
+    }
 
     private void VideoRegion_SizeChanged(object sender, SizeChangedEventArgs e) => ScheduleCompositionResize();
 
@@ -288,6 +446,7 @@ public sealed partial class MainWindow : Window
             _crop = null;
             _outputDirectory = Path.GetDirectoryName(fullPath);
             EditorPanel.Visibility = Visibility.Collapsed;
+            ScheduleControlsHide();
             CropOverlayCanvas.Visibility = Visibility.Collapsed;
             EmptyState.Visibility = Visibility.Collapsed;
             TimelineSlider.IsEnabled = false;
@@ -598,8 +757,8 @@ public sealed partial class MainWindow : Window
     private void UpdateSkipLabels()
     {
         var seconds = _settings.SkipSeconds.ToString("0.##", CultureInfo.InvariantCulture);
-        BackSkipText.Text = $"−{seconds}";
-        ForwardSkipText.Text = $"+{seconds}";
+        BackSkipText.Text = seconds;
+        ForwardSkipText.Text = seconds;
         var backLabel = $"{seconds}秒戻る";
         var forwardLabel = $"{seconds}秒進む";
         ToolTipService.SetToolTip(BackButton, $"{backLabel} (←)");
@@ -654,17 +813,27 @@ public sealed partial class MainWindow : Window
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = RootGrid.XamlRoot
         };
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        _isSettingsDialogOpen = true;
+        ShowControls();
+        try
         {
-            if (!double.IsFinite(skipBox.Value) || skipBox.Value < 1 || skipBox.Value > 600)
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                ShowError("移動する秒数は 1〜600 の範囲で指定してください。");
-                return;
-            }
+                if (!double.IsFinite(skipBox.Value) || skipBox.Value < 1 || skipBox.Value > 600)
+                {
+                    ShowError("移動する秒数は 1〜600 の範囲で指定してください。");
+                    return;
+                }
 
-            _settings.SkipSeconds = skipBox.Value;
-            UpdateSkipLabels();
-            await SaveSettingsAsync();
+                _settings.SkipSeconds = skipBox.Value;
+                UpdateSkipLabels();
+                await SaveSettingsAsync();
+            }
+        }
+        finally
+        {
+            _isSettingsDialogOpen = false;
+            ScheduleControlsHide();
         }
     }
 
@@ -684,6 +853,12 @@ public sealed partial class MainWindow : Window
 
     private void RootGrid_KeyDown(object sender, KeyRoutedEventArgs e)
     {
+        if (!e.Handled)
+        {
+            ShowControls();
+            ScheduleControlsHide();
+        }
+
         if (e.Handled || IsTextEntryFocused())
         {
             return;
@@ -774,7 +949,12 @@ public sealed partial class MainWindow : Window
         EditorPanel.Visibility = EditorPanel.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
         if (EditorPanel.Visibility == Visibility.Visible)
         {
+            ShowControls();
             ValidateEditRange();
+        }
+        else
+        {
+            ScheduleControlsHide();
         }
 
         UpdateCropOverlay();
@@ -788,6 +968,8 @@ public sealed partial class MainWindow : Window
         }
 
         var menu = new MenuFlyout();
+        menu.Opened += (_, _) => ControlsFlyoutOpened();
+        menu.Closed += (_, _) => ControlsFlyoutClosed();
         var copyItem = new MenuFlyoutItem { Text = "表示中のフレームをコピー" };
         copyItem.Icon = new FontIcon { Glyph = "\uE8C8" };
         copyItem.Click += CopyFrameButton_Click;
@@ -1421,6 +1603,7 @@ public sealed partial class MainWindow : Window
         }
 
         _noticeTimer?.Stop();
+        ShowControls();
         if (severity is InfoBarSeverity.Success or InfoBarSeverity.Informational)
         {
             NotificationBar.IsOpen = false;
@@ -1451,6 +1634,7 @@ public sealed partial class MainWindow : Window
         _isClosing = true;
         _settingsSaveTimer?.Stop();
         _noticeTimer?.Stop();
+        _controlsHideTimer?.Stop();
         _statusTimer?.Stop();
         _compositionResizeTimer?.Stop();
         _exportCancellation?.Cancel();
