@@ -12,3 +12,6 @@
 /.vs/
 /artifacts/release/
 /artifacts/fixtures/
+/artifacts/installer/
+/artifacts/installer-smoke/
+/artifacts/smoke/

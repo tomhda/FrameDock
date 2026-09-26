@@ -18,7 +18,21 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-release.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run.ps1
 ```
 
-Release は `artifacts\release\win-x64` に生成されます。スクリプトは Release 中間生成物を clean してから発行し、WinUI の `App.xbf`、`MainWindow.xbf`、`FrameDock.pri` を含むことを確認します。`FrameDock.exe` と同じ場所に `libmpv-2.dll`、`Media\ffmpeg.exe`、`Media\ffprobe.exe` が配置され、`ThirdPartyNotices` にライセンスとビルド情報が入ります。インストーラーや Microsoft Store パッケージは作成しません。
+Release は `artifacts\release\win-x64` に生成されます。スクリプトは Release 中間生成物を clean してから発行し、WinUI の `App.xbf`、`MainWindow.xbf`、`FrameDock.pri` を含むことを確認します。`FrameDock.exe` と同じ場所に `libmpv-2.dll`、`Media\ffmpeg.exe`、`Media\ffprobe.exe` が配置され、`ThirdPartyNotices` にライセンスとビルド情報が入ります。
+
+## Windows インストーラー
+
+Inno Setup はビルド時だけ使用し、インストール先には同梱しません。商用利用時は [Inno Setup のライセンス案内](https://jrsoftware.org/isorder.php) を確認してください。
+
+Windows x64 で次を実行すると、Release を作成して一つのオフライン対応セットアップ EXE をビルドします。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-installer.ps1
+```
+
+出力先は `artifacts\installer\FrameDock-Setup-<バージョン>-win-x64.exe` です（現在のアプリバージョンは `1.0.0`）。初回のビルドは固定バージョンの Inno Setup 7.1.0 を公式 GitHub リリースから取得し、SHA-256 と Authenticode 署名を確認して `tools\.cache\` 内だけに展開します。セットアップには Release のアプリ、WinUI リソース、libmpv、FFmpeg、ライセンス通知が入るため、インストール先で追加ダウンロードはありません。既存 Release を使う場合は `-SkipReleaseBuild` を指定できます。
+
+セットアップはユーザーごとに `%LOCALAPPDATA%\Programs\FrameDock` へインストールし、スタートメニューの起動項目とアンインストーラーを作成します。デスクトップアイコンと一般的な動画形式の「プログラムから開く」登録は任意です。Windows の既定アプリは変更しません。セットアップは未署名のため、Windows SmartScreen が警告を表示する場合があります。
 
 依存物は `vendor\`、ダウンロードしたアーカイブと一時ファイルは `tools\.cache\` に置かれます。これらはブートストラップが管理する生成物です。別の配置先で動作確認する場合は、`-InstallRoot` と `-CacheRoot` を指定できます。ローカルに保管したアーカイブを使う場合は `-MpvArchivePath` と `-FfmpegArchivePath` を渡せますが、固定 SHA-256 に合わないファイルは拒否されます。
 
