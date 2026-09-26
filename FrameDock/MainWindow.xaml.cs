@@ -1321,6 +1321,9 @@ public sealed partial class MainWindow : Window
         }
 
         var phase = "表示中のフレームを取得";
+        string? path = null;
+        var clipboardDataSet = false;
+        var clipboardFlushed = false;
         try
         {
             var folder = Path.Combine(
@@ -1328,12 +1331,13 @@ public sealed partial class MainWindow : Window
                 "FrameDock",
                 "clipboard-frames");
             Directory.CreateDirectory(folder);
-            var path = Path.Combine(folder, $"frame-{Guid.NewGuid():N}.png");
+            path = Path.Combine(folder, $"frame-{Guid.NewGuid():N}.png");
             await player.SaveScreenshotAsync(path);
             phase = "保存した画像を開く";
             var file = await StorageFile.GetFileFromPathAsync(path);
             phase = "クリップボードへ転送";
-            await SetClipboardImageWithRetryAsync(file);
+            await SetClipboardImageWithRetryAsync(file, () => clipboardDataSet = true);
+            clipboardFlushed = true;
             ShowNotice("表示中のフレームを画像としてコピーしました。", InfoBarSeverity.Success);
         }
         catch (Exception ex)
@@ -1341,9 +1345,18 @@ public sealed partial class MainWindow : Window
             var cause = ex.InnerException ?? ex;
             ShowError($"画像をコピーできませんでした（{phase}、{cause.GetType().Name} 0x{cause.HResult:X8}）: {ex.Message}");
         }
+        finally
+        {
+            // A successful Flush makes the clipboard independent from this source file.
+            // If the clipboard accepted data but Flush failed, keep the file for deferred rendering.
+            if (path is not null && (!clipboardDataSet || clipboardFlushed))
+            {
+                TryDeleteClipboardFrame(path);
+            }
+        }
     }
 
-    private static async Task SetClipboardImageWithRetryAsync(StorageFile file)
+    private static async Task SetClipboardImageWithRetryAsync(StorageFile file, Action onClipboardDataSet)
     {
         const int maxAttempts = 5;
         Exception? lastBusyError = null;
@@ -1359,6 +1372,7 @@ public sealed partial class MainWindow : Window
                 package.RequestedOperation = DataPackageOperation.Copy;
                 if (Clipboard.SetContentWithOptions(package, null))
                 {
+                    onClipboardDataSet();
                     Clipboard.Flush();
                     return;
                 }
@@ -1377,6 +1391,21 @@ public sealed partial class MainWindow : Window
         }
 
         throw new IOException("Windowsのクリップボードを使用中です。しばらくしてからもう一度お試しください。", lastBusyError);
+    }
+
+    private static void TryDeleteClipboardFrame(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+            // Cleanup must not change the result of copying the frame.
+        }
     }
 
     [DllImport("user32.dll")]
