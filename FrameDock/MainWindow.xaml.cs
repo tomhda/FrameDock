@@ -23,7 +23,7 @@ public sealed partial class MainWindow : Window
     private const int VirtualKeyControl = 0x11;
     private const int ClipboardCannotOpenHResult = unchecked((int)0x800401D0);
     private const double ControlsRevealDepth = 72;
-    private static readonly TimeSpan ControlsHideDelay = TimeSpan.FromMilliseconds(850);
+    private static readonly TimeSpan ControlsHideDelay = TimeSpan.FromMilliseconds(360);
     private readonly IntPtr _windowHandle;
     private readonly string? _initialPath;
     private readonly PlayerSettings _settings;
@@ -48,6 +48,9 @@ public sealed partial class MainWindow : Window
     private bool _isTimelineDragging;
     private bool _isMuted;
     private bool _isFullscreen;
+    private bool _isApplyingDisplayMode;
+    private PlayerDisplayMode _displayMode = PlayerDisplayMode.MaximizedOverlay;
+    private PlayerDisplayMode _modeBeforeFullscreen = PlayerDisplayMode.MaximizedOverlay;
     private bool _isCropMode;
     private bool _isRestoringSettings;
     private bool _isClosing;
@@ -79,7 +82,12 @@ public sealed partial class MainWindow : Window
             Path.Combine(AppContext.BaseDirectory, "Media", "ffprobe.exe")));
         _windowHandle = WindowNative.GetWindowHandle(this);
         _appWindow = AppWindow.GetFromWindowId(Win32Interop.GetWindowIdFromWindow(_windowHandle));
+        _appWindow.Changed += AppWindow_Changed;
         _isMuted = _settings.Muted;
+        _displayMode = _settings.DisplayMode;
+        _modeBeforeFullscreen = _displayMode == PlayerDisplayMode.Fullscreen
+            ? PlayerDisplayMode.MaximizedOverlay
+            : _displayMode;
 
         _isRestoringSettings = true;
         TimelineSlider.ValueChanged += TimelineSlider_ValueChanged;
@@ -133,18 +141,25 @@ public sealed partial class MainWindow : Window
                 ScheduleControlsHide();
             }
         });
+        UpdateControlsBackground();
+        UpdateDisplayModeMenu();
         UpdateTitleBarTheme();
     }
 
     private async void RootGrid_Loaded(object sender, RoutedEventArgs e)
     {
+        ApplyDisplayMode(_settings.DisplayMode, persist: false, revealControls: false);
         if (_initialPath is not null)
         {
             await OpenFileAsync(_initialPath);
         }
     }
 
-    private void RootGrid_ActualThemeChanged(FrameworkElement sender, object args) => UpdateTitleBarTheme();
+    private void RootGrid_ActualThemeChanged(FrameworkElement sender, object args)
+    {
+        UpdateTitleBarTheme();
+        UpdateControlsBackground();
+    }
 
     private void RootGrid_PointerEntered(object sender, PointerRoutedEventArgs e) => UpdateControlsPointerState(e);
 
@@ -215,7 +230,8 @@ public sealed partial class MainWindow : Window
 
     private void HideControlsIfIdle()
     {
-        if (!_isClosing && !_isPointerNearControls && !_isPointerOverControls && !AreControlsPinned())
+        if (!_isClosing && _displayMode != PlayerDisplayMode.AlwaysVisible &&
+            !_isPointerNearControls && !_isPointerOverControls && !AreControlsPinned())
         {
             ControlsBorder.Visibility = Visibility.Collapsed;
         }
@@ -345,9 +361,17 @@ public sealed partial class MainWindow : Window
         titleBar.ButtonPressedForegroundColor = foreground;
     }
 
-    private static Windows.UI.Color MakeColor(byte red, byte green, byte blue) => new()
+    private void UpdateControlsBackground()
     {
-        A = 255,
+        var dark = RootGrid.ActualTheme == ElementTheme.Dark;
+        ControlsBorder.Background = new SolidColorBrush(dark
+            ? MakeColor(31, 31, 31, 222)
+            : MakeColor(249, 249, 249, 222));
+    }
+
+    private static Windows.UI.Color MakeColor(byte red, byte green, byte blue, byte alpha = 255) => new()
+    {
+        A = alpha,
         R = red,
         G = green,
         B = blue
@@ -839,16 +863,135 @@ public sealed partial class MainWindow : Window
 
     private void FullscreenButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_appWindow is null)
+        if (_displayMode == PlayerDisplayMode.Fullscreen)
+        {
+            ApplyDisplayMode(_modeBeforeFullscreen, persist: true, revealControls: true);
+        }
+        else
+        {
+            ApplyDisplayMode(PlayerDisplayMode.Fullscreen, persist: true, revealControls: true);
+        }
+    }
+
+    private void DisplayModeMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ToggleMenuFlyoutItem item ||
+            !Enum.TryParse<PlayerDisplayMode>(item.Tag?.ToString(), out var mode))
         {
             return;
         }
 
-        _isFullscreen = !_isFullscreen;
-        _appWindow.SetPresenter(_isFullscreen ? AppWindowPresenterKind.FullScreen : AppWindowPresenterKind.Overlapped);
+        ApplyDisplayMode(mode, persist: true, revealControls: true);
+    }
+
+    private void ApplyDisplayMode(PlayerDisplayMode mode, bool persist, bool revealControls)
+    {
+        if (mode == PlayerDisplayMode.Fullscreen && _displayMode != PlayerDisplayMode.Fullscreen)
+        {
+            _modeBeforeFullscreen = _displayMode;
+        }
+
+        _displayMode = mode;
+        _isFullscreen = mode == PlayerDisplayMode.Fullscreen;
+
+        _isApplyingDisplayMode = true;
+        try
+        {
+            if (_appWindow is not null)
+            {
+                if (_isFullscreen)
+                {
+                    _appWindow.SetPresenter(AppWindowPresenterKind.FullScreen);
+                }
+                else
+                {
+                    _appWindow.SetPresenter(AppWindowPresenterKind.Overlapped);
+                    if (_appWindow.Presenter is OverlappedPresenter presenter)
+                    {
+                        if (mode == PlayerDisplayMode.MaximizedOverlay)
+                        {
+                            presenter.Maximize();
+                        }
+                        else
+                        {
+                            presenter.Restore();
+                        }
+                    }
+                }
+            }
+        }
+        finally
+        {
+            _isApplyingDisplayMode = false;
+        }
+
+        var controlsAreReserved = mode == PlayerDisplayMode.AlwaysVisible;
+        ControlsBorder.SetValue(Grid.RowProperty, controlsAreReserved ? 2 : 0);
+        ControlsBorder.VerticalAlignment = controlsAreReserved ? VerticalAlignment.Stretch : VerticalAlignment.Bottom;
+
+        if (controlsAreReserved || revealControls)
+        {
+            ShowControls();
+            if (controlsAreReserved)
+            {
+                _controlsHideTimer?.Stop();
+            }
+            else
+            {
+                ScheduleControlsHide();
+            }
+        }
+        else
+        {
+            _controlsHideTimer?.Stop();
+            ControlsBorder.Visibility = Visibility.Collapsed;
+        }
+
         FullscreenIcon.Glyph = _isFullscreen ? "\uE73F" : "\uE740";
-        ToolTipService.SetToolTip(FullscreenButton, _isFullscreen ? "ウィンドウ表示に戻る (Esc)" : "全画面表示 (F)");
-        FullscreenButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, _isFullscreen ? "ウィンドウ表示に戻る" : "全画面表示");
+        var fullscreenLabel = _isFullscreen ? "全画面を終了 (Esc)" : "全画面表示 (F)";
+        ToolTipService.SetToolTip(FullscreenButton, fullscreenLabel);
+        FullscreenButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, fullscreenLabel);
+        UpdateDisplayModeMenu();
+
+        if (persist)
+        {
+            _settings.DisplayMode = mode;
+            ScheduleSettingsSave();
+        }
+    }
+
+    private void AppWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args)
+    {
+        if (_isClosing || _isApplyingDisplayMode || (!args.DidPresenterChange && !args.DidSizeChange) ||
+            _appWindow?.Presenter is not OverlappedPresenter presenter)
+        {
+            return;
+        }
+
+        var nativeMode = presenter.State switch
+        {
+            OverlappedPresenterState.Maximized => PlayerDisplayMode.MaximizedOverlay,
+            OverlappedPresenterState.Restored => PlayerDisplayMode.AlwaysVisible,
+            _ => (PlayerDisplayMode?)null
+        };
+        if (nativeMode.HasValue && nativeMode.Value != _displayMode)
+        {
+            ApplyDisplayMode(nativeMode.Value, persist: true, revealControls: true);
+        }
+    }
+
+    private void UpdateDisplayModeMenu()
+    {
+        AlwaysVisibleModeItem.IsChecked = _displayMode == PlayerDisplayMode.AlwaysVisible;
+        MaximizedOverlayModeItem.IsChecked = _displayMode == PlayerDisplayMode.MaximizedOverlay;
+        FullscreenModeItem.IsChecked = _displayMode == PlayerDisplayMode.Fullscreen;
+        DisplayModeMenuItem.Text = _displayMode switch
+        {
+            PlayerDisplayMode.AlwaysVisible => "表示モード: 常時表示",
+            PlayerDisplayMode.MaximizedOverlay => "表示モード: 最大化（タスクバー表示）",
+            PlayerDisplayMode.Fullscreen => "表示モード: 全画面表示",
+            _ => "表示モード"
+        };
     }
 
     private void RootGrid_KeyDown(object sender, KeyRoutedEventArgs e)

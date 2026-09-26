@@ -90,9 +90,9 @@
             </Grid>
         </Border>
 
-        <Border x:Name="ControlsBorder" Grid.Row="2" Padding="12,3" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Visibility="Collapsed" PointerEntered="ControlsBorder_PointerEntered" PointerExited="ControlsBorder_PointerExited" GotFocus="ControlsBorder_GotFocus" LostFocus="ControlsBorder_LostFocus">
-            <Grid RowDefinitions="18,Auto,Auto" RowSpacing="1">
-                <Slider x:Name="TimelineSlider" Grid.Row="0" Height="18" MinHeight="18" Margin="0" Minimum="0" Maximum="1" Value="0" IsEnabled="False" PointerPressed="TimelineSlider_PointerPressed" PointerReleased="TimelineSlider_PointerReleased" AutomationProperties.Name="再生位置" ToolTipService.ToolTip="再生位置" />
+        <Border x:Name="ControlsBorder" Grid.Row="0" VerticalAlignment="Bottom" Padding="12,7" Background="#E61F1F1F" Visibility="Collapsed" PointerEntered="ControlsBorder_PointerEntered" PointerExited="ControlsBorder_PointerExited" GotFocus="ControlsBorder_GotFocus" LostFocus="ControlsBorder_LostFocus">
+            <Grid RowDefinitions="40,Auto,Auto" RowSpacing="2">
+                <Slider x:Name="TimelineSlider" Grid.Row="0" Height="40" MinHeight="40" Margin="0" Minimum="0" Maximum="1" Value="0" IsEnabled="False" PointerPressed="TimelineSlider_PointerPressed" PointerReleased="TimelineSlider_PointerReleased" AutomationProperties.Name="再生位置" ToolTipService.ToolTip="再生位置" />
                 <Grid Grid.Row="1" ColumnDefinitions="*,Auto,*">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Left" VerticalAlignment="Center">
                         <Button x:Name="OpenButton" Style="{StaticResource TransportButtonStyle}" Click="OpenButton_Click" ToolTipService.ToolTip="動画を開く (Ctrl+O)" AutomationProperties.Name="動画を開く">
@@ -158,6 +158,11 @@
                                     </MenuFlyoutItem.Icon>
                                 </MenuFlyoutItem>
                                 <MenuFlyoutSeparator />
+                                <MenuFlyoutSubItem x:Name="DisplayModeMenuItem" Text="表示モード" Style="{StaticResource MenuFlyoutSubItemStyle}">
+                                    <ToggleMenuFlyoutItem x:Name="AlwaysVisibleModeItem" Text="常時表示（動画領域を確保）" Tag="AlwaysVisible" Click="DisplayModeMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                    <ToggleMenuFlyoutItem x:Name="MaximizedOverlayModeItem" Text="最大化（タスクバー表示）" Tag="MaximizedOverlay" Click="DisplayModeMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                    <ToggleMenuFlyoutItem x:Name="FullscreenModeItem" Text="全画面表示" Tag="Fullscreen" Click="DisplayModeMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                </MenuFlyoutSubItem>
                                 <MenuFlyoutSubItem x:Name="SpeedMenuItem" Text="再生速度" ToolTipService.ToolTip="再生速度" Style="{StaticResource MenuFlyoutSubItemStyle}">
                                     <ToggleMenuFlyoutItem Text="0.5×" Tag="0.5" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
                                     <ToggleMenuFlyoutItem Text="0.75×" Tag="0.75" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
