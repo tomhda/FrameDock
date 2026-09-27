@@ -67,20 +67,20 @@
             </StackPanel>
         </Grid>
 
-        <Border x:Name="EditorPanel" Grid.Row="1" Padding="12,6" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" VerticalAlignment="Top" Visibility="Collapsed">
+        <Border x:Name="EditorPanel" Grid.Row="1" Padding="12,8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" VerticalAlignment="Top" Visibility="Collapsed">
             <Grid ColumnDefinitions="*,360" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="4">
-                <Grid Grid.Row="0" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
+                <Grid Grid.Row="0" Grid.ColumnSpan="2" ColumnDefinitions="*,44,*">
                     <TextBlock Text="編集" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
-                    <Button x:Name="EditPlayButton" Grid.Column="1" Width="34" Height="28" Padding="0" Click="PlayButton_Click" ToolTipService.ToolTip="再生または一時停止" AutomationProperties.Name="再生または一時停止">
-                        <FontIcon x:Name="EditPlayIcon" Glyph="&#xE768;" FontSize="15" />
+                    <Button x:Name="EditPlayButton" Grid.Column="1" Width="42" Height="42" Padding="0" Click="PlayButton_Click" ToolTipService.ToolTip="再生または一時停止" AutomationProperties.Name="再生または一時停止">
+                        <FontIcon x:Name="EditPlayIcon" Glyph="&#xE768;" FontSize="17" />
                     </Button>
-                    <Button x:Name="CancelEditButton" Grid.Column="2" Width="32" Height="28" Padding="0" Click="CancelEditButton_Click" ToolTipService.ToolTip="編集内容を破棄して通常再生に戻る" AutomationProperties.Name="編集内容を破棄して通常再生に戻る">
+                    <Button x:Name="CancelEditButton" Grid.Column="2" Width="32" Height="28" Padding="0" Click="CancelEditButton_Click" HorizontalAlignment="Right" ToolTipService.ToolTip="編集内容を破棄して通常再生に戻る" AutomationProperties.Name="編集内容を破棄して通常再生に戻る">
                         <FontIcon Glyph="&#xE711;" FontSize="13" />
                     </Button>
                 </Grid>
 
-                <Grid Grid.Row="1" Grid.ColumnSpan="2" RowDefinitions="56,Auto">
-                    <Canvas x:Name="TrimTimelineCanvas" Grid.Row="0" Height="56" MinHeight="56" Background="Transparent"
+                <Grid Grid.Row="1" Grid.ColumnSpan="2" RowDefinitions="64,Auto">
+                    <Canvas x:Name="TrimTimelineCanvas" Grid.Row="0" Height="64" MinHeight="64" Background="Transparent"
                             SizeChanged="TrimTimelineCanvas_SizeChanged"
                             PointerPressed="TrimTimelineCanvas_PointerPressed"
                             PointerMoved="TrimTimelineCanvas_PointerMoved"
@@ -95,8 +95,8 @@
                         <Border x:Name="TrimTimelineAfter" Height="52" CornerRadius="0,5,5,0" Background="#AA000000" IsHitTestVisible="False" />
                         <Border x:Name="TrimStartHandle" Width="20" Height="48" CornerRadius="4" Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource AccentFillColorDefaultBrush}" BorderThickness="3" IsHitTestVisible="False" AutomationProperties.Name="切り出し開始位置" />
                         <Border x:Name="TrimEndHandle" Width="20" Height="48" CornerRadius="4" Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource AccentFillColorDefaultBrush}" BorderThickness="3" IsHitTestVisible="False" AutomationProperties.Name="切り出し終了位置" />
-                        <Ellipse x:Name="TrimPlayheadDot" Width="14" Height="14" Fill="#FFFFC000" Stroke="#FF141414" StrokeThickness="2" IsHitTestVisible="False" />
-                        <Border x:Name="TrimPlayheadLine" Width="4" Height="48" CornerRadius="2" Background="#FFFFC000" BorderBrush="#FF141414" BorderThickness="1" IsHitTestVisible="False" AutomationProperties.Name="現在の再生位置" />
+                        <Border x:Name="TrimPlayheadLine" Width="7" Height="62" CornerRadius="3" Background="#FFFFC000" BorderBrush="#FF141414" BorderThickness="1" IsHitTestVisible="False" AutomationProperties.Name="現在の再生位置" />
+                        <Border x:Name="TrimPlayheadKnob" Width="16" Height="16" CornerRadius="8" Background="#FFFFC000" BorderBrush="#FF141414" BorderThickness="2" IsHitTestVisible="False" AutomationProperties.Name="現在位置をドラッグ" />
                     </Canvas>
                     <Grid Grid.Row="1" ColumnDefinitions="*,*,*" Margin="8,0">
                         <TextBlock x:Name="TrimStartReadout" Text="開始 00:00" VerticalAlignment="Center" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />

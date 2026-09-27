@@ -59,6 +59,7 @@ public sealed partial class MainWindow : Window
     private bool _isUpdatingTimeline;
     private bool _isTimelineDragging;
     private bool _isTrimTimelineDragging;
+    private double _trimDragPointerOffset;
     private TrimDragTarget _trimDragTarget;
     private bool _isMuted;
     private bool _isFullscreen;
@@ -819,11 +820,29 @@ public sealed partial class MainWindow : Window
         var endValue = double.IsFinite(TrimEndBox.Value) ? Math.Clamp(TrimEndBox.Value, 0, duration) : duration;
         var startX = pad + startValue / duration * trackWidth;
         var endX = pad + endValue / duration * trackWidth;
+        var currentPosition = _player?.GetNumber("time-pos") ?? 0;
+        currentPosition = double.IsFinite(currentPosition) ? Math.Clamp(currentPosition, 0, duration) : 0;
+        var playheadX = pad + currentPosition / duration * trackWidth;
         var startDistance = Math.Abs(point.X - startX);
         var endDistance = Math.Abs(point.X - endX);
-        _trimDragTarget = Math.Min(startDistance, endDistance) <= 20
-            ? startDistance <= endDistance ? TrimDragTarget.Start : TrimDragTarget.End
-            : TrimDragTarget.Playhead;
+        var playheadDistance = Math.Abs(point.X - playheadX);
+        const double trimHandleHitRadius = 20;
+        const double playheadHitRadius = 14;
+        var onPlayheadKnob = point.Y <= 16 && playheadDistance <= playheadHitRadius;
+        _trimDragTarget = onPlayheadKnob
+            ? TrimDragTarget.Playhead
+            : Math.Min(startDistance, endDistance) <= trimHandleHitRadius
+                ? startDistance <= endDistance ? TrimDragTarget.Start : TrimDragTarget.End
+                : TrimDragTarget.Playhead;
+        var dragAnchorX = _trimDragTarget switch
+        {
+            TrimDragTarget.Start => startX,
+            TrimDragTarget.End => endX,
+            _ => playheadX
+        };
+        _trimDragPointerOffset = Math.Abs(point.X - dragAnchorX) <= (_trimDragTarget == TrimDragTarget.Playhead ? playheadHitRadius : trimHandleHitRadius)
+            ? point.X - dragAnchorX
+            : 0;
         _isTrimTimelineDragging = true;
         TrimTimelineCanvas.CapturePointer(e.Pointer);
         MoveTrimTimeline(point.X);
@@ -851,12 +870,14 @@ public sealed partial class MainWindow : Window
         MoveTrimTimeline(e.GetCurrentPoint(TrimTimelineCanvas).Position.X);
         TrimTimelineCanvas.ReleasePointerCapture(e.Pointer);
         _isTrimTimelineDragging = false;
+        _trimDragPointerOffset = 0;
         e.Handled = true;
     }
 
     private void TrimTimelineCanvas_PointerCanceled(object sender, PointerRoutedEventArgs e)
     {
         _isTrimTimelineDragging = false;
+        _trimDragPointerOffset = 0;
         UpdateTrimTimeline();
     }
 
@@ -876,7 +897,8 @@ public sealed partial class MainWindow : Window
         }
 
         var duration = _mediaInfo.DurationSeconds;
-        var seconds = Math.Clamp((x - pad) / trackWidth, 0, 1) * duration;
+        var adjustedX = Math.Clamp(x - _trimDragPointerOffset, pad, pad + trackWidth);
+        var seconds = Math.Clamp((adjustedX - pad) / trackWidth, 0, 1) * duration;
         switch (_trimDragTarget)
         {
             case TrimDragTarget.Start:
@@ -905,7 +927,7 @@ public sealed partial class MainWindow : Window
     {
         var width = TrimTimelineCanvas.ActualWidth;
         const double pad = 8;
-        const double trackY = 2;
+        const double trackY = 6;
         const double trackHeight = 52;
         var trackWidth = Math.Max(0, width - pad * 2);
         var duration = _mediaInfo?.DurationSeconds ?? 0;
@@ -927,10 +949,10 @@ public sealed partial class MainWindow : Window
         SetTimelineElement(TrimTimelineSelection, startX, trackY, Math.Max(0, endX - startX), trackHeight);
         SetTimelineElement(TrimTimelineAfter, endX, trackY, Math.Max(0, pad + trackWidth - endX), trackHeight);
         PositionThumbnailStrip(trackWidth);
-        SetTimelineElement(TrimStartHandle, startX - TrimStartHandle.Width / 2, 4, TrimStartHandle.Width, TrimStartHandle.Height);
-        SetTimelineElement(TrimEndHandle, endX - TrimEndHandle.Width / 2, 4, TrimEndHandle.Width, TrimEndHandle.Height);
-        SetTimelineElement(TrimPlayheadLine, playheadX - TrimPlayheadLine.Width / 2, 4, TrimPlayheadLine.Width, TrimPlayheadLine.Height);
-        SetTimelineElement(TrimPlayheadDot, playheadX - TrimPlayheadDot.Width / 2, 0, TrimPlayheadDot.Width, TrimPlayheadDot.Height);
+        SetTimelineElement(TrimStartHandle, startX - TrimStartHandle.Width / 2, 8, TrimStartHandle.Width, TrimStartHandle.Height);
+        SetTimelineElement(TrimEndHandle, endX - TrimEndHandle.Width / 2, 8, TrimEndHandle.Width, TrimEndHandle.Height);
+        SetTimelineElement(TrimPlayheadLine, playheadX - TrimPlayheadLine.Width / 2, 1, TrimPlayheadLine.Width, TrimPlayheadLine.Height);
+        SetTimelineElement(TrimPlayheadKnob, playheadX - TrimPlayheadKnob.Width / 2, 0, TrimPlayheadKnob.Width, TrimPlayheadKnob.Height);
 
         TrimStartReadout.Text = $"開始 {FormatTime(start)}";
         TrimPlayheadReadout.Text = $"再生位置 {FormatTime(position)}";
