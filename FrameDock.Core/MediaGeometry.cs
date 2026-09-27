@@ -83,8 +83,21 @@ public static class MediaGeometry
         }
     }
 
-    internal static string BuildVideoFilter(MediaInfo media, CropRect? crop)
+    /// <summary>
+    /// Builds the accurate-export video filter in this order: source SAR and
+    /// metadata rotation, a crop in the oriented display space, then the user's
+    /// additional clockwise rotation. The resulting pixels are square-pixel
+    /// and carry no residual display matrix.
+    /// </summary>
+    internal static string BuildVideoFilter(
+        MediaInfo media,
+        CropRect? crop,
+        int additionalRotationDegreesClockwise = 0,
+        double playbackSpeed = 1.0)
     {
+        ValidateAdditionalRotation(additionalRotationDegreesClockwise);
+        ValidatePlaybackSpeed(playbackSpeed);
+
         var filters = new List<string>
         {
             $"scale={media.DisplayWidthBeforeRotation()}:{media.DisplayHeightBeforeRotation()}:flags=lanczos",
@@ -111,6 +124,24 @@ public static class MediaGeometry
                 $"crop={rectangle.Width}:{rectangle.Height}:{rectangle.X}:{rectangle.Y}"));
         }
 
+        switch (additionalRotationDegreesClockwise)
+        {
+            case 90:
+                filters.Add("transpose=clock");
+                break;
+            case 180:
+                filters.Add("hflip,vflip");
+                break;
+            case 270:
+                filters.Add("transpose=cclock");
+                break;
+        }
+
+        if (playbackSpeed != 1.0)
+        {
+            filters.Add($"setpts=PTS/{FormatFilterNumber(playbackSpeed)}");
+        }
+
         // yuv420p requires even output dimensions. Padding the far edge keeps
         // uncropped, odd-sized input visible without changing crop coordinates.
         filters.Add("pad=ceil(iw/2)*2:ceil(ih/2)*2");
@@ -121,6 +152,37 @@ public static class MediaGeometry
         filters.Add("sidedata=mode=delete:type=DISPLAYMATRIX");
         return string.Join(',', filters);
     }
+
+    internal static (int Width, int Height) ComputeExportDimensions(MediaInfo media, CropRect? crop, int additionalRotationDegreesClockwise)
+    {
+        ValidateAdditionalRotation(additionalRotationDegreesClockwise);
+        var width = crop?.Width ?? media.DisplayWidth;
+        var height = crop?.Height ?? media.DisplayHeight;
+        if (additionalRotationDegreesClockwise is 90 or 270)
+        {
+            (width, height) = (height, width);
+        }
+
+        return (RoundUpToEven(width), RoundUpToEven(height));
+    }
+
+    internal static void ValidateAdditionalRotation(int degreesClockwise)
+    {
+        if (degreesClockwise is not (0 or 90 or 180 or 270))
+        {
+            throw new ExportValidationException("追加回転は 0、90、180、または 270 度を指定してください。");
+        }
+    }
+
+    internal static void ValidatePlaybackSpeed(double playbackSpeed)
+    {
+        if (!double.IsFinite(playbackSpeed) || playbackSpeed is < 0.25 or > 4.0)
+        {
+            throw new ExportValidationException("再生速度は 0.25 倍から 4 倍の範囲で指定してください。");
+        }
+    }
+
+    private static string FormatFilterNumber(double value) => value.ToString("0.#########", CultureInfo.InvariantCulture);
 
     internal static int RoundUpToEven(int value) => (value & 1) == 0 ? value : checked(value + 1);
 }

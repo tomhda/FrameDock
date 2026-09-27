@@ -100,7 +100,10 @@ public sealed class MediaExportService
         var temporaryPath = CreateTemporaryPath(destinationDirectory, Path.GetFileNameWithoutExtension(destinationPath));
         try
         {
-            var expectedDuration = request.EndSeconds - request.StartSeconds;
+            var requestedDuration = request.EndSeconds - request.StartSeconds;
+            var expectedDuration = request.Mode == ExportMode.AccurateReencode
+                ? requestedDuration / request.PlaybackSpeed
+                : requestedDuration;
             var arguments = BuildExportArguments(media, request, sourcePath, temporaryPath);
             var lastProgress = 0d;
             void OnProgressLine(string line)
@@ -168,7 +171,7 @@ public sealed class MediaExportService
             Report(progress, ExportProgressPhase.Completed, 1, expectedDuration, expectedDuration, "書き出しが完了しました。");
             return new ExportResult(
                 destinationPath,
-                expectedDuration,
+                requestedDuration,
                 outputInfo,
                 request.Mode,
                 request.Mode == ExportMode.StreamCopyApproximate);
@@ -461,9 +464,13 @@ public sealed class MediaExportService
             throw new ExportValidationException("書き出し方法を選択してください。");
         }
 
-        if (request.Mode == ExportMode.StreamCopyApproximate && request.Crop is not null)
+        MediaGeometry.ValidateAdditionalRotation(request.AdditionalRotationDegreesClockwise);
+        MediaGeometry.ValidatePlaybackSpeed(request.PlaybackSpeed);
+
+        if (request.Mode == ExportMode.StreamCopyApproximate &&
+            (request.Crop is not null || request.AdditionalRotationDegreesClockwise != 0 || request.PlaybackSpeed != 1.0))
         {
-            throw new ExportValidationException("ストリームコピーではクロップできません。正確な書き出しを選択してください。");
+            throw new ExportValidationException("ストリームコピーではクロップ、追加回転、速度変更はできません。正確な書き出しを選択してください。");
         }
 
         if (request.Crop is { } crop)
@@ -491,7 +498,9 @@ public sealed class MediaExportService
         string sourcePath,
         string temporaryPath)
     {
-        var duration = FormatSeconds(request.EndSeconds - request.StartSeconds);
+        var duration = request.Mode == ExportMode.AccurateReencode
+            ? FormatSeconds((request.EndSeconds - request.StartSeconds) / request.PlaybackSpeed)
+            : FormatSeconds(request.EndSeconds - request.StartSeconds);
         var arguments = new List<string>
         {
             "-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1",
@@ -524,15 +533,49 @@ public sealed class MediaExportService
             arguments.AddRange(
             [
                 "-map_metadata", "-1", "-map_metadata:s:v:0", "-1",
-                "-vf", MediaGeometry.BuildVideoFilter(media, request.Crop),
+                "-vf", MediaGeometry.BuildVideoFilter(
+                    media,
+                    request.Crop,
+                    request.AdditionalRotationDegreesClockwise,
+                    request.PlaybackSpeed),
                 "-c:v", _options.Encoder == VideoEncoder.H264 ? "libx264" : "libx265", "-preset", ExportPresetName(),
                 "-crf", _options.ConstantRateFactor.ToString(CultureInfo.InvariantCulture),
-                "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k"
+                "-pix_fmt", "yuv420p"
             ]);
+
+            if (media.HasAudio)
+            {
+                arguments.AddRange(["-c:a", "aac", "-b:a", "192k"]);
+                if (request.PlaybackSpeed != 1.0)
+                {
+                    arguments.AddRange(["-af", BuildAtempoFilter(request.PlaybackSpeed)]);
+                }
+            }
         }
 
         arguments.AddRange(["-movflags", "+faststart", "-f", "mp4", temporaryPath]);
         return arguments;
+    }
+
+    private static string BuildAtempoFilter(double playbackSpeed)
+    {
+        MediaGeometry.ValidatePlaybackSpeed(playbackSpeed);
+        var factors = new List<double>();
+        var remaining = playbackSpeed;
+        while (remaining < 0.5)
+        {
+            factors.Add(0.5);
+            remaining /= 0.5;
+        }
+
+        while (remaining > 2.0)
+        {
+            factors.Add(2.0);
+            remaining /= 2.0;
+        }
+
+        factors.Add(remaining);
+        return string.Join(',', factors.Select(factor => $"atempo={FormatSeconds(factor)}"));
     }
 
     private string ExportPresetName() => _options.Preset.ToString().ToLowerInvariant();
@@ -541,9 +584,7 @@ public sealed class MediaExportService
     {
         var expected = request.Mode == ExportMode.StreamCopyApproximate
             ? (source.CodedWidth, source.CodedHeight)
-            : request.Crop is { } crop
-                ? (crop.Width, crop.Height)
-                : (MediaGeometry.RoundUpToEven(source.DisplayWidth), MediaGeometry.RoundUpToEven(source.DisplayHeight));
+            : MediaGeometry.ComputeExportDimensions(source, request.Crop, request.AdditionalRotationDegreesClockwise);
 
         var expectedRotation = request.Mode == ExportMode.StreamCopyApproximate ? source.RotationDegreesClockwise : 0;
         if (output.RotationDegreesClockwise != expectedRotation)
@@ -578,12 +619,12 @@ public sealed class MediaExportService
         }
         else
         {
-            var requestedDuration = request.EndSeconds - request.StartSeconds;
-            var durationTolerance = Math.Max(0.15, Math.Min(1, requestedDuration * 0.02));
+            var expectedDuration = (request.EndSeconds - request.StartSeconds) / request.PlaybackSpeed;
+            var durationTolerance = Math.Max(0.15, Math.Min(1, expectedDuration * 0.02));
             var expectedVideoCodec = encoder == VideoEncoder.H264 ? "h264" : "hevc";
             if (!output.VideoCodec.Equals(expectedVideoCodec, StringComparison.OrdinalIgnoreCase) ||
                 (source.HasAudio && !string.Equals(output.AudioCodec, "aac", StringComparison.OrdinalIgnoreCase)) ||
-                Math.Abs(output.DurationSeconds - requestedDuration) > durationTolerance)
+                Math.Abs(output.DurationSeconds - expectedDuration) > durationTolerance)
             {
                 throw new ExportException("書き出した動画の形式または再生時間が指定内容と一致しませんでした。");
             }

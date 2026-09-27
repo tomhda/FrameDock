@@ -55,7 +55,9 @@ public sealed record ExportRequest(
     double StartSeconds,
     double EndSeconds,
     CropRect? Crop = null,
-    ExportMode Mode = ExportMode.AccurateReencode);
+    ExportMode Mode = ExportMode.AccurateReencode,
+    int AdditionalRotationDegreesClockwise = 0,
+    double PlaybackSpeed = 1.0);
 
 public enum ExportProgressPhase
 {

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using FrameDock.Core;
@@ -9,6 +10,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Windowing;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
@@ -20,6 +22,9 @@ namespace FrameDock;
 
 public sealed partial class MainWindow : Window
 {
+    private enum TrimDragTarget { Playhead, Start, End }
+    private enum CropDragHandle { TopLeft, Top, TopRight, Right, BottomRight, Bottom, BottomLeft, Left }
+
     private const int VirtualKeyControl = 0x11;
     private const int ClipboardCannotOpenHResult = unchecked((int)0x800401D0);
     private const double ControlsRevealDepth = 72;
@@ -41,17 +46,29 @@ public sealed partial class MainWindow : Window
     private string? _queuedOpenPath;
     private string? _outputDirectory;
     private CropRect? _crop;
-    private Windows.Foundation.Point? _cropDragStart;
-    private CropRect? _cropDragPreview;
+    private CropRect? _cropDragOrigin;
+    private CropDragHandle? _activeCropHandle;
+    private Windows.Foundation.Point? _cropDragPointerOrigin;
+    private Windows.Foundation.Point? _cropDragHandleOrigin;
     private CancellationTokenSource? _exportCancellation;
+    private CancellationTokenSource? _thumbnailCancellation;
+    private string? _thumbnailSourcePath;
+    private int _thumbnailRotation = -1;
+    private IReadOnlyList<BitmapImage> _thumbnailBitmaps = Array.Empty<BitmapImage>();
+    private int _thumbnailFrameCount;
     private bool _isUpdatingTimeline;
     private bool _isTimelineDragging;
+    private bool _isTrimTimelineDragging;
+    private TrimDragTarget _trimDragTarget;
     private bool _isMuted;
     private bool _isFullscreen;
     private bool _isApplyingDisplayMode;
     private PlayerDisplayMode _displayMode = PlayerDisplayMode.MaximizedOverlay;
     private PlayerDisplayMode _modeBeforeFullscreen = PlayerDisplayMode.MaximizedOverlay;
     private bool _isCropMode;
+    private int _additionalRotationDegreesClockwise;
+    private double _editingPreviousSpeed = 1;
+    private bool _editSessionStarted;
     private bool _isRestoringSettings;
     private bool _isClosing;
     private bool _isExporting;
@@ -100,6 +117,7 @@ public sealed partial class MainWindow : Window
         UpdateMuteButton();
         UpdateSkipLabels();
         UpdateSpeedMenu(_settings.Speed);
+        UpdateEditSpeedControl(_settings.Speed);
         _isRestoringSettings = false;
 
         RootGrid.Loaded += RootGrid_Loaded;
@@ -218,6 +236,12 @@ public sealed partial class MainWindow : Window
     private void ShowControls()
     {
         _controlsHideTimer?.Stop();
+        if (EditorPanel.Visibility == Visibility.Visible)
+        {
+            ControlsBorder.Visibility = Visibility.Collapsed;
+            return;
+        }
+
         ControlsBorder.Visibility = Visibility.Visible;
     }
 
@@ -296,7 +320,11 @@ public sealed partial class MainWindow : Window
         ScheduleControlsHide();
     }
 
-    private void VideoRegion_SizeChanged(object sender, SizeChangedEventArgs e) => ScheduleCompositionResize();
+    private void VideoRegion_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        ScheduleCompositionResize();
+        UpdateCropOverlay();
+    }
 
     private (int Width, int Height) GetCompositionSize()
     {
@@ -496,10 +524,20 @@ public sealed partial class MainWindow : Window
             previousPlayer?.Dispose();
 
             _loadedPath = fullPath;
+            CancelThumbnailGeneration();
+            TrimThumbnailStrip.Children.Clear();
+            _thumbnailSourcePath = null;
+            _thumbnailRotation = -1;
+            _thumbnailBitmaps = Array.Empty<BitmapImage>();
+            _thumbnailFrameCount = 0;
             _mediaInfo = null;
             _crop = null;
+            _additionalRotationDegreesClockwise = 0;
+            _editSessionStarted = false;
             _outputDirectory = Path.GetDirectoryName(fullPath);
+            SetCropMode(false);
             EditorPanel.Visibility = Visibility.Collapsed;
+            SetEditorLayout(false);
             ScheduleControlsHide();
             CropOverlayCanvas.Visibility = Visibility.Collapsed;
             EmptyState.Visibility = Visibility.Collapsed;
@@ -508,6 +546,7 @@ public sealed partial class MainWindow : Window
             OutputNameBox.Text = $"{Path.GetFileNameWithoutExtension(fullPath)}-clip";
             CropInfoText.Text = "クロップなし";
             CropResetButton.IsEnabled = false;
+            CropModeButton.IsEnabled = false;
             TrimStartBox.Value = 0;
             TrimEndBox.Value = 0;
             ExportButton.IsEnabled = false;
@@ -590,9 +629,10 @@ public sealed partial class MainWindow : Window
                 TrimStartBox.Value = 0;
                 TrimEndBox.Value = inspected.DurationSeconds;
                 HdrNoteText.Visibility = inspected.IsHdr ? Visibility.Visible : Visibility.Collapsed;
-                CropModeButton.IsEnabled = true;
+                UpdateRotationControl();
                 UpdateCropInfo();
                 ValidateEditRange();
+                UpdateApproximateCopyAvailability();
             }
             catch (ExportException ex)
             {
@@ -638,11 +678,14 @@ public sealed partial class MainWindow : Window
             }
 
             TimeText.Text = $"{FormatTime(position.Value)} / {FormatTime(duration.Value)}";
+            UpdateTrimTimeline(position.Value);
         }
 
         var isPaused = _player.GetFlag("pause");
         PlayIcon.Glyph = isPaused ? "\uE768" : "\uE769";
+        EditPlayIcon.Glyph = isPaused ? "\uE768" : "\uE769";
         PlayButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, isPaused ? "再生" : "一時停止");
+        EditPlayButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, isPaused ? "再生" : "一時停止");
     }
 
     private static string FormatTime(double seconds)
@@ -744,6 +787,437 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void TrimTimelineCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateTrimTimeline();
+        if (EditorPanel.Visibility == Visibility.Visible && TrimThumbnailStrip.Children.Count == 0 && _thumbnailCancellation is null)
+        {
+            _ = LoadTrimThumbnailsAsync();
+        }
+    }
+
+    private void TrimTimelineCanvas_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (_mediaInfo is null || !double.IsFinite(_mediaInfo.DurationSeconds) || _mediaInfo.DurationSeconds <= 0)
+        {
+            return;
+        }
+
+        var point = e.GetCurrentPoint(TrimTimelineCanvas).Position;
+        var width = TrimTimelineCanvas.ActualWidth;
+        var pad = 8d;
+        var trackWidth = Math.Max(0, width - pad * 2);
+        if (trackWidth <= 0)
+        {
+            return;
+        }
+
+        var duration = _mediaInfo.DurationSeconds;
+        var startValue = double.IsFinite(TrimStartBox.Value) ? Math.Clamp(TrimStartBox.Value, 0, duration) : 0;
+        var endValue = double.IsFinite(TrimEndBox.Value) ? Math.Clamp(TrimEndBox.Value, 0, duration) : duration;
+        var startX = pad + startValue / duration * trackWidth;
+        var endX = pad + endValue / duration * trackWidth;
+        var startDistance = Math.Abs(point.X - startX);
+        var endDistance = Math.Abs(point.X - endX);
+        _trimDragTarget = Math.Min(startDistance, endDistance) <= 10
+            ? startDistance <= endDistance ? TrimDragTarget.Start : TrimDragTarget.End
+            : TrimDragTarget.Playhead;
+        _isTrimTimelineDragging = true;
+        TrimTimelineCanvas.CapturePointer(e.Pointer);
+        MoveTrimTimeline(point.X);
+        e.Handled = true;
+    }
+
+    private void TrimTimelineCanvas_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isTrimTimelineDragging)
+        {
+            return;
+        }
+
+        MoveTrimTimeline(e.GetCurrentPoint(TrimTimelineCanvas).Position.X);
+        e.Handled = true;
+    }
+
+    private void TrimTimelineCanvas_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isTrimTimelineDragging)
+        {
+            return;
+        }
+
+        MoveTrimTimeline(e.GetCurrentPoint(TrimTimelineCanvas).Position.X);
+        TrimTimelineCanvas.ReleasePointerCapture(e.Pointer);
+        _isTrimTimelineDragging = false;
+        e.Handled = true;
+    }
+
+    private void TrimTimelineCanvas_PointerCanceled(object sender, PointerRoutedEventArgs e)
+    {
+        _isTrimTimelineDragging = false;
+        UpdateTrimTimeline();
+    }
+
+    private void MoveTrimTimeline(double x)
+    {
+        if (_mediaInfo is null || !double.IsFinite(_mediaInfo.DurationSeconds) || _mediaInfo.DurationSeconds <= 0)
+        {
+            return;
+        }
+
+        var width = TrimTimelineCanvas.ActualWidth;
+        var pad = 8d;
+        var trackWidth = Math.Max(0, width - pad * 2);
+        if (trackWidth <= 0)
+        {
+            return;
+        }
+
+        var duration = _mediaInfo.DurationSeconds;
+        var seconds = Math.Clamp((x - pad) / trackWidth, 0, 1) * duration;
+        switch (_trimDragTarget)
+        {
+            case TrimDragTarget.Start:
+                var endValue = double.IsFinite(TrimEndBox.Value) ? TrimEndBox.Value : duration;
+                var latestStart = Math.Floor(Math.Max(0, endValue - 0.01) * 100) / 100;
+                TrimStartBox.Value = Math.Clamp(Math.Round(seconds, 2, MidpointRounding.AwayFromZero), 0, latestStart);
+                break;
+            case TrimDragTarget.End:
+                var startValue = double.IsFinite(TrimStartBox.Value) ? TrimStartBox.Value : 0;
+                var earliestEnd = Math.Ceiling(Math.Min(duration, startValue + 0.01) * 100) / 100;
+                var latestEnd = Math.Floor(duration * 100) / 100;
+                TrimEndBox.Value = Math.Clamp(Math.Round(seconds, 2, MidpointRounding.AwayFromZero), Math.Min(earliestEnd, latestEnd), latestEnd);
+                break;
+            default:
+                var position = Math.Clamp(seconds, 0, duration);
+                _isUpdatingTimeline = true;
+                TimelineSlider.Value = position;
+                _isUpdatingTimeline = false;
+                SeekToTimelineValue();
+                UpdateTrimTimeline(position);
+                break;
+        }
+    }
+
+    private void UpdateTrimTimeline(double? playheadSeconds = null)
+    {
+        var width = TrimTimelineCanvas.ActualWidth;
+        const double pad = 8;
+        const double trackY = 2;
+        const double trackHeight = 38;
+        var trackWidth = Math.Max(0, width - pad * 2);
+        var duration = _mediaInfo?.DurationSeconds ?? 0;
+        if (trackWidth <= 0 || !double.IsFinite(duration) || duration <= 0)
+        {
+            return;
+        }
+
+        var start = double.IsFinite(TrimStartBox.Value) ? Math.Clamp(TrimStartBox.Value, 0, duration) : 0;
+        var end = double.IsFinite(TrimEndBox.Value) ? Math.Clamp(TrimEndBox.Value, 0, duration) : duration;
+        var position = playheadSeconds ?? _player?.GetNumber("time-pos") ?? 0;
+        position = Math.Clamp(position, 0, duration);
+        var startX = pad + start / duration * trackWidth;
+        var endX = pad + end / duration * trackWidth;
+        var playheadX = pad + position / duration * trackWidth;
+
+        SetTimelineElement(TrimTimelineBase, pad, trackY, trackWidth, trackHeight);
+        SetTimelineElement(TrimTimelineBefore, pad, trackY, Math.Max(0, startX - pad), trackHeight);
+        SetTimelineElement(TrimTimelineSelection, startX, trackY, Math.Max(0, endX - startX), trackHeight);
+        SetTimelineElement(TrimTimelineAfter, endX, trackY, Math.Max(0, pad + trackWidth - endX), trackHeight);
+        PositionThumbnailStrip(trackWidth);
+        SetTimelineElement(TrimStartHandle, startX - TrimStartHandle.Width / 2, 5, TrimStartHandle.Width, TrimStartHandle.Height);
+        SetTimelineElement(TrimEndHandle, endX - TrimEndHandle.Width / 2, 5, TrimEndHandle.Width, TrimEndHandle.Height);
+        SetTimelineElement(TrimPlayheadLine, playheadX - TrimPlayheadLine.Width / 2, 4, TrimPlayheadLine.Width, TrimPlayheadLine.Height);
+        SetTimelineElement(TrimPlayheadDot, playheadX - TrimPlayheadDot.Width / 2, 0, TrimPlayheadDot.Width, TrimPlayheadDot.Height);
+
+        TrimStartReadout.Text = FormatTime(start);
+        TrimPlayheadReadout.Text = $"現在 {FormatTime(position)}";
+        TrimEndReadout.Text = FormatTime(end);
+    }
+
+    private void PositionThumbnailStrip(double width)
+    {
+        TrimThumbnailStrip.Width = width;
+        TrimThumbnailStrip.Height = 38;
+        if (_thumbnailBitmaps.Count == 0 || _thumbnailFrameCount <= 0 || width <= 0)
+        {
+            TrimThumbnailStrip.Children.Clear();
+            return;
+        }
+
+        var tiles = TrimThumbnailStrip.Children.OfType<Image>().ToArray();
+        if (tiles.Length != _thumbnailFrameCount)
+        {
+            TrimThumbnailStrip.Children.Clear();
+            for (var index = 0; index < _thumbnailFrameCount; index++)
+            {
+                TrimThumbnailStrip.Children.Add(new Image
+                {
+                    Source = _thumbnailBitmaps[index],
+                    Stretch = Stretch.UniformToFill,
+                    IsHitTestVisible = false
+                });
+            }
+
+            tiles = TrimThumbnailStrip.Children.OfType<Image>().ToArray();
+        }
+
+        var cellWidth = width / _thumbnailFrameCount;
+        for (var index = 0; index < tiles.Length; index++)
+        {
+            tiles[index].Width = cellWidth;
+            tiles[index].Height = 38;
+            Canvas.SetLeft(tiles[index], index * cellWidth);
+            Canvas.SetTop(tiles[index], 0);
+        }
+    }
+
+    private async Task LoadTrimThumbnailsAsync(bool force = false)
+    {
+        if (_loadedPath is not { } sourcePath || _mediaInfo is not { } mediaInfo ||
+            !double.IsFinite(mediaInfo.DurationSeconds) || mediaInfo.DurationSeconds <= 0)
+        {
+            return;
+        }
+
+        var stripWidth = Math.Max(0, TrimTimelineCanvas.ActualWidth - 16);
+        if (stripWidth <= 0)
+        {
+            return;
+        }
+
+        var rotation = _additionalRotationDegreesClockwise;
+        if (!force && string.Equals(_thumbnailSourcePath, sourcePath, StringComparison.OrdinalIgnoreCase) &&
+            _thumbnailRotation == rotation && TrimThumbnailStrip.Children.Count > 0)
+        {
+            return;
+        }
+
+        CancelThumbnailGeneration();
+        TrimThumbnailStrip.Children.Clear();
+        _thumbnailBitmaps = Array.Empty<BitmapImage>();
+        _thumbnailFrameCount = 0;
+        var cancellation = new CancellationTokenSource();
+        _thumbnailCancellation = cancellation;
+        string[]? thumbnailPaths = null;
+        try
+        {
+            var count = Math.Clamp((int)Math.Round(stripWidth / 72), 2, 12);
+            count = Math.Min(count, Math.Max(1, (int)Math.Ceiling(mediaInfo.DurationSeconds * 24)));
+            thumbnailPaths = await GenerateTrimThumbnailStripAsync(sourcePath, mediaInfo.DurationSeconds, rotation, count, cancellation.Token);
+            if (thumbnailPaths is null || cancellation.IsCancellationRequested || _isClosing ||
+                EditorPanel.Visibility != Visibility.Visible ||
+                !string.Equals(_loadedPath, sourcePath, StringComparison.OrdinalIgnoreCase) ||
+                _additionalRotationDegreesClockwise != rotation)
+            {
+                return;
+            }
+
+            var bitmaps = new List<BitmapImage>(thumbnailPaths.Length);
+            foreach (var thumbnailPath in thumbnailPaths)
+            {
+                var file = await StorageFile.GetFileFromPathAsync(thumbnailPath);
+                var bitmap = new BitmapImage();
+                using (var stream = await file.OpenReadAsync())
+                {
+                    await bitmap.SetSourceAsync(stream);
+                }
+
+                bitmaps.Add(bitmap);
+            }
+
+            if (cancellation.IsCancellationRequested || _isClosing || EditorPanel.Visibility != Visibility.Visible ||
+                !string.Equals(_loadedPath, sourcePath, StringComparison.OrdinalIgnoreCase) ||
+                _additionalRotationDegreesClockwise != rotation)
+            {
+                return;
+            }
+
+            _thumbnailBitmaps = bitmaps;
+            _thumbnailFrameCount = bitmaps.Count;
+            _thumbnailSourcePath = sourcePath;
+            _thumbnailRotation = rotation;
+            PositionThumbnailStrip(Math.Max(0, TrimTimelineCanvas.ActualWidth - 16));
+        }
+        catch (OperationCanceledException)
+        {
+            // Loading a new video, rotation, or editor state supersedes this strip.
+        }
+        catch
+        {
+            // Keep the real timeline rail available if ffmpeg cannot decode a still frame.
+        }
+        finally
+        {
+            if (thumbnailPaths is not null)
+            {
+                foreach (var thumbnailPath in thumbnailPaths)
+                {
+                    try
+                    {
+                        File.Delete(thumbnailPath);
+                    }
+                    catch
+                    {
+                        // A leftover temp image must not affect editing.
+                    }
+                }
+            }
+
+            if (ReferenceEquals(_thumbnailCancellation, cancellation))
+            {
+                _thumbnailCancellation = null;
+                cancellation.Dispose();
+            }
+        }
+    }
+
+    private async Task<string[]?> GenerateTrimThumbnailStripAsync(string sourcePath, double durationSeconds, int rotation, int count, CancellationToken cancellationToken)
+    {
+        var ffmpegPath = Path.Combine(AppContext.BaseDirectory, "Media", "ffmpeg.exe");
+        if (!File.Exists(ffmpegPath))
+        {
+            return null;
+        }
+
+        var outputPaths = Enumerable.Range(0, count)
+            .Select(_ => Path.Combine(Path.GetTempPath(), $"FrameDock-trim-{Guid.NewGuid():N}.png"))
+            .ToArray();
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = ffmpegPath,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardError = true
+        };
+        startInfo.ArgumentList.Add("-hide_banner");
+        startInfo.ArgumentList.Add("-loglevel");
+        startInfo.ArgumentList.Add("error");
+        startInfo.ArgumentList.Add("-nostdin");
+        startInfo.ArgumentList.Add("-nostats");
+
+        for (var index = 0; index < count; index++)
+        {
+            var timestamp = durationSeconds * (index + 0.5) / count;
+            startInfo.ArgumentList.Add("-ss");
+            startInfo.ArgumentList.Add(timestamp.ToString("0.###", CultureInfo.InvariantCulture));
+            startInfo.ArgumentList.Add("-threads");
+            startInfo.ArgumentList.Add("1");
+            startInfo.ArgumentList.Add("-i");
+            startInfo.ArgumentList.Add(sourcePath);
+        }
+
+        var filters = new List<string>();
+        for (var index = 0; index < count; index++)
+        {
+            var frameFilters = new List<string>();
+            switch (rotation)
+            {
+                case 90:
+                    frameFilters.Add("transpose=clock");
+                    break;
+                case 180:
+                    frameFilters.Add("hflip,vflip");
+                    break;
+                case 270:
+                    frameFilters.Add("transpose=cclock");
+                    break;
+            }
+
+            frameFilters.Add("scale=128:72:force_original_aspect_ratio=decrease");
+            frameFilters.Add("pad=128:72:(ow-iw)/2:(oh-ih)/2");
+            frameFilters.Add("setsar=1");
+            filters.Add($"[{index}:v:0]{string.Join(',', frameFilters)}[thumb{index}]");
+        }
+
+        startInfo.ArgumentList.Add("-filter_complex");
+        startInfo.ArgumentList.Add(string.Join(';', filters));
+        for (var index = 0; index < count; index++)
+        {
+            startInfo.ArgumentList.Add("-map");
+            startInfo.ArgumentList.Add($"[thumb{index}]");
+            startInfo.ArgumentList.Add("-frames:v");
+            startInfo.ArgumentList.Add("1");
+            startInfo.ArgumentList.Add("-y");
+            startInfo.ArgumentList.Add(outputPaths[index]);
+        }
+
+        try
+        {
+            using var process = new Process { StartInfo = startInfo };
+            if (!process.Start())
+            {
+                return null;
+            }
+
+            using var cancellationRegistration = cancellationToken.Register(() =>
+            {
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        process.Kill(entireProcessTree: true);
+                    }
+                }
+                catch
+                {
+                    // The process may have exited between the check and Kill.
+                }
+            });
+
+            var errorTask = process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+            _ = await errorTask;
+            cancellationToken.ThrowIfCancellationRequested();
+            if (process.ExitCode != 0 || outputPaths.Any(path => !File.Exists(path)))
+            {
+                DeleteThumbnailFiles(outputPaths);
+                return null;
+            }
+
+            return outputPaths;
+        }
+        catch
+        {
+            DeleteThumbnailFiles(outputPaths);
+            throw;
+        }
+    }
+
+    private static void DeleteThumbnailFiles(IEnumerable<string> paths)
+    {
+        foreach (var path in paths)
+        {
+            try
+            {
+                File.Delete(path);
+            }
+            catch
+            {
+                // A leftover temp image must not affect editing.
+            }
+        }
+    }
+
+    private void CancelThumbnailGeneration()
+    {
+        var cancellation = _thumbnailCancellation;
+        _thumbnailCancellation = null;
+        if (cancellation is not null)
+        {
+            cancellation.Cancel();
+            cancellation.Dispose();
+        }
+    }
+
+    private static void SetTimelineElement(FrameworkElement element, double x, double y, double width, double height)
+    {
+        Canvas.SetLeft(element, x);
+        Canvas.SetTop(element, y);
+        element.Width = Math.Max(0, width);
+        element.Height = Math.Max(0, height);
+    }
+
     private void VolumeSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
         if (_isRestoringSettings)
@@ -806,6 +1280,8 @@ public sealed partial class MainWindow : Window
             ShowError(ex.Message);
         }
 
+        UpdateApproximateCopyAvailability();
+        ValidateEditRange();
         ScheduleSettingsSave();
     }
 
@@ -818,6 +1294,20 @@ public sealed partial class MainWindow : Window
         }
 
         SpeedMenuItem.Text = $"再生速度: {speed.ToString("0.##", CultureInfo.InvariantCulture)}×";
+        UpdateEditSpeedControl(speed);
+    }
+
+    private void UpdateEditSpeedControl(double speed)
+    {
+        EditSpeedText.Text = $"速度 {speed.ToString("0.##", CultureInfo.InvariantCulture)}×";
+        if (EditSpeedButton.Flyout is MenuFlyout flyout)
+        {
+            foreach (var item in flyout.Items.OfType<ToggleMenuFlyoutItem>())
+            {
+                item.IsChecked = double.TryParse(item.Tag?.ToString(), CultureInfo.InvariantCulture, out var itemSpeed) &&
+                    Math.Abs(itemSpeed - speed) < 0.001;
+            }
+        }
     }
 
     private void UpdateSkipLabels()
@@ -1132,18 +1622,100 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        EditorPanel.Visibility = EditorPanel.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
-        if (EditorPanel.Visibility == Visibility.Visible)
+        var showEditor = EditorPanel.Visibility != Visibility.Visible;
+        EditorPanel.Visibility = showEditor ? Visibility.Visible : Visibility.Collapsed;
+        SetEditorLayout(showEditor);
+        if (showEditor)
         {
+            if (!_editSessionStarted)
+            {
+                _editingPreviousSpeed = _settings.Speed;
+                _editSessionStarted = true;
+            }
+
             ShowControls();
             ValidateEditRange();
+            UpdateTrimTimeline();
+            UpdateApproximateCopyAvailability();
+            _ = LoadTrimThumbnailsAsync();
         }
         else
         {
+            SetCropMode(false);
+            CancelThumbnailGeneration();
+            ShowControls();
             ScheduleControlsHide();
         }
 
         UpdateCropOverlay();
+    }
+
+    private void SetEditorLayout(bool editing)
+    {
+        if (RootGrid.RowDefinitions.Count < 2)
+        {
+            return;
+        }
+
+        RootGrid.RowDefinitions[0].Height = editing
+            ? new GridLength(1.7, GridUnitType.Star)
+            : new GridLength(1, GridUnitType.Star);
+        RootGrid.RowDefinitions[1].Height = editing
+            ? new GridLength(1, GridUnitType.Star)
+            : GridLength.Auto;
+        UpdateCropOverlay();
+    }
+
+    private void CancelEditButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isExporting || _mediaInfo is null)
+        {
+            return;
+        }
+
+        SetCropMode(false);
+        _crop = null;
+        _cropDragOrigin = null;
+        _activeCropHandle = null;
+        _cropDragPointerOrigin = null;
+        _cropDragHandleOrigin = null;
+        _additionalRotationDegreesClockwise = 0;
+        _isTrimTimelineDragging = false;
+        TrimStartBox.Value = 0;
+        TrimEndBox.Value = _mediaInfo?.DurationSeconds ?? 0;
+        ApproximateCopyCheckBox.IsChecked = false;
+        _outputDirectory = _loadedPath is null ? null : Path.GetDirectoryName(_loadedPath);
+        OutputFolderText.Text = "元動画と同じフォルダー";
+        OutputNameBox.Text = _loadedPath is null ? string.Empty : $"{Path.GetFileNameWithoutExtension(_loadedPath)}-clip";
+
+        try
+        {
+            _player?.SetVideoRotation(0);
+            _player?.SetSpeed(_editingPreviousSpeed);
+        }
+        catch (Exception ex)
+        {
+            ShowError($"プレビュー設定を戻せませんでした: {ex.Message}");
+        }
+
+        var speedChanged = Math.Abs(_settings.Speed - _editingPreviousSpeed) > 0.001;
+        _settings.Speed = _editingPreviousSpeed;
+        UpdateSpeedMenu(_settings.Speed);
+        UpdateCropInfo();
+        UpdateRotationControl();
+        UpdateApproximateCopyAvailability();
+        ValidateEditRange();
+        UpdateCropOverlay();
+        _editSessionStarted = false;
+        EditorPanel.Visibility = Visibility.Collapsed;
+        SetEditorLayout(false);
+        CancelThumbnailGeneration();
+        ShowControls();
+        ScheduleControlsHide();
+        if (speedChanged)
+        {
+            ScheduleSettingsSave();
+        }
     }
 
     private void VideoRegion_RightTapped(object sender, RightTappedRoutedEventArgs e)
@@ -1169,18 +1741,25 @@ public sealed partial class MainWindow : Window
     private void MarkTrimStartButton_Click(object sender, RoutedEventArgs e)
     {
         var position = _player?.GetNumber("time-pos");
-        if (position.HasValue)
+        if (position.HasValue && double.IsFinite(position.Value) && _mediaInfo is { DurationSeconds: > 0 } mediaInfo)
         {
-            TrimStartBox.Value = Math.Clamp(position.Value, 0, _mediaInfo?.DurationSeconds ?? position.Value);
+            var end = double.IsFinite(TrimEndBox.Value) ? TrimEndBox.Value : mediaInfo.DurationSeconds;
+            var latestStart = Math.Floor(Math.Max(0, end - 0.01) * 100) / 100;
+            var roundedPosition = Math.Round(Math.Clamp(position.Value, 0, mediaInfo.DurationSeconds), 2, MidpointRounding.AwayFromZero);
+            TrimStartBox.Value = Math.Clamp(roundedPosition, 0, latestStart);
         }
     }
 
     private void MarkTrimEndButton_Click(object sender, RoutedEventArgs e)
     {
         var position = _player?.GetNumber("time-pos");
-        if (position.HasValue)
+        if (position.HasValue && double.IsFinite(position.Value) && _mediaInfo is { DurationSeconds: > 0 } mediaInfo)
         {
-            TrimEndBox.Value = Math.Clamp(position.Value, 0, _mediaInfo?.DurationSeconds ?? position.Value);
+            var start = double.IsFinite(TrimStartBox.Value) ? TrimStartBox.Value : 0;
+            var earliestEnd = Math.Ceiling(Math.Min(mediaInfo.DurationSeconds, start + 0.01) * 100) / 100;
+            var latestEnd = Math.Floor(mediaInfo.DurationSeconds * 100) / 100;
+            var roundedPosition = Math.Round(Math.Clamp(position.Value, 0, mediaInfo.DurationSeconds), 2, MidpointRounding.AwayFromZero);
+            TrimEndBox.Value = Math.Clamp(roundedPosition, Math.Min(earliestEnd, latestEnd), latestEnd);
         }
     }
 
@@ -1190,6 +1769,7 @@ public sealed partial class MainWindow : Window
         {
             ExportButton.IsEnabled = false;
             EditRangeText.Text = "開始と終了を確認してください";
+            UpdateTrimTimeline();
             return;
         }
 
@@ -1205,6 +1785,8 @@ public sealed partial class MainWindow : Window
         {
             EditRangeText.Text = "開始は 0 以上、終了は開始より後にしてください";
         }
+
+        UpdateTrimTimeline();
     }
 
     private void CropModeButton_Click(object sender, RoutedEventArgs e)
@@ -1214,15 +1796,44 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        if (!_isCropMode && _additionalRotationDegreesClockwise != 0)
+        {
+            ShowNotice("クロップ範囲を編集するには、回転を 0° に戻してください。", InfoBarSeverity.Informational);
+            return;
+        }
+
+        if (!_isCropMode && _crop is null)
+        {
+            var evenWidth = _mediaInfo.DisplayWidth & ~1;
+            var evenHeight = _mediaInfo.DisplayHeight & ~1;
+            if (evenWidth < 2 || evenHeight < 2)
+            {
+                ShowError("この動画の表示サイズではクロップできません。");
+                return;
+            }
+
+            _crop = new CropRect(0, 0, evenWidth, evenHeight);
+            UpdateCropInfo();
+            UpdateApproximateCopyAvailability();
+        }
+
         SetCropMode(!_isCropMode);
     }
 
     private void SetCropMode(bool enabled)
     {
         _isCropMode = enabled && _mediaInfo is not null;
-        CropOverlayCanvas.Visibility = _isCropMode ? Visibility.Visible : Visibility.Collapsed;
-        CropModeButton.Content = _isCropMode ? "選択を確定" : "クロップ範囲を選択";
-        ToolTipService.SetToolTip(CropModeButton, _isCropMode ? "動画上をドラッグして範囲を選択。もう一度押すと確定" : "動画上をドラッグして切り抜く範囲を選択");
+        if (!_isCropMode)
+        {
+            _activeCropHandle = null;
+            _cropDragOrigin = null;
+            _cropDragPointerOrigin = null;
+            _cropDragHandleOrigin = null;
+        }
+        CropModeButtonText.Text = _isCropMode ? "完了" : "クロップ";
+        ToolTipService.SetToolTip(CropModeButton, _isCropMode
+            ? "8つのハンドルをドラッグして範囲を調整。もう一度押すと確定"
+            : "四隅と四辺の8つのハンドルで範囲を調整");
         CropOverlayCanvas.IsHitTestVisible = _isCropMode;
         CropOverlayCanvas.Visibility = _isCropMode || (_crop.HasValue && EditorPanel.Visibility == Visibility.Visible)
             ? Visibility.Visible
@@ -1236,89 +1847,140 @@ public sealed partial class MainWindow : Window
         {
             CropOverlayCanvas.SizeChanged -= CropOverlayCanvas_SizeChanged;
         }
+
+        UpdateCropOverlay();
     }
 
     private void CropOverlayCanvas_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateCropOverlay();
 
     private void CropResetButton_Click(object sender, RoutedEventArgs e)
     {
+        SetCropMode(false);
         _crop = null;
-        _cropDragPreview = null;
         UpdateCropInfo();
+        UpdateApproximateCopyAvailability();
         UpdateCropOverlay();
+    }
+
+    private void RotateButton_Click(object sender, RoutedEventArgs e)
+    {
+        var previous = _additionalRotationDegreesClockwise;
+        _additionalRotationDegreesClockwise = (_additionalRotationDegreesClockwise + 90) % 360;
+        SetCropMode(false);
+        try
+        {
+            _player?.SetVideoRotation(_additionalRotationDegreesClockwise);
+        }
+        catch (Exception ex)
+        {
+            _additionalRotationDegreesClockwise = previous;
+            try
+            {
+                _player?.SetVideoRotation(previous);
+            }
+            catch
+            {
+                // Keep the original error visible; restoring the previous preview is best effort.
+            }
+
+            ShowError($"プレビューを回転できませんでした: {ex.Message}");
+        }
+
+        UpdateRotationControl();
+        UpdateCropOverlay();
+        UpdateApproximateCopyAvailability();
+        ValidateEditRange();
+        _ = LoadTrimThumbnailsAsync(force: true);
+    }
+
+    private void UpdateRotationControl()
+    {
+        RotateButtonText.Text = $"回転 {_additionalRotationDegreesClockwise}°";
+        CropModeButton.IsEnabled = _mediaInfo is not null && _additionalRotationDegreesClockwise == 0;
+        ToolTipService.SetToolTip(CropModeButton, _additionalRotationDegreesClockwise == 0
+            ? "四隅と四辺の8つのハンドルで範囲を調整"
+            : "クロップを編集するには、回転を 0° に戻してください");
+    }
+
+    private void UpdateApproximateCopyAvailability()
+    {
+        var hasTransforms = _crop.HasValue || _additionalRotationDegreesClockwise != 0 || Math.Abs(_settings.Speed - 1) > 0.001;
+        if (hasTransforms && ApproximateCopyCheckBox.IsChecked == true)
+        {
+            ApproximateCopyCheckBox.IsChecked = false;
+        }
+
+        ApproximateCopyCheckBox.IsEnabled = _mediaInfo is not null && !hasTransforms && !_isExporting;
+        CancelEditButton.IsEnabled = !_isExporting;
     }
 
     private void CropOverlayCanvas_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (!_isCropMode || _mediaInfo is null)
+        if (!_isCropMode || _mediaInfo is null || _crop is not { } crop || _additionalRotationDegreesClockwise != 0)
         {
             return;
         }
 
         var point = e.GetCurrentPoint(CropOverlayCanvas).Position;
-        var bounds = GetVideoContentBounds();
-        if (point.X < bounds.Left || point.X > bounds.Right || point.Y < bounds.Top || point.Y > bounds.Bottom)
+        var handles = GetInsetCropHandlePoints(crop);
+        var nearest = handles
+            .Select(item => (item.Handle, DistanceSquared: Math.Pow(item.Position.X - point.X, 2) + Math.Pow(item.Position.Y - point.Y, 2)))
+            .OrderBy(item => item.DistanceSquared)
+            .First();
+        if (nearest.DistanceSquared > 22 * 22)
         {
             return;
         }
 
         CropOverlayCanvas.CapturePointer(e.Pointer);
-        _cropDragStart = point;
-        _cropDragPreview = null;
-        UpdateCropOverlay(point);
+        _activeCropHandle = nearest.Handle;
+        _cropDragOrigin = crop;
+        _cropDragPointerOrigin = point;
+        _cropDragHandleOrigin = GetCropHandlePoints(crop).First(item => item.Handle == nearest.Handle).Position;
         e.Handled = true;
     }
 
     private void CropOverlayCanvas_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        if (_cropDragStart is not { } start || _mediaInfo is null)
+        if (_activeCropHandle is not { } handle || _cropDragOrigin is not { } origin || _mediaInfo is null)
         {
             return;
         }
 
-        var point = e.GetCurrentPoint(CropOverlayCanvas).Position;
-        UpdateCropOverlay(point);
+        ApplyCropHandleDrag(handle, origin, GetCropDragPoint(e.GetCurrentPoint(CropOverlayCanvas).Position));
         e.Handled = true;
     }
 
     private void CropOverlayCanvas_PointerReleased(object sender, PointerRoutedEventArgs e)
     {
-        if (_cropDragStart is null)
+        if (_activeCropHandle is not { } handle || _cropDragOrigin is not { } origin)
         {
             return;
         }
 
-        var point = e.GetCurrentPoint(CropOverlayCanvas).Position;
-        var selected = MapDragToCrop(_cropDragStart.Value, point);
+        var point = GetCropDragPoint(e.GetCurrentPoint(CropOverlayCanvas).Position);
+        ApplyCropHandleDrag(handle, origin, point);
         CropOverlayCanvas.ReleasePointerCapture(e.Pointer);
-        _cropDragStart = null;
-        if (selected is { } crop && crop.Width >= 2 && crop.Height >= 2)
-        {
-            try
-            {
-                MediaGeometry.ValidateCrop(crop, _mediaInfo!.DisplayWidth, _mediaInfo.DisplayHeight);
-                _crop = crop;
-                _cropDragPreview = null;
-                UpdateCropInfo();
-            }
-            catch (ExportValidationException ex)
-            {
-                ShowError(ex.UserMessage);
-            }
-        }
-        else
-        {
-            ShowError("クロップ範囲は 2 × 2 ピクセル以上にしてください。");
-        }
-
-        UpdateCropOverlay();
+        _activeCropHandle = null;
+        _cropDragOrigin = null;
+        _cropDragPointerOrigin = null;
+        _cropDragHandleOrigin = null;
         e.Handled = true;
     }
 
     private void CropOverlayCanvas_PointerCanceled(object sender, PointerRoutedEventArgs e)
     {
-        _cropDragStart = null;
-        _cropDragPreview = null;
+        if (_cropDragOrigin is { } originalCrop)
+        {
+            _crop = originalCrop;
+        }
+
+        _activeCropHandle = null;
+        _cropDragOrigin = null;
+        _cropDragPointerOrigin = null;
+        _cropDragHandleOrigin = null;
+        UpdateCropInfo();
+        UpdateApproximateCopyAvailability();
         UpdateCropOverlay();
     }
 
@@ -1329,7 +1991,8 @@ public sealed partial class MainWindow : Window
             return new Windows.Foundation.Rect(0, 0, CropOverlayCanvas.ActualWidth, CropOverlayCanvas.ActualHeight);
         }
 
-        var contentAspect = (double)_mediaInfo.DisplayWidth / _mediaInfo.DisplayHeight;
+        var (previewWidth, previewHeight) = GetPreviewDimensions();
+        var contentAspect = (double)previewWidth / previewHeight;
         var panelAspect = CropOverlayCanvas.ActualWidth / CropOverlayCanvas.ActualHeight;
         if (panelAspect > contentAspect)
         {
@@ -1343,46 +2006,143 @@ public sealed partial class MainWindow : Window
         return new Windows.Foundation.Rect(0, top, CropOverlayCanvas.ActualWidth, height);
     }
 
-    private CropRect? MapDragToCrop(Windows.Foundation.Point first, Windows.Foundation.Point second)
+    private (int Width, int Height) GetPreviewDimensions()
+    {
+        if (_mediaInfo is null || _additionalRotationDegreesClockwise is 90 or 270)
+        {
+            return (_mediaInfo?.DisplayHeight ?? 1, _mediaInfo?.DisplayWidth ?? 1);
+        }
+
+        return (_mediaInfo?.DisplayWidth ?? 1, _mediaInfo?.DisplayHeight ?? 1);
+    }
+
+    private CropRect GetPreviewCrop(CropRect crop)
     {
         if (_mediaInfo is null)
         {
-            return null;
+            return crop;
+        }
+
+        var width = _mediaInfo.DisplayWidth;
+        var height = _mediaInfo.DisplayHeight;
+        return _additionalRotationDegreesClockwise switch
+        {
+            90 => new CropRect(height - crop.Y - crop.Height, crop.X, crop.Height, crop.Width),
+            180 => new CropRect(width - crop.X - crop.Width, height - crop.Y - crop.Height, crop.Width, crop.Height),
+            270 => new CropRect(crop.Y, width - crop.X - crop.Width, crop.Height, crop.Width),
+            _ => crop
+        };
+    }
+
+    private (CropDragHandle Handle, Windows.Foundation.Point Position)[] GetCropHandlePoints(CropRect crop)
+    {
+        var bounds = GetVideoContentBounds();
+        var previewCrop = GetPreviewCrop(crop);
+        var (previewWidth, previewHeight) = GetPreviewDimensions();
+        var x = bounds.Left + previewCrop.X * bounds.Width / previewWidth;
+        var y = bounds.Top + previewCrop.Y * bounds.Height / previewHeight;
+        var width = previewCrop.Width * bounds.Width / previewWidth;
+        var height = previewCrop.Height * bounds.Height / previewHeight;
+        return new[]
+        {
+            (CropDragHandle.TopLeft, new Windows.Foundation.Point(x, y)),
+            (CropDragHandle.Top, new Windows.Foundation.Point(x + width / 2, y)),
+            (CropDragHandle.TopRight, new Windows.Foundation.Point(x + width, y)),
+            (CropDragHandle.Right, new Windows.Foundation.Point(x + width, y + height / 2)),
+            (CropDragHandle.BottomRight, new Windows.Foundation.Point(x + width, y + height)),
+            (CropDragHandle.Bottom, new Windows.Foundation.Point(x + width / 2, y + height)),
+            (CropDragHandle.BottomLeft, new Windows.Foundation.Point(x, y + height)),
+            (CropDragHandle.Left, new Windows.Foundation.Point(x, y + height / 2))
+        };
+    }
+
+    private (CropDragHandle Handle, Windows.Foundation.Point Position)[] GetInsetCropHandlePoints(CropRect crop)
+    {
+        const double inset = 10;
+        var minX = Math.Min(inset, CropOverlayCanvas.ActualWidth / 2);
+        var maxX = Math.Max(minX, CropOverlayCanvas.ActualWidth - inset);
+        var minY = Math.Min(inset, CropOverlayCanvas.ActualHeight / 2);
+        var maxY = Math.Max(minY, CropOverlayCanvas.ActualHeight - inset);
+        return GetCropHandlePoints(crop)
+            .Select(item => (item.Handle, new Windows.Foundation.Point(
+                Math.Clamp(item.Position.X, minX, maxX),
+                Math.Clamp(item.Position.Y, minY, maxY))))
+            .ToArray();
+    }
+
+    private Windows.Foundation.Point GetCropDragPoint(Windows.Foundation.Point pointer)
+    {
+        if (_cropDragPointerOrigin is not { } pointerOrigin || _cropDragHandleOrigin is not { } handleOrigin)
+        {
+            return pointer;
+        }
+
+        return new Windows.Foundation.Point(
+            handleOrigin.X + pointer.X - pointerOrigin.X,
+            handleOrigin.Y + pointer.Y - pointerOrigin.Y);
+    }
+
+    private void ApplyCropHandleDrag(CropDragHandle handle, CropRect origin, Windows.Foundation.Point point)
+    {
+        if (_mediaInfo is null)
+        {
+            return;
         }
 
         var bounds = GetVideoContentBounds();
-        var left = Math.Clamp(Math.Min(first.X, second.X), bounds.Left, bounds.Right);
-        var right = Math.Clamp(Math.Max(first.X, second.X), bounds.Left, bounds.Right);
-        var top = Math.Clamp(Math.Min(first.Y, second.Y), bounds.Top, bounds.Bottom);
-        var bottom = Math.Clamp(Math.Max(first.Y, second.Y), bounds.Top, bounds.Bottom);
-        var displayLeft = (left - bounds.Left) / bounds.Width * _mediaInfo.DisplayWidth;
-        var displayRight = (right - bounds.Left) / bounds.Width * _mediaInfo.DisplayWidth;
-        var displayTop = (top - bounds.Top) / bounds.Height * _mediaInfo.DisplayHeight;
-        var displayBottom = (bottom - bounds.Top) / bounds.Height * _mediaInfo.DisplayHeight;
         var maxWidth = _mediaInfo.DisplayWidth & ~1;
         var maxHeight = _mediaInfo.DisplayHeight & ~1;
-        if (maxWidth < 2 || maxHeight < 2)
+        if (bounds.Width <= 0 || bounds.Height <= 0 || maxWidth < 2 || maxHeight < 2)
         {
-            return null;
+            return;
         }
 
-        var x = Math.Clamp(EvenFloor(displayLeft), 0, maxWidth - 2);
-        var y = Math.Clamp(EvenFloor(displayTop), 0, maxHeight - 2);
-        var endX = Math.Clamp(EvenCeiling(displayRight), x + 2, maxWidth);
-        var endY = Math.Clamp(EvenCeiling(displayBottom), y + 2, maxHeight);
-        if (endX <= x || endY <= y)
+        var pixelX = Math.Clamp((point.X - bounds.Left) / bounds.Width * _mediaInfo.DisplayWidth, 0, maxWidth);
+        var pixelY = Math.Clamp((point.Y - bounds.Top) / bounds.Height * _mediaInfo.DisplayHeight, 0, maxHeight);
+        var left = origin.X;
+        var top = origin.Y;
+        var right = origin.X + origin.Width;
+        var bottom = origin.Y + origin.Height;
+        if (handle is CropDragHandle.TopLeft or CropDragHandle.Left or CropDragHandle.BottomLeft)
         {
-            return null;
+            left = Math.Clamp(EvenFloor(pixelX), 0, right - 2);
         }
 
-        return new CropRect(x, y, endX - x, endY - y);
+        if (handle is CropDragHandle.TopRight or CropDragHandle.Right or CropDragHandle.BottomRight)
+        {
+            right = Math.Clamp(EvenCeiling(pixelX), left + 2, maxWidth);
+        }
+
+        if (handle is CropDragHandle.TopLeft or CropDragHandle.Top or CropDragHandle.TopRight)
+        {
+            top = Math.Clamp(EvenFloor(pixelY), 0, bottom - 2);
+        }
+
+        if (handle is CropDragHandle.BottomLeft or CropDragHandle.Bottom or CropDragHandle.BottomRight)
+        {
+            bottom = Math.Clamp(EvenCeiling(pixelY), top + 2, maxHeight);
+        }
+
+        var resized = new CropRect(left, top, right - left, bottom - top);
+        try
+        {
+            MediaGeometry.ValidateCrop(resized, _mediaInfo.DisplayWidth, _mediaInfo.DisplayHeight);
+            _crop = resized;
+            UpdateCropInfo();
+            UpdateApproximateCopyAvailability();
+            UpdateCropOverlay();
+        }
+        catch (ExportValidationException ex)
+        {
+            ShowError(ex.UserMessage);
+        }
     }
 
     private static int EvenFloor(double value) => Math.Max(0, (int)Math.Floor(value / 2) * 2);
 
     private static int EvenCeiling(double value) => checked((int)Math.Ceiling(value / 2) * 2);
 
-    private void UpdateCropOverlay(Windows.Foundation.Point? currentPoint = null)
+    private void UpdateCropOverlay()
     {
         if (_mediaInfo is null || CropOverlayCanvas.ActualWidth <= 0 || CropOverlayCanvas.ActualHeight <= 0)
         {
@@ -1390,28 +2150,28 @@ public sealed partial class MainWindow : Window
         }
 
         var bounds = GetVideoContentBounds();
-        if (_cropDragStart is { } start && currentPoint is { } current)
-        {
-            _cropDragPreview = MapDragToCrop(start, current);
-        }
-
-        var activeCrop = _cropDragPreview ?? _crop;
-        if (activeCrop is not { } crop)
+        if (_crop is not { } crop)
         {
             CropSelectionRectangle.Visibility = Visibility.Collapsed;
             CropMaskLeft.Visibility = Visibility.Collapsed;
             CropMaskTop.Visibility = Visibility.Collapsed;
             CropMaskRight.Visibility = Visibility.Collapsed;
             CropMaskBottom.Visibility = Visibility.Collapsed;
+            foreach (var handle in GetCropHandleElements())
+            {
+                handle.Visibility = Visibility.Collapsed;
+            }
             return;
         }
 
-        var scaleX = bounds.Width / _mediaInfo.DisplayWidth;
-        var scaleY = bounds.Height / _mediaInfo.DisplayHeight;
-        var x = bounds.Left + crop.X * scaleX;
-        var y = bounds.Top + crop.Y * scaleY;
-        var width = crop.Width * scaleX;
-        var height = crop.Height * scaleY;
+        var (previewWidth, previewHeight) = GetPreviewDimensions();
+        var previewCrop = GetPreviewCrop(crop);
+        var scaleX = bounds.Width / previewWidth;
+        var scaleY = bounds.Height / previewHeight;
+        var x = bounds.Left + previewCrop.X * scaleX;
+        var y = bounds.Top + previewCrop.Y * scaleY;
+        var width = previewCrop.Width * scaleX;
+        var height = previewCrop.Height * scaleY;
         Canvas.SetLeft(CropSelectionRectangle, x);
         Canvas.SetTop(CropSelectionRectangle, y);
         CropSelectionRectangle.Width = width;
@@ -1422,7 +2182,31 @@ public sealed partial class MainWindow : Window
         SetMask(CropMaskTop, x, 0, width, y);
         SetMask(CropMaskRight, x + width, 0, Math.Max(0, CropOverlayCanvas.ActualWidth - x - width), CropOverlayCanvas.ActualHeight);
         SetMask(CropMaskBottom, x, y + height, width, Math.Max(0, CropOverlayCanvas.ActualHeight - y - height));
+
+        var showHandles = _isCropMode && _additionalRotationDegreesClockwise == 0;
+        foreach (var item in GetInsetCropHandlePoints(crop).Zip(GetCropHandleElements()))
+        {
+            var border = item.Second;
+            border.Visibility = showHandles ? Visibility.Visible : Visibility.Collapsed;
+            if (showHandles)
+            {
+                Canvas.SetLeft(border, item.First.Position.X - border.Width / 2);
+                Canvas.SetTop(border, item.First.Position.Y - border.Height / 2);
+            }
+        }
     }
+
+    private Border[] GetCropHandleElements() =>
+    [
+        CropHandleTopLeft,
+        CropHandleTop,
+        CropHandleTopRight,
+        CropHandleRight,
+        CropHandleBottomRight,
+        CropHandleBottom,
+        CropHandleBottomLeft,
+        CropHandleLeft
+    ];
 
     private static void SetMask(Microsoft.UI.Xaml.Shapes.Rectangle rectangle, double x, double y, double width, double height)
     {
@@ -1490,6 +2274,13 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        if (mode == ExportMode.StreamCopyApproximate &&
+            (_additionalRotationDegreesClockwise != 0 || Math.Abs(_settings.Speed - 1) > 0.001))
+        {
+            ShowError("回転または再生速度の変更には正確な再エンコードが必要です。");
+            return;
+        }
+
         var fileStem = OutputNameBox.Text.Trim();
         if (fileStem.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
         {
@@ -1516,11 +2307,14 @@ public sealed partial class MainWindow : Window
             start,
             end,
             _crop,
-            mode);
+            mode,
+            AdditionalRotationDegreesClockwise: _additionalRotationDegreesClockwise,
+            PlaybackSpeed: _settings.Speed);
         var exportCancellation = new CancellationTokenSource();
         _exportCancellation = exportCancellation;
         var token = exportCancellation.Token;
         _isExporting = true;
+        UpdateApproximateCopyAvailability();
         NotificationBar.IsOpen = false;
         ExportProgressBar.Value = 0;
         ExportProgressBar.Visibility = Visibility.Visible;
@@ -1591,6 +2385,8 @@ public sealed partial class MainWindow : Window
                     CancelExportButton.Visibility = Visibility.Collapsed;
                     ExportButton.Content = "MP4 に書き出す";
                     ApproximateCopyCheckBox.IsEnabled = true;
+                    CancelEditButton.IsEnabled = true;
+                    UpdateApproximateCopyAvailability();
                     OutputNameBox.IsEnabled = true;
                     ValidateEditRange();
                 }
@@ -1824,6 +2620,7 @@ public sealed partial class MainWindow : Window
         _statusTimer?.Stop();
         _compositionResizeTimer?.Stop();
         _exportCancellation?.Cancel();
+        CancelThumbnailGeneration();
         var player = _player;
         _player = null;
         SwapChainPanelInterop.Attach(MpvSwapChainPanel, IntPtr.Zero);

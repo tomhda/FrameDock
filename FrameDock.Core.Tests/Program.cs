@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using FrameDock.Core;
 
 namespace FrameDock.Core.Tests;
@@ -80,13 +81,63 @@ internal static class Program
                 $"the oriented top-left crop should be green (input's top-right quadrant), got RGB {cornerPixel.R},{cornerPixel.G},{cornerPixel.B}");
             Pass("accurate export bakes rotation, crops the displayed green quadrant, and preserves source bytes");
 
+            var rotatedCropOutput = Path.Combine(testRoot, "crop-then-rotate.mp4");
+            var rotatedCropResult = await service.ExportAsync(new ExportRequest(
+                source,
+                rotatedCropOutput,
+                StartSeconds: 1,
+                EndSeconds: 3,
+                Crop: new CropRect(0, 0, 48, 64),
+                AdditionalRotationDegreesClockwise: 90));
+            Assert(rotatedCropResult.OutputMediaInfo.CodedWidth == 64 && rotatedCropResult.OutputMediaInfo.CodedHeight == 48,
+                "an additional 90 degree rotation after a 48x64 display-space crop should produce 64x48 pixels");
+            Assert(rotatedCropResult.OutputMediaInfo.RotationDegreesClockwise == 0,
+                "additional rotation should be baked into the pixels without display metadata");
+            var rotatedCornerPixel = await ReadFirstFramePixelAsync(ffmpegPath, rotatedCropOutput, x: 32, y: 24, testRoot);
+            Assert(rotatedCornerPixel.G > rotatedCornerPixel.R * 1.5 && rotatedCornerPixel.G > rotatedCornerPixel.B * 1.5,
+                $"crop-then-clockwise-rotate should keep the expected source quadrant, got RGB {rotatedCornerPixel.R},{rotatedCornerPixel.G},{rotatedCornerPixel.B}");
+            Pass("additional rotation follows display-space crop and rotates actual SAR-corrected pixels clockwise");
+
+            foreach (var (speed, expectedDuration) in new[] { (0.25, 8.0), (0.5, 4.0), (2.0, 1.0), (4.0, 0.5) })
+            {
+                var speedOutput = Path.Combine(testRoot, $"speed-{speed.ToString(CultureInfo.InvariantCulture)}.mp4");
+                ExportProgress? latestEncodingProgress = null;
+                var speedResult = await service.ExportAsync(new ExportRequest(
+                    source,
+                    speedOutput,
+                    StartSeconds: 1,
+                    EndSeconds: 3,
+                    PlaybackSpeed: speed),
+                    new ImmediateProgress<ExportProgress>(item =>
+                    {
+                        if (item.Phase == ExportProgressPhase.Encoding)
+                        {
+                            latestEncodingProgress = item;
+                        }
+                    }));
+                Assert(Math.Abs(speedResult.RequestedDurationSeconds - 2.0) < 0.001,
+                    "requested duration should remain the source interval even when output playback speed changes");
+                Assert(Math.Abs(speedResult.OutputMediaInfo.DurationSeconds - expectedDuration) < 0.2,
+                    $"{speed}x output should last about {expectedDuration}s, got {speedResult.OutputMediaInfo.DurationSeconds}s");
+                var audioDuration = await ReadStreamDurationAsync(ffprobePath, speedOutput, "a:0");
+                Assert(Math.Abs(audioDuration - expectedDuration) < 0.25,
+                    $"{speed}x audio should also last about {expectedDuration}s, got {audioDuration}s");
+                Assert(latestEncodingProgress is not null && Math.Abs(latestEncodingProgress.ExpectedSeconds - expectedDuration) < 0.001,
+                    "encoding progress should use the speed-adjusted output duration");
+            }
+            Pass("accurate speed changes video and audio duration, progress, and atempo chains from 0.25x through 4x");
+
             await AssertExportRejectedAsync(service, new ExportRequest(source, Path.Combine(testRoot, "nan.mp4"), double.NaN, 2), "finite");
             await AssertExportRejectedAsync(service, new ExportRequest(source, Path.Combine(testRoot, "negative.mp4"), -1, 2), "nonnegative");
             await AssertExportRejectedAsync(service, new ExportRequest(source, Path.Combine(testRoot, "empty.mp4"), 2, 2), "ordered");
             await AssertExportRejectedAsync(service, new ExportRequest(source, Path.Combine(testRoot, "past-end.mp4"), 1, 9), "duration");
             await AssertExportRejectedAsync(service, new ExportRequest(source, Path.Combine(testRoot, "odd-crop.mp4"), 1, 2, new CropRect(1, 0, 48, 48)), "chroma alignment");
             await AssertExportRejectedAsync(service, new ExportRequest(source, Path.Combine(testRoot, "outside.mp4"), 1, 2, new CropRect(96, 0, 2, 2)), "crop bounds");
-            Pass("time ranges and crop validation reject NaN, negative, reversed, out-of-duration, odd, and out-of-bounds input");
+            await AssertExportRejectedAsync(service, new ExportRequest(source, Path.Combine(testRoot, "invalid-rotation.mp4"), 1, 2, AdditionalRotationDegreesClockwise: 45), "invalid additional rotation");
+            await AssertExportRejectedAsync(service, new ExportRequest(source, Path.Combine(testRoot, "invalid-speed-nan.mp4"), 1, 2, PlaybackSpeed: double.NaN), "non-finite playback speed");
+            await AssertExportRejectedAsync(service, new ExportRequest(source, Path.Combine(testRoot, "invalid-speed-low.mp4"), 1, 2, PlaybackSpeed: 0.2), "playback speed below minimum");
+            await AssertExportRejectedAsync(service, new ExportRequest(source, Path.Combine(testRoot, "invalid-speed-high.mp4"), 1, 2, PlaybackSpeed: 4.1), "playback speed above maximum");
+            Pass("time ranges, crop, rotation, and speed validation reject invalid values");
 
             var sourceAlias = source.ToUpperInvariant();
             await AssertExportRejectedAsync(service, new ExportRequest(source, sourceAlias, 0, 1), "case-insensitive source path alias");
@@ -114,7 +165,19 @@ internal static class Program
                 3,
                 new CropRect(0, 0, 48, 48),
                 ExportMode.StreamCopyApproximate), "stream-copy crop");
-            Pass("stream-copy preserves display properties, reports approximate boundaries, and refuses crop");
+            await AssertExportRejectedAsync(service, new ExportRequest(source,
+                Path.Combine(testRoot, "copy-rotate.mp4"),
+                1,
+                3,
+                Mode: ExportMode.StreamCopyApproximate,
+                AdditionalRotationDegreesClockwise: 90), "stream-copy additional rotation");
+            await AssertExportRejectedAsync(service, new ExportRequest(source,
+                Path.Combine(testRoot, "copy-speed.mp4"),
+                1,
+                3,
+                Mode: ExportMode.StreamCopyApproximate,
+                PlaybackSpeed: 2), "stream-copy speed change");
+            Pass("stream-copy preserves display properties, reports approximate boundaries, and refuses transforms");
 
             var silentSource = Path.Combine(testRoot, "silent.mp4");
             await RunFfmpegAsync(ffmpegPath,
@@ -127,7 +190,15 @@ internal static class Program
             var silentOutput = Path.Combine(testRoot, "silent-output.mp4");
             var silentResult = await service.ExportAsync(new ExportRequest(silentSource, silentOutput, 0, 1));
             Assert(!silentResult.OutputMediaInfo.HasAudio, "accurate export should succeed without an audio stream");
-            Pass("accurate export handles video without audio");
+            var silentSpeedResult = await service.ExportAsync(new ExportRequest(
+                silentSource,
+                Path.Combine(testRoot, "silent-speed.mp4"),
+                0,
+                1,
+                PlaybackSpeed: 2));
+            Assert(!silentSpeedResult.OutputMediaInfo.HasAudio && Math.Abs(silentSpeedResult.OutputMediaInfo.DurationSeconds - 0.5) < 0.1,
+                "speed export should re-time video-only sources without inventing an audio stream");
+            Pass("accurate export handles silent video both at normal speed and with speed adjustment");
 
             var h265Service = new MediaExportService(new ExportOptions(ffmpegPath, ffprobePath)
             {
@@ -318,6 +389,42 @@ internal static class Program
 
         offset += (y * width + x) * 3;
         return (bytes[offset], bytes[offset + 1], bytes[offset + 2]);
+    }
+
+    private static async Task<double> ReadStreamDurationAsync(string ffprobePath, string videoPath, string selector)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = ffprobePath,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        foreach (var argument in new[]
+        {
+            "-v", "error", "-select_streams", selector, "-show_entries", "stream=duration", "-of", "json", videoPath
+        })
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("could not start ffprobe");
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        var output = await outputTask;
+        var error = await errorTask;
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"ffprobe exited {process.ExitCode}: {error}");
+        }
+
+        using var document = JsonDocument.Parse(output);
+        var stream = document.RootElement.GetProperty("streams").EnumerateArray().First();
+        var durationValue = stream.GetProperty("duration");
+        var durationText = durationValue.ValueKind == JsonValueKind.String ? durationValue.GetString() : durationValue.ToString();
+        return double.Parse(durationText!, CultureInfo.InvariantCulture);
     }
 
     private static int FindPpmPixelOffset(byte[] bytes, out int width, out int height)

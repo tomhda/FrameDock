@@ -146,6 +146,18 @@ internal sealed class MpvController : IDisposable
         SetProperty("speed", speed.ToString("0.##", CultureInfo.InvariantCulture));
     }
 
+    public void SetVideoRotation(int degreesClockwise)
+    {
+        ThrowIfDisposed();
+        var normalized = ((degreesClockwise % 360) + 360) % 360;
+        if (normalized % 90 != 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(degreesClockwise), "Video rotation must be a multiple of 90 degrees.");
+        }
+
+        SetProperty("video-rotate", normalized.ToString(CultureInfo.InvariantCulture));
+    }
+
     public void SetMuted(bool muted)
     {
         ThrowIfDisposed();
