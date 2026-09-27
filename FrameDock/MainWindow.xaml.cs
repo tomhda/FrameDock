@@ -55,6 +55,10 @@ public sealed partial class MainWindow : Window
     private bool _isRestoringSettings;
     private bool _isClosing;
     private bool _isExporting;
+    private bool _forceCompositionResize;
+    private bool _initialCompositionResizePending;
+    private bool _isCompositionFileLoaded;
+    private int _postLoadCompositionResizeAttempts;
     private bool _isPointerOverControls;
     private bool _isPointerNearControls;
     private bool _isSettingsDialogOpen;
@@ -294,15 +298,32 @@ public sealed partial class MainWindow : Window
 
     private void VideoRegion_SizeChanged(object sender, SizeChangedEventArgs e) => ScheduleCompositionResize();
 
-    private void ScheduleCompositionResize()
+    private (int Width, int Height) GetCompositionSize()
+    {
+        var scale = VideoRegion.XamlRoot?.RasterizationScale ?? 1;
+        var width = Math.Clamp((int)Math.Round(VideoRegion.ActualWidth * scale), 1, 16384);
+        var height = Math.Clamp((int)Math.Round(VideoRegion.ActualHeight * scale), 1, 16384);
+        return (width, height);
+    }
+
+    private void ScheduleCompositionResize(bool force = false)
     {
         if (_isClosing || _player is null || _compositionResizeTimer is null)
         {
             return;
         }
 
+        _forceCompositionResize |= force;
         _compositionResizeTimer.Stop();
         _compositionResizeTimer.Start();
+    }
+
+    private void SchedulePostLoadCompositionResize()
+    {
+        if (_initialCompositionResizePending && _isCompositionFileLoaded && _postLoadCompositionResizeAttempts < 2)
+        {
+            ScheduleCompositionResize(force: true);
+        }
     }
 
     private void ApplyCompositionResize()
@@ -312,10 +333,15 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var scale = VideoRegion.XamlRoot?.RasterizationScale ?? 1;
-        var width = Math.Clamp((int)Math.Round(VideoRegion.ActualWidth * scale), 1, 16384);
-        var height = Math.Clamp((int)Math.Round(VideoRegion.ActualHeight * scale), 1, 16384);
-        if (width == _compositionWidth && height == _compositionHeight)
+        var force = _forceCompositionResize;
+        _forceCompositionResize = false;
+        if (force && _isCompositionFileLoaded)
+        {
+            _postLoadCompositionResizeAttempts++;
+        }
+
+        var (width, height) = GetCompositionSize();
+        if (!force && width == _compositionWidth && height == _compositionHeight)
         {
             return;
         }
@@ -329,6 +355,10 @@ public sealed partial class MainWindow : Window
             {
                 SwapChainPanelInterop.Attach(MpvSwapChainPanel, swapChain);
                 MpvSwapChainPanel.Visibility = Visibility.Visible;
+                if (_isCompositionFileLoaded)
+                {
+                    _initialCompositionResizePending = false;
+                }
             }
         }
         catch (Exception ex)
@@ -483,9 +513,7 @@ public sealed partial class MainWindow : Window
             ExportButton.IsEnabled = false;
             HdrNoteText.Visibility = Visibility.Collapsed;
 
-            var scale = VideoRegion.XamlRoot?.RasterizationScale ?? 1;
-            var width = Math.Max(1, (int)Math.Round(VideoRegion.ActualWidth * scale));
-            var height = Math.Max(1, (int)Math.Round(VideoRegion.ActualHeight * scale));
+            var (width, height) = GetCompositionSize();
             var player = await Task.Run(() => new MpvController(_settings.Volume, message =>
                 DispatcherQueue.TryEnqueue(() =>
                 {
@@ -501,6 +529,16 @@ public sealed partial class MainWindow : Window
             }
 
             _player = player;
+            _compositionWidth = width;
+            _compositionHeight = height;
+            _initialCompositionResizePending = true;
+            _isCompositionFileLoaded = false;
+            _postLoadCompositionResizeAttempts = 0;
+            // A maximize or DPI layout change may have happened while libmpv was
+            // being created. Those SizeChanged events ran before _player existed,
+            // so schedule a resize against the now-settled video region. This
+            // forced pass is repeated once the file and its swap chain are ready.
+            ScheduleCompositionResize(force: true);
             player.SetSpeed(_settings.Speed);
             player.SetMuted(_isMuted);
             player.SwapChainChanged += swapChain => DispatcherQueue.TryEnqueue(() =>
@@ -515,6 +553,7 @@ public sealed partial class MainWindow : Window
                     SwapChainPanelInterop.Attach(MpvSwapChainPanel, swapChain);
                     MpvSwapChainPanel.Visibility = Visibility.Visible;
                     EmptyState.Visibility = Visibility.Collapsed;
+                    SchedulePostLoadCompositionResize();
                 }
                 catch (Exception ex)
                 {
@@ -527,6 +566,9 @@ public sealed partial class MainWindow : Window
                 {
                     return;
                 }
+
+                _isCompositionFileLoaded = true;
+                SchedulePostLoadCompositionResize();
 
                 RefreshStatus();
             });
@@ -952,6 +994,7 @@ public sealed partial class MainWindow : Window
         ToolTipService.SetToolTip(FullscreenButton, fullscreenLabel);
         FullscreenButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, fullscreenLabel);
         UpdateDisplayModeMenu();
+        ScheduleCompositionResize();
 
         if (persist)
         {
