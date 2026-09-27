@@ -61,6 +61,7 @@ internal static class Program
             Assert(info.DisplayWidth == 96 && info.DisplayHeight == 213, $"display dimensions should be 96x213, got {info.DisplayWidth}x{info.DisplayHeight}");
             Assert(info.HasAudio && string.Equals(info.AudioCodec, "aac", StringComparison.OrdinalIgnoreCase), "audio stream should be detected");
             Assert(string.Equals(info.VideoCodec, "h264", StringComparison.OrdinalIgnoreCase), "video codec should be detected");
+            AssertContainer(info, ExportContainer.Mp4, "fixture");
             Pass("ffprobe reads dimensions, SAR, rotation, duration, codecs, and audio");
 
             var specialOutput = Path.Combine(testRoot, "clip 日本 & ; ' first.mp4");
@@ -97,6 +98,45 @@ internal static class Program
             Assert(rotatedCornerPixel.G > rotatedCornerPixel.R * 1.5 && rotatedCornerPixel.G > rotatedCornerPixel.B * 1.5,
                 $"crop-then-clockwise-rotate should keep the expected source quadrant, got RGB {rotatedCornerPixel.R},{rotatedCornerPixel.G},{rotatedCornerPixel.B}");
             Pass("additional rotation follows display-space crop and rotates actual SAR-corrected pixels clockwise");
+
+            foreach (var (container, extension) in new[]
+            {
+                (ExportContainer.Mp4, ".mp4"),
+                (ExportContainer.Mkv, ".mkv"),
+                (ExportContainer.Mov, ".mov")
+            })
+            {
+                var accuratePath = Path.Combine(testRoot, $"container-accurate-{container}{extension}");
+                var accurateResult = await service.ExportAsync(new ExportRequest(
+                    source,
+                    accuratePath,
+                    StartSeconds: 1,
+                    EndSeconds: 3,
+                    OutputContainer: container));
+                Assert(File.Exists(accuratePath), $"accurate {container} export should create the selected extension");
+                AssertContainer(accurateResult.OutputMediaInfo, container, $"accurate {container} export");
+
+                var copyPath = Path.Combine(testRoot, $"container-copy-{container}{extension}");
+                var copyContainerResult = await service.ExportAsync(new ExportRequest(
+                    source,
+                    copyPath,
+                    StartSeconds: 1,
+                    EndSeconds: 3,
+                    Mode: ExportMode.StreamCopyApproximate,
+                    OutputContainer: container));
+                Assert(copyContainerResult.BoundariesAreApproximate,
+                    $"stream-copy {container} export should retain approximate-boundary semantics");
+                AssertContainer(copyContainerResult.OutputMediaInfo, container, $"stream-copy {container} export");
+                Assert(copyContainerResult.OutputMediaInfo.VideoCodec.Equals(info.VideoCodec, StringComparison.OrdinalIgnoreCase),
+                    $"stream-copy {container} should preserve the source video codec");
+            }
+            await AssertExportRejectedAsync(service, new ExportRequest(
+                source,
+                Path.Combine(testRoot, "wrong-extension.mp4"),
+                1,
+                2,
+                OutputContainer: ExportContainer.Mkv), "container-extension mismatch");
+            Pass("MP4, Matroska, and QuickTime MOV muxers work for accurate and stream-copy exports and are verified by ffprobe");
 
             foreach (var (speed, expectedDuration) in new[] { (0.25, 8.0), (0.5, 4.0), (2.0, 1.0), (4.0, 0.5) })
             {
@@ -425,6 +465,24 @@ internal static class Program
         var durationValue = stream.GetProperty("duration");
         var durationText = durationValue.ValueKind == JsonValueKind.String ? durationValue.GetString() : durationValue.ToString();
         return double.Parse(durationText!, CultureInfo.InvariantCulture);
+    }
+
+    private static void AssertContainer(MediaInfo media, ExportContainer expected, string context)
+    {
+        var formats = (media.ContainerFormatNames ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var majorBrand = media.ContainerMajorBrand?.Trim();
+        var matches = expected switch
+        {
+            ExportContainer.Mp4 => formats.Contains("mp4", StringComparer.OrdinalIgnoreCase) &&
+                                   !string.Equals(majorBrand, "qt", StringComparison.OrdinalIgnoreCase),
+            ExportContainer.Mkv => formats.Contains("matroska", StringComparer.OrdinalIgnoreCase),
+            ExportContainer.Mov => formats.Contains("mov", StringComparer.OrdinalIgnoreCase) &&
+                                   string.Equals(majorBrand, "qt", StringComparison.OrdinalIgnoreCase),
+            _ => false
+        };
+        Assert(matches,
+            $"{context} should probe as {expected}, got format '{media.ContainerFormatNames}' and major brand '{media.ContainerMajorBrand}'");
     }
 
     private static int FindPpmPixelOffset(byte[] bytes, out int width, out int height)

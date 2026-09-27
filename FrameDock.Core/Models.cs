@@ -33,6 +33,8 @@ public sealed record MediaInfo
     public string? PixelFormat { get; init; }
     public string? ColorTransfer { get; init; }
     public string? ColorPrimaries { get; init; }
+    public string? ContainerFormatNames { get; init; }
+    public string? ContainerMajorBrand { get; init; }
     public bool IsHdr { get; init; }
     public string? HdrDescription { get; init; }
 }
@@ -49,6 +51,13 @@ public enum ExportMode
     StreamCopyApproximate
 }
 
+public enum ExportContainer
+{
+    Mp4,
+    Mkv,
+    Mov
+}
+
 public sealed record ExportRequest(
     string SourcePath,
     string DestinationPath,
@@ -57,7 +66,8 @@ public sealed record ExportRequest(
     CropRect? Crop = null,
     ExportMode Mode = ExportMode.AccurateReencode,
     int AdditionalRotationDegreesClockwise = 0,
-    double PlaybackSpeed = 1.0);
+    double PlaybackSpeed = 1.0,
+    ExportContainer OutputContainer = ExportContainer.Mp4);
 
 public enum ExportProgressPhase
 {

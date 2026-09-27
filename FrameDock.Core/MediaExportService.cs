@@ -5,7 +5,7 @@ using System.Text.Json;
 
 namespace FrameDock.Core;
 
-/// <summary>Inspects local media and safely exports MP4 trims/crops with FFmpeg.</summary>
+/// <summary>Inspects local media and safely exports trims/crops with FFmpeg.</summary>
 public sealed class MediaExportService
 {
     private const int MaxDiagnosticCharacters = 12_000;
@@ -69,9 +69,10 @@ public sealed class MediaExportService
             throw new ExportValidationException("入力動画と同じ場所には書き出せません。別の保存先を指定してください。");
         }
 
-        if (!string.Equals(Path.GetExtension(destinationPath), ".mp4", StringComparison.OrdinalIgnoreCase))
+        var outputExtension = GetExtension(request.OutputContainer);
+        if (!string.Equals(Path.GetExtension(destinationPath), outputExtension, StringComparison.OrdinalIgnoreCase))
         {
-            throw new ExportValidationException("書き出し形式は MP4 のみ対応しています。保存先の拡張子を .mp4 にしてください。");
+            throw new ExportValidationException($"選択した形式の拡張子は {outputExtension} です。保存先の名前を確認してください。");
         }
 
         if (File.Exists(destinationPath))
@@ -97,7 +98,7 @@ public sealed class MediaExportService
                 "HDR 動画の正確なトリム／クロップ書き出しには現在対応していません。色の変化を避けるため、書き出しを停止しました。");
         }
 
-        var temporaryPath = CreateTemporaryPath(destinationDirectory, Path.GetFileNameWithoutExtension(destinationPath));
+        var temporaryPath = CreateTemporaryPath(destinationDirectory, Path.GetFileNameWithoutExtension(destinationPath), outputExtension);
         try
         {
             var requestedDuration = request.EndSeconds - request.StartSeconds;
@@ -129,7 +130,7 @@ public sealed class MediaExportService
             {
                 throw new ExportException(
                     request.Mode == ExportMode.StreamCopyApproximate
-                        ? "ストリームコピーに失敗しました。指定範囲に利用できるキーフレームがないか、入力形式を MP4 に格納できない可能性があります。正確な再エンコードを試してください。"
+                        ? "ストリームコピーに失敗しました。指定範囲に利用できるキーフレームがないか、選択した形式に入力の映像・音声を格納できない可能性があります。正確な再エンコードを試してください。"
                         : "動画を書き出せませんでした。保存先の空き容量と FFmpeg の対応形式を確認してください。",
                     FormatDiagnostic("FFmpeg", processResult.StandardError));
             }
@@ -239,6 +240,7 @@ public sealed class MediaExportService
         var transfer = ReadString(video, "color_transfer");
         var primaries = ReadString(video, "color_primaries");
         var hdrReason = DetectHdr(video, transfer, primaries);
+        var formatElement = root.TryGetProperty("format", out var foundFormat) ? foundFormat : default;
 
         return new MediaInfo
         {
@@ -257,6 +259,8 @@ public sealed class MediaExportService
             PixelFormat = ReadString(video, "pix_fmt"),
             ColorTransfer = transfer,
             ColorPrimaries = primaries,
+            ContainerFormatNames = formatElement.ValueKind == JsonValueKind.Object ? ReadString(formatElement, "format_name") : null,
+            ContainerMajorBrand = formatElement.ValueKind == JsonValueKind.Object ? ReadTag(formatElement, "major_brand") : null,
             IsHdr = hdrReason is not null,
             HdrDescription = hdrReason
         };
@@ -464,6 +468,11 @@ public sealed class MediaExportService
             throw new ExportValidationException("書き出し方法を選択してください。");
         }
 
+        if (!Enum.IsDefined(request.OutputContainer))
+        {
+            throw new ExportValidationException("書き出し形式を選択してください。");
+        }
+
         MediaGeometry.ValidateAdditionalRotation(request.AdditionalRotationDegreesClockwise);
         MediaGeometry.ValidatePlaybackSpeed(request.PlaybackSpeed);
 
@@ -553,7 +562,12 @@ public sealed class MediaExportService
             }
         }
 
-        arguments.AddRange(["-movflags", "+faststart", "-f", "mp4", temporaryPath]);
+        if (request.OutputContainer is ExportContainer.Mp4 or ExportContainer.Mov)
+        {
+            arguments.AddRange(["-movflags", "+faststart"]);
+        }
+
+        arguments.AddRange(["-f", GetMuxer(request.OutputContainer), temporaryPath]);
         return arguments;
     }
 
@@ -582,6 +596,8 @@ public sealed class MediaExportService
 
     private static void ValidateOutputMedia(MediaInfo output, MediaInfo source, ExportRequest request, VideoEncoder encoder)
     {
+        ValidateOutputContainer(output, request.OutputContainer);
+
         var expected = request.Mode == ExportMode.StreamCopyApproximate
             ? (source.CodedWidth, source.CodedHeight)
             : MediaGeometry.ComputeExportDimensions(source, request.Crop, request.AdditionalRotationDegreesClockwise);
@@ -636,6 +652,43 @@ public sealed class MediaExportService
         }
     }
 
+    private static void ValidateOutputContainer(MediaInfo output, ExportContainer expectedContainer)
+    {
+        var formats = (output.ContainerFormatNames ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var majorBrand = output.ContainerMajorBrand?.Trim();
+        var matches = expectedContainer switch
+        {
+            ExportContainer.Mp4 => formats.Contains("mp4", StringComparer.OrdinalIgnoreCase) &&
+                                   !string.Equals(majorBrand, "qt", StringComparison.OrdinalIgnoreCase),
+            ExportContainer.Mkv => formats.Contains("matroska", StringComparer.OrdinalIgnoreCase),
+            ExportContainer.Mov => formats.Contains("mov", StringComparer.OrdinalIgnoreCase) &&
+                                   string.Equals(majorBrand, "qt", StringComparison.OrdinalIgnoreCase),
+            _ => false
+        };
+
+        if (!matches)
+        {
+            throw new ExportException("書き出した動画のコンテナが選択した形式と一致しませんでした。");
+        }
+    }
+
+    private static string GetExtension(ExportContainer container) => container switch
+    {
+        ExportContainer.Mp4 => ".mp4",
+        ExportContainer.Mkv => ".mkv",
+        ExportContainer.Mov => ".mov",
+        _ => throw new ExportValidationException("書き出し形式を選択してください。")
+    };
+
+    private static string GetMuxer(ExportContainer container) => container switch
+    {
+        ExportContainer.Mp4 => "mp4",
+        ExportContainer.Mkv => "matroska",
+        ExportContainer.Mov => "mov",
+        _ => throw new ExportValidationException("書き出し形式を選択してください。")
+    };
+
     private static string NormalizeExistingFile(string? path, string errorMessage)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -678,12 +731,12 @@ public sealed class MediaExportService
         }
     }
 
-    private static string CreateTemporaryPath(string directory, string destinationName)
+    private static string CreateTemporaryPath(string directory, string destinationName, string extension)
     {
         string candidate;
         do
         {
-            candidate = Path.Combine(directory, $".{destinationName}.{Guid.NewGuid():N}.partial.mp4");
+            candidate = Path.Combine(directory, $".{destinationName}.{Guid.NewGuid():N}.partial{extension}");
         }
         while (File.Exists(candidate));
 

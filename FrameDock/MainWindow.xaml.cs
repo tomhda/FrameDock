@@ -524,6 +524,7 @@ public sealed partial class MainWindow : Window
             previousPlayer?.Dispose();
 
             _loadedPath = fullPath;
+            OutputContainerComboBox.SelectedIndex = 0;
             CancelThumbnailGeneration();
             TrimThumbnailStrip.Children.Clear();
             _thumbnailSourcePath = null;
@@ -543,6 +544,7 @@ public sealed partial class MainWindow : Window
             EmptyState.Visibility = Visibility.Collapsed;
             TimelineSlider.IsEnabled = false;
             OutputFolderText.Text = "元動画と同じフォルダー";
+            ToolTipService.SetToolTip(OutputFolderText, "元動画と同じフォルダー");
             OutputNameBox.Text = $"{Path.GetFileNameWithoutExtension(fullPath)}-clip";
             CropInfoText.Text = "クロップなし";
             CropResetButton.IsEnabled = false;
@@ -819,7 +821,7 @@ public sealed partial class MainWindow : Window
         var endX = pad + endValue / duration * trackWidth;
         var startDistance = Math.Abs(point.X - startX);
         var endDistance = Math.Abs(point.X - endX);
-        _trimDragTarget = Math.Min(startDistance, endDistance) <= 10
+        _trimDragTarget = Math.Min(startDistance, endDistance) <= 20
             ? startDistance <= endDistance ? TrimDragTarget.Start : TrimDragTarget.End
             : TrimDragTarget.Playhead;
         _isTrimTimelineDragging = true;
@@ -904,7 +906,7 @@ public sealed partial class MainWindow : Window
         var width = TrimTimelineCanvas.ActualWidth;
         const double pad = 8;
         const double trackY = 2;
-        const double trackHeight = 38;
+        const double trackHeight = 52;
         var trackWidth = Math.Max(0, width - pad * 2);
         var duration = _mediaInfo?.DurationSeconds ?? 0;
         if (trackWidth <= 0 || !double.IsFinite(duration) || duration <= 0)
@@ -925,20 +927,20 @@ public sealed partial class MainWindow : Window
         SetTimelineElement(TrimTimelineSelection, startX, trackY, Math.Max(0, endX - startX), trackHeight);
         SetTimelineElement(TrimTimelineAfter, endX, trackY, Math.Max(0, pad + trackWidth - endX), trackHeight);
         PositionThumbnailStrip(trackWidth);
-        SetTimelineElement(TrimStartHandle, startX - TrimStartHandle.Width / 2, 5, TrimStartHandle.Width, TrimStartHandle.Height);
-        SetTimelineElement(TrimEndHandle, endX - TrimEndHandle.Width / 2, 5, TrimEndHandle.Width, TrimEndHandle.Height);
+        SetTimelineElement(TrimStartHandle, startX - TrimStartHandle.Width / 2, 4, TrimStartHandle.Width, TrimStartHandle.Height);
+        SetTimelineElement(TrimEndHandle, endX - TrimEndHandle.Width / 2, 4, TrimEndHandle.Width, TrimEndHandle.Height);
         SetTimelineElement(TrimPlayheadLine, playheadX - TrimPlayheadLine.Width / 2, 4, TrimPlayheadLine.Width, TrimPlayheadLine.Height);
         SetTimelineElement(TrimPlayheadDot, playheadX - TrimPlayheadDot.Width / 2, 0, TrimPlayheadDot.Width, TrimPlayheadDot.Height);
 
-        TrimStartReadout.Text = FormatTime(start);
-        TrimPlayheadReadout.Text = $"現在 {FormatTime(position)}";
-        TrimEndReadout.Text = FormatTime(end);
+        TrimStartReadout.Text = $"開始 {FormatTime(start)}";
+        TrimPlayheadReadout.Text = $"再生位置 {FormatTime(position)}";
+        TrimEndReadout.Text = $"終了 {FormatTime(end)}";
     }
 
     private void PositionThumbnailStrip(double width)
     {
         TrimThumbnailStrip.Width = width;
-        TrimThumbnailStrip.Height = 38;
+        TrimThumbnailStrip.Height = 52;
         if (_thumbnailBitmaps.Count == 0 || _thumbnailFrameCount <= 0 || width <= 0)
         {
             TrimThumbnailStrip.Children.Clear();
@@ -966,7 +968,7 @@ public sealed partial class MainWindow : Window
         for (var index = 0; index < tiles.Length; index++)
         {
             tiles[index].Width = cellWidth;
-            tiles[index].Height = 38;
+            tiles[index].Height = 52;
             Canvas.SetLeft(tiles[index], index * cellWidth);
             Canvas.SetTop(tiles[index], 0);
         }
@@ -1299,7 +1301,10 @@ public sealed partial class MainWindow : Window
 
     private void UpdateEditSpeedControl(double speed)
     {
-        EditSpeedText.Text = $"速度 {speed.ToString("0.##", CultureInfo.InvariantCulture)}×";
+        var label = $"{speed.ToString("0.##", CultureInfo.InvariantCulture)}×";
+        EditSpeedText.Text = label;
+        ToolTipService.SetToolTip(EditSpeedButton, $"プレビューと書き出しの速度: {label}");
+        EditSpeedButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, $"編集速度 {label}");
         if (EditSpeedButton.Flyout is MenuFlyout flyout)
         {
             foreach (var item in flyout.Items.OfType<ToggleMenuFlyoutItem>())
@@ -1657,12 +1662,8 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        RootGrid.RowDefinitions[0].Height = editing
-            ? new GridLength(1.7, GridUnitType.Star)
-            : new GridLength(1, GridUnitType.Star);
-        RootGrid.RowDefinitions[1].Height = editing
-            ? new GridLength(1, GridUnitType.Star)
-            : GridLength.Auto;
+        RootGrid.RowDefinitions[0].Height = new GridLength(1, GridUnitType.Star);
+        RootGrid.RowDefinitions[1].Height = GridLength.Auto;
         UpdateCropOverlay();
     }
 
@@ -1683,9 +1684,11 @@ public sealed partial class MainWindow : Window
         _isTrimTimelineDragging = false;
         TrimStartBox.Value = 0;
         TrimEndBox.Value = _mediaInfo?.DurationSeconds ?? 0;
-        ApproximateCopyCheckBox.IsChecked = false;
+        ApproximateCopyMenuItem.IsChecked = false;
+        OutputContainerComboBox.SelectedIndex = 0;
         _outputDirectory = _loadedPath is null ? null : Path.GetDirectoryName(_loadedPath);
         OutputFolderText.Text = "元動画と同じフォルダー";
+        ToolTipService.SetToolTip(OutputFolderText, "元動画と同じフォルダー");
         OutputNameBox.Text = _loadedPath is null ? string.Empty : $"{Path.GetFileNameWithoutExtension(_loadedPath)}-clip";
 
         try
@@ -1831,6 +1834,7 @@ public sealed partial class MainWindow : Window
             _cropDragHandleOrigin = null;
         }
         CropModeButtonText.Text = _isCropMode ? "完了" : "クロップ";
+        CropModeButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, _isCropMode ? "クロップ編集を完了" : "クロップ範囲を調整");
         ToolTipService.SetToolTip(CropModeButton, _isCropMode
             ? "8つのハンドルをドラッグして範囲を調整。もう一度押すと確定"
             : "四隅と四辺の8つのハンドルで範囲を調整");
@@ -1895,7 +1899,9 @@ public sealed partial class MainWindow : Window
 
     private void UpdateRotationControl()
     {
-        RotateButtonText.Text = $"回転 {_additionalRotationDegreesClockwise}°";
+        RotateButtonText.Text = $"{_additionalRotationDegreesClockwise}°";
+        RotateButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, $"時計回りに回転: {_additionalRotationDegreesClockwise} 度");
+        ToolTipService.SetToolTip(RotateButton, $"プレビューと書き出しを時計回りに回転（現在 {_additionalRotationDegreesClockwise}°）");
         CropModeButton.IsEnabled = _mediaInfo is not null && _additionalRotationDegreesClockwise == 0;
         ToolTipService.SetToolTip(CropModeButton, _additionalRotationDegreesClockwise == 0
             ? "四隅と四辺の8つのハンドルで範囲を調整"
@@ -1905,12 +1911,13 @@ public sealed partial class MainWindow : Window
     private void UpdateApproximateCopyAvailability()
     {
         var hasTransforms = _crop.HasValue || _additionalRotationDegreesClockwise != 0 || Math.Abs(_settings.Speed - 1) > 0.001;
-        if (hasTransforms && ApproximateCopyCheckBox.IsChecked == true)
+        if (hasTransforms && ApproximateCopyMenuItem.IsChecked)
         {
-            ApproximateCopyCheckBox.IsChecked = false;
+            ApproximateCopyMenuItem.IsChecked = false;
         }
 
-        ApproximateCopyCheckBox.IsEnabled = _mediaInfo is not null && !hasTransforms && !_isExporting;
+        ApproximateCopyMenuItem.IsEnabled = _mediaInfo is not null && !hasTransforms && !_isExporting;
+        ExportOptionsButton.IsEnabled = !_isExporting;
         CancelEditButton.IsEnabled = !_isExporting;
     }
 
@@ -2242,8 +2249,23 @@ public sealed partial class MainWindow : Window
         {
             _outputDirectory = folder.Path;
             OutputFolderText.Text = folder.Path;
+            ToolTipService.SetToolTip(OutputFolderText, folder.Path);
         }
     }
+
+    private ExportContainer GetSelectedExportContainer() => OutputContainerComboBox.SelectedIndex switch
+    {
+        1 => ExportContainer.Mkv,
+        2 => ExportContainer.Mov,
+        _ => ExportContainer.Mp4
+    };
+
+    private static string GetExportExtension(ExportContainer container) => container switch
+    {
+        ExportContainer.Mkv => ".mkv",
+        ExportContainer.Mov => ".mov",
+        _ => ".mp4"
+    };
 
     private async void ExportButton_Click(object sender, RoutedEventArgs e)
     {
@@ -2261,16 +2283,16 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var mode = ApproximateCopyCheckBox.IsChecked == true ? ExportMode.StreamCopyApproximate : ExportMode.AccurateReencode;
+        var mode = ApproximateCopyMenuItem.IsChecked ? ExportMode.StreamCopyApproximate : ExportMode.AccurateReencode;
         if (mode == ExportMode.AccurateReencode && _mediaInfo.IsHdr)
         {
-            ShowError("HDR 動画の正確な再エンコードには対応していません。高速コピーを選ぶと元の色を保てますが、切り出し位置は前後する場合があります。");
+            ShowError("HDR 動画の正確な再エンコードには対応していません。書き出しの詳細から「無変換で切り出し」を選ぶと元の色を保てます。");
             return;
         }
 
         if (mode == ExportMode.StreamCopyApproximate && _crop is not null)
         {
-            ShowError("クロップと高速コピーは同時に使えません。クロップを解除するか、正確な再エンコードを選んでください。");
+            ShowError("クロップと「無変換で切り出し」は併用できません。クロップを解除するか、通常の書き出しを選んでください。");
             return;
         }
 
@@ -2282,9 +2304,13 @@ public sealed partial class MainWindow : Window
         }
 
         var fileStem = OutputNameBox.Text.Trim();
-        if (fileStem.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
+        foreach (var extension in new[] { ".mp4", ".mkv", ".mov" })
         {
-            fileStem = fileStem[..^4];
+            if (fileStem.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
+            {
+                fileStem = fileStem[..^extension.Length];
+                break;
+            }
         }
 
         if (string.IsNullOrWhiteSpace(fileStem) || fileStem is "." or ".." || Path.GetFileName(fileStem) != fileStem || fileStem.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
@@ -2294,7 +2320,8 @@ public sealed partial class MainWindow : Window
         }
 
         var directory = _outputDirectory ?? Path.GetDirectoryName(_loadedPath)!;
-        var destination = Path.Combine(directory, fileStem + ".mp4");
+        var outputContainer = GetSelectedExportContainer();
+        var destination = Path.Combine(directory, fileStem + GetExportExtension(outputContainer));
         if (File.Exists(destination))
         {
             ShowError("同じ名前のファイルが保存先にあります。別の名前を指定してください。");
@@ -2309,7 +2336,8 @@ public sealed partial class MainWindow : Window
             _crop,
             mode,
             AdditionalRotationDegreesClockwise: _additionalRotationDegreesClockwise,
-            PlaybackSpeed: _settings.Speed);
+            PlaybackSpeed: _settings.Speed,
+            OutputContainer: outputContainer);
         var exportCancellation = new CancellationTokenSource();
         _exportCancellation = exportCancellation;
         var token = exportCancellation.Token;
@@ -2320,7 +2348,9 @@ public sealed partial class MainWindow : Window
         ExportProgressBar.Visibility = Visibility.Visible;
         CancelExportButton.Visibility = Visibility.Visible;
         ExportButton.Content = "書き出し中…";
-        ApproximateCopyCheckBox.IsEnabled = false;
+        OutputContainerComboBox.IsEnabled = false;
+        ExportOptionsButton.IsEnabled = false;
+        OutputFolderButton.IsEnabled = false;
         OutputNameBox.IsEnabled = false;
         ValidateEditRange();
 
@@ -2383,10 +2413,12 @@ public sealed partial class MainWindow : Window
                     ExportProgressBar.IsIndeterminate = false;
                     ExportProgressBar.Visibility = Visibility.Collapsed;
                     CancelExportButton.Visibility = Visibility.Collapsed;
-                    ExportButton.Content = "MP4 に書き出す";
-                    ApproximateCopyCheckBox.IsEnabled = true;
+                    ExportButton.Content = "書き出し";
                     CancelEditButton.IsEnabled = true;
                     UpdateApproximateCopyAvailability();
+                    OutputContainerComboBox.IsEnabled = true;
+                    ExportOptionsButton.IsEnabled = true;
+                    OutputFolderButton.IsEnabled = true;
                     OutputNameBox.IsEnabled = true;
                     ValidateEditRange();
                 }
@@ -2405,8 +2437,10 @@ public sealed partial class MainWindow : Window
         ExportProgressBar.IsIndeterminate = false;
         ExportProgressBar.Visibility = Visibility.Collapsed;
         CancelExportButton.Visibility = Visibility.Collapsed;
-        ExportButton.Content = "MP4 に書き出す";
-        ApproximateCopyCheckBox.IsEnabled = true;
+        ExportButton.Content = "書き出し";
+        OutputContainerComboBox.IsEnabled = true;
+        ExportOptionsButton.IsEnabled = true;
+        OutputFolderButton.IsEnabled = true;
         OutputNameBox.IsEnabled = true;
     }
 
