@@ -1,10 +1,12 @@
 [CmdletBinding()]
 param(
-    [string]$ReleaseDirectory = (Join-Path (Split-Path -Parent $PSScriptRoot) 'artifacts\release\win-x64')
+    [string]$ReleaseDirectory
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+if (-not $ReleaseDirectory) { $ReleaseDirectory = Join-Path (Split-Path -Parent $PSScriptRoot) 'artifacts\release\win-x64' }
 
 $releasePath = [System.IO.Path]::GetFullPath($ReleaseDirectory)
 $executablePath = Join-Path $releasePath 'FrameDock.exe'

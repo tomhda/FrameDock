@@ -19,6 +19,7 @@ DefaultGroupName=FrameDock
 DisableProgramGroupPage=yes
 UninstallDisplayName=FrameDock
 UninstallDisplayIcon={app}\FrameDock.exe
+SetupIconFile={#PublishDir}\Assets\FrameDock.ico
 PrivilegesRequired=lowest
 ChangesAssociations=yes
 SetupArchitecture=x64

@@ -1,6 +1,6 @@
 ﻿[CmdletBinding()]
 param(
-    [string]$OutputDirectory = (Join-Path (Split-Path -Parent $PSScriptRoot) 'artifacts\release\win-x64'),
+    [string]$OutputDirectory,
     [switch]$SkipDependencyBootstrap
 )
 
@@ -8,6 +8,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
+if (-not $OutputDirectory) { $OutputDirectory = Join-Path $repositoryRoot 'artifacts\release\win-x64' }
 $outputPath = [System.IO.Path]::GetFullPath($OutputDirectory)
 $requiredOutputPrefix = $repositoryRoot.TrimEnd('\') + '\'
 if (-not $outputPath.StartsWith($requiredOutputPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {

@@ -1,13 +1,16 @@
 ﻿[CmdletBinding()]
 param(
-    [string]$InstallRoot = (Split-Path -Parent $PSScriptRoot),
-    [string]$CacheRoot = (Join-Path $PSScriptRoot '.cache'),
+    [string]$InstallRoot,
+    [string]$CacheRoot,
     [string]$MpvArchivePath,
     [string]$FfmpegArchivePath
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+if (-not $InstallRoot) { $InstallRoot = Split-Path -Parent $PSScriptRoot }
+if (-not $CacheRoot) { $CacheRoot = Join-Path $PSScriptRoot '.cache' }
 
 $dependencies = @(
     [pscustomobject]@{
