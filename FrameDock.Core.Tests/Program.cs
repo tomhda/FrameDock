@@ -252,6 +252,8 @@ internal static class Program
                 0,
                 1));
             Assert(string.Equals(h265Result.OutputMediaInfo.VideoCodec, "hevc", StringComparison.OrdinalIgnoreCase), "encoder option should select the CPU H.265 encoder");
+            var h265Tag = await ReadVideoCodecTagAsync(ffprobePath, Path.Combine(testRoot, "h265.mp4"));
+            Assert(string.Equals(h265Tag, "hvc1", StringComparison.OrdinalIgnoreCase), $"H.265 MP4 should use hvc1 tag, got {h265Tag}");
             Pass("encoder selection can switch accurate MP4 output to H.265");
 
             var hdrSource = Path.Combine(testRoot, "hdr-signal.mp4");
@@ -282,6 +284,11 @@ internal static class Program
             var tsResult = await service.ExportAsync(new ExportRequest(tsSource, tsOutput, 1, 3));
             Assert(tsResult.OutputMediaInfo.DurationSeconds is > 1.7 and < 2.3, $"relative trim on offset MPEG-TS should be near 2 seconds, got {tsResult.OutputMediaInfo.DurationSeconds}");
             Pass("nonzero MPEG-TS start timestamps are handled as clip-relative trim times");
+
+            await CheckOffsetSpeedTrimAsync(ffmpegPath, ffprobePath, service, testRoot);
+            Pass("speed changes on offset-timestamp video preserve the selected frames and audio duration");
+            await CheckLateStartSeekAsync(ffmpegPath, ffprobePath, service, testRoot);
+            Pass("late trims past 20 seconds use two-stage seek and preserve the selected frames");
 
             var cancelSource = await CreateCancellationFixtureAsync(ffmpegPath, testRoot);
             var cancelHash = await HashFileAsync(cancelSource);
@@ -368,6 +375,86 @@ internal static class Program
         await RunFfmpegAsync(ffmpegPath,
         ["-hide_banner", "-loglevel", "error", "-display_rotation:v:0", "90", "-i", basePath, "-c", "copy", "-y", rotatedPath]);
         return rotatedPath;
+    }
+
+    private static async Task CheckOffsetSpeedTrimAsync(
+        string ffmpegPath, string ffprobePath, MediaExportService service, string testRoot)
+    {
+        var source = Path.Combine(testRoot, "timed-colors.mp4");
+        await RunFfmpegAsync(ffmpegPath,
+        [
+            "-hide_banner", "-loglevel", "error",
+            "-f", "lavfi", "-i", "color=red:s=64x48:r=30:d=4",
+            "-f", "lavfi", "-i", "color=green:s=64x48:r=30:d=4",
+            "-f", "lavfi", "-i", "color=blue:s=64x48:r=30:d=4",
+            "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=12",
+            "-filter_complex", "[0:v][1:v][2:v]concat=n=3:v=1:a=0[v]",
+            "-map", "[v]", "-map", "3:a", "-c:v", "libx264", "-preset", "ultrafast",
+            "-g", "30", "-pix_fmt", "yuv420p", "-c:a", "aac", "-y", source
+        ]);
+        var offsetSource = Path.Combine(testRoot, "timed-colors-offset.ts");
+        await RunFfmpegAsync(ffmpegPath,
+        ["-hide_banner", "-loglevel", "error", "-i", source, "-c", "copy", "-output_ts_offset", "1.4", "-f", "mpegts", "-y", offsetSource]);
+        Assert((await service.InspectAsync(offsetSource)).StartTimeSeconds > 1,
+            "the timed fixture must exercise the offset-timestamp seek path");
+
+        foreach (var input in new[] { source, offsetSource })
+        foreach (var (start, speed, expectGreen) in new[]
+        {
+            (2.0, 2.0, false), (2.0, 4.0, false),
+            (6.0, 0.5, true), (6.0, 0.25, true), (6.0, 1.0, true)
+        })
+        {
+            var output = Path.Combine(testRoot, $"timed-{Guid.NewGuid():N}.mp4");
+            var result = await service.ExportAsync(new ExportRequest(input, output, start, start + 2, PlaybackSpeed: speed));
+            var pixel = await ReadFirstFramePixelAsync(ffmpegPath, output, 32, 24, testRoot);
+            Assert(expectGreen
+                    ? pixel.G > 80 && pixel.R < 30 && pixel.B < 30
+                    : pixel.R > 200 && pixel.G < 30 && pixel.B < 30,
+                $"{Path.GetExtension(input)} {speed}x trim starting at {start}s selected the wrong source frames: {pixel}");
+            var expectedDuration = 2 / speed;
+            Assert(Math.Abs(result.OutputMediaInfo.DurationSeconds - expectedDuration) < 0.2,
+                "the selected interval must have the speed-adjusted duration");
+            Assert(Math.Abs(await ReadStreamDurationAsync(ffprobePath, output, "a:0") - expectedDuration) < 0.25,
+                "audio must cover the same speed-adjusted interval as video");
+        }
+    }
+
+    private static async Task CheckLateStartSeekAsync(
+        string ffmpegPath, string ffprobePath, MediaExportService service, string testRoot)
+    {
+        var source = Path.Combine(testRoot, "timed-colors-30.mp4");
+        await RunFfmpegAsync(ffmpegPath,
+        [
+            "-hide_banner", "-loglevel", "error",
+            "-f", "lavfi", "-i", "color=red:s=64x48:r=30:d=10",
+            "-f", "lavfi", "-i", "color=green:s=64x48:r=30:d=10",
+            "-f", "lavfi", "-i", "color=blue:s=64x48:r=30:d=10",
+            "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=30",
+            "-filter_complex", "[0:v][1:v][2:v]concat=n=3:v=1:a=0[v]",
+            "-map", "[v]", "-map", "3:a", "-c:v", "libx264", "-preset", "ultrafast",
+            "-g", "30", "-pix_fmt", "yuv420p", "-c:a", "aac", "-y", source
+        ]);
+        var offsetSource = Path.Combine(testRoot, "timed-colors-30-offset.ts");
+        await RunFfmpegAsync(ffmpegPath,
+        ["-hide_banner", "-loglevel", "error", "-i", source, "-c", "copy", "-output_ts_offset", "1.4", "-f", "mpegts", "-y", offsetSource]);
+        Assert((await service.InspectAsync(offsetSource)).StartTimeSeconds > 1,
+            "the late fixture must exercise the offset-timestamp seek path");
+
+        foreach (var input in new[] { source, offsetSource })
+        foreach (var speed in new[] { 1.0, 2.0 })
+        {
+            var output = Path.Combine(testRoot, $"timed-late-{Guid.NewGuid():N}.mp4");
+            var result = await service.ExportAsync(new ExportRequest(input, output, 20, 22, PlaybackSpeed: speed));
+            var pixel = await ReadFirstFramePixelAsync(ffmpegPath, output, 32, 24, testRoot);
+            Assert(pixel.B > 80 && pixel.B > pixel.R * 1.5 && pixel.B > pixel.G * 1.5,
+                $"{Path.GetExtension(input)} {speed}x late trim starting at 20s selected the wrong source frames: {pixel}");
+            var expectedDuration = 2 / speed;
+            Assert(Math.Abs(result.OutputMediaInfo.DurationSeconds - expectedDuration) < 0.2,
+                "the late interval must have the speed-adjusted duration");
+            Assert(Math.Abs(await ReadStreamDurationAsync(ffprobePath, output, "a:0") - expectedDuration) < 0.25,
+                "late audio must cover the same speed-adjusted interval as video");
+        }
     }
 
     private static async Task<string> CreateCancellationFixtureAsync(string ffmpegPath, string testRoot)
@@ -465,6 +552,40 @@ internal static class Program
         var durationValue = stream.GetProperty("duration");
         var durationText = durationValue.ValueKind == JsonValueKind.String ? durationValue.GetString() : durationValue.ToString();
         return double.Parse(durationText!, CultureInfo.InvariantCulture);
+    }
+
+    private static async Task<string?> ReadVideoCodecTagAsync(string ffprobePath, string videoPath)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = ffprobePath,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        foreach (var argument in new[]
+        {
+            "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_tag_string", "-of", "json", videoPath
+        })
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("could not start ffprobe");
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        var output = await outputTask;
+        var error = await errorTask;
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"ffprobe exited {process.ExitCode}: {error}");
+        }
+
+        using var document = JsonDocument.Parse(output);
+        var stream = document.RootElement.GetProperty("streams").EnumerateArray().First();
+        return stream.TryGetProperty("codec_tag_string", out var tag) ? tag.GetString() : null;
     }
 
     private static void AssertContainer(MediaInfo media, ExportContainer expected, string context)

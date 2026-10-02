@@ -5,15 +5,15 @@ namespace FrameDock;
 public partial class App : Application
 {
     private Window? _window;
-    private static readonly string StartupLogPath = Path.Combine(
+    private static readonly string ErrorLogPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "FrameDock",
-        "startup-error.log");
+        "error.log");
 
     public App()
     {
         InitializeComponent();
-        UnhandledException += (_, args) => WriteStartupLog(args.Exception);
+        UnhandledException += (_, args) => WriteErrorLog(args.Exception);
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
@@ -26,18 +26,18 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            WriteStartupLog(ex);
+            WriteErrorLog(ex);
             throw;
         }
     }
 
-    internal static void WriteStartupLog(Exception exception)
+    internal static void WriteErrorLog(Exception exception)
     {
         try
         {
-            var directory = Path.GetDirectoryName(StartupLogPath)!;
+            var directory = Path.GetDirectoryName(ErrorLogPath)!;
             Directory.CreateDirectory(directory);
-            File.AppendAllText(StartupLogPath, $"{DateTimeOffset.Now:O}\r\n{exception}\r\n---\r\n");
+            File.AppendAllText(ErrorLogPath, $"{DateTimeOffset.Now:O}\r\n{exception}\r\n---\r\n");
         }
         catch
         {

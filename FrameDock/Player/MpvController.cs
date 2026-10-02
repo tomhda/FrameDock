@@ -68,7 +68,6 @@ internal sealed class MpvController : IDisposable
             }
 
             EnsureSuccess(MpvNative.mpv_initialize(_handle), "Initializing libmpv");
-            EnsureSuccess(MpvNative.mpv_request_log_messages(_handle, "debug"), "Enabling mpv error reporting");
             _eventPump = Task.Run(PumpEvents);
         }
         catch
@@ -363,23 +362,12 @@ internal sealed class MpvController : IDisposable
             {
                 completion.TrySetResult(mpvEvent.Error);
             }
-            else if (mpvEvent.EventId == MpvNative.EventLogMessage && mpvEvent.Data != IntPtr.Zero)
-            {
-                var log = Marshal.PtrToStructure<MpvLogMessage>(mpvEvent.Data);
-                var level = Marshal.PtrToStringUTF8(log.Level) ?? string.Empty;
-                var message = Marshal.PtrToStringUTF8(log.Text)?.Trim() ?? "mpv could not play this file.";
-                if ((level is "error" or "fatal") &&
-                    !message.Contains("Failed to query swap chain's output information", StringComparison.OrdinalIgnoreCase))
-                {
-                    _onError?.Invoke(message);
-                }
-            }
             else if (mpvEvent.EventId == MpvNative.EventEndFile && mpvEvent.Data != IntPtr.Zero)
             {
                 var endFile = Marshal.PtrToStructure<MpvEventEndFile>(mpvEvent.Data);
                 if (endFile.Error < 0)
                 {
-                    _onError?.Invoke($"mpv playback failed: {MpvNative.ErrorString(endFile.Error)}");
+                    _onError?.Invoke("この動画を再生できませんでした。ファイルが破損しているか、対応していない形式の可能性があります。");
                 }
             }
         }
@@ -450,18 +438,9 @@ internal sealed class MpvController : IDisposable
     {
         public int Reason;
         public int Error;
-        public int PlaylistEntryId;
-        public int PlaylistInsertId;
+        public long PlaylistEntryId;
+        public long PlaylistInsertId;
         public int PlaylistInsertNumEntries;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct MpvLogMessage
-    {
-        public IntPtr Prefix;
-        public IntPtr Level;
-        public IntPtr Text;
-        public int LogLevel;
     }
 }
 
@@ -471,7 +450,6 @@ internal static class MpvNative
     internal const int FormatInt64 = 4;
     internal const int FormatDouble = 5;
     internal const int EventShutdown = 1;
-    internal const int EventLogMessage = 2;
     internal const int EventCommandReply = 5;
     internal const int EventEndFile = 7;
     internal const int EventFileLoaded = 8;
@@ -487,10 +465,6 @@ internal static class MpvNative
 
     [DllImport("libmpv-2.dll", CallingConvention = CallingConvention.Cdecl)]
     internal static extern int mpv_initialize(IntPtr handle);
-
-    [DllImport("libmpv-2.dll", CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int mpv_request_log_messages(IntPtr handle,
-        [MarshalAs(UnmanagedType.LPUTF8Str)] string minLevel);
 
     [DllImport("libmpv-2.dll", CallingConvention = CallingConvention.Cdecl)]
     internal static extern int mpv_command(IntPtr handle, IntPtr arguments);

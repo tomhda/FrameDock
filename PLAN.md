@@ -15,7 +15,7 @@ FrameDock は .NET 8 と WinUI 3 で動く Windows x64 の動画プレイヤー�
 ## 確認済み
 
 - Release を clean して再発行し、WinUI の XAML/PRI resource、同梱 DLL、FFmpeg、ライセンス文書を検証した。`tools/run.ps1` からの起動でメインウィンドウが表示されることも確認した。
-- Core の FFmpeg/ffprobe 統合ハーネス 13 項目が通り、回転/SAR のクロップ、正確な H.264/H.265 出力、近似ストリームコピー、HDR 方針、キャンセルと元ファイル保護を確認した。
+- Core の FFmpeg/ffprobe 統合ハーネス 18 項目が通り、回転/SAR のクロップ、正確な H.264/H.265 出力、MP4/MKV/MOV、速度変更、開始時刻が 0 でない入力の後半の切り出し、近似ストリームコピー、HDR 方針、キャンセルと元ファイル保護を確認した。
 
 ## 残作業と確認
 

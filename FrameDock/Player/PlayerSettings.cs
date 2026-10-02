@@ -11,6 +11,8 @@ internal enum PlayerDisplayMode
 
 internal sealed class PlayerSettings
 {
+    private static readonly SemaphoreSlim SaveGate = new(1, 1);
+
     public double SkipSeconds { get; set; } = 10;
     public double Volume { get; set; } = 75;
     public double Speed { get; set; } = 1;
@@ -50,16 +52,24 @@ internal sealed class PlayerSettings
 
     public async Task SaveAsync(CancellationToken cancellationToken = default)
     {
-        var destination = SettingsPath;
-        var directory = Path.GetDirectoryName(destination)!;
-        Directory.CreateDirectory(directory);
-        var temporary = destination + ".tmp";
-        await using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true))
+        await SaveGate.WaitAsync(cancellationToken);
+        try
         {
-            await JsonSerializer.SerializeAsync(stream, this, cancellationToken: cancellationToken);
-            await stream.FlushAsync(cancellationToken);
-        }
+            var destination = SettingsPath;
+            var directory = Path.GetDirectoryName(destination)!;
+            Directory.CreateDirectory(directory);
+            var temporary = destination + ".tmp";
+            await using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true))
+            {
+                await JsonSerializer.SerializeAsync(stream, this, cancellationToken: cancellationToken);
+                await stream.FlushAsync(cancellationToken);
+            }
 
-        File.Move(temporary, destination, overwrite: true);
+            File.Move(temporary, destination, overwrite: true);
+        }
+        finally
+        {
+            SaveGate.Release();
+        }
     }
 }

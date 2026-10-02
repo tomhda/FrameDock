@@ -95,7 +95,7 @@ public sealed class MediaExportService
         if (request.Mode == ExportMode.AccurateReencode && media.IsHdr)
         {
             throw new ExportValidationException(
-                "HDR 動画の正確なトリム／クロップ書き出しには現在対応していません。色の変化を避けるため、書き出しを停止しました。");
+                "HDR 動画の通常の書き出しには対応していません。色が変わるのを防ぐため、書き出しを中止しました。「無変換で切り出し」を選ぶと元の色のまま保存できます。");
         }
 
         var temporaryPath = CreateTemporaryPath(destinationDirectory, Path.GetFileNameWithoutExtension(destinationPath), outputExtension);
@@ -130,7 +130,7 @@ public sealed class MediaExportService
             {
                 throw new ExportException(
                     request.Mode == ExportMode.StreamCopyApproximate
-                        ? "ストリームコピーに失敗しました。指定範囲に利用できるキーフレームがないか、選択した形式に入力の映像・音声を格納できない可能性があります。正確な再エンコードを試してください。"
+                        ? "無変換で切り出せませんでした。指定範囲にキーフレームがないか、選んだ出力形式に元の映像・音声を格納できません。「無変換で切り出し」を外して書き出してください。"
                         : "動画を書き出せませんでした。保存先の空き容量と FFmpeg の対応形式を確認してください。",
                     FormatDiagnostic("FFmpeg", processResult.StandardError));
             }
@@ -138,7 +138,7 @@ public sealed class MediaExportService
             cancellationToken.ThrowIfCancellationRequested();
             if (!File.Exists(temporaryPath) || new FileInfo(temporaryPath).Length <= 0)
             {
-                throw new ExportException("書き出し結果が空でした。FFmpeg のログを確認してください。");
+                throw new ExportException("書き出した動画が空でした。保存先の空き容量を確認してください。");
             }
 
             Report(progress, ExportProgressPhase.Verifying, Math.Max(lastProgress, 0.995), expectedDuration, expectedDuration, "書き出した動画を確認中…");
@@ -150,7 +150,7 @@ public sealed class MediaExportService
             catch (ExportException exception) when (request.Mode == ExportMode.StreamCopyApproximate)
             {
                 throw new ExportException(
-                    "ストリームコピーの範囲に利用できるキーフレームがありません。正確な再エンコードを試してください。",
+                    "指定範囲にキーフレームがないため、無変換で切り出せません。「無変換で切り出し」を外して書き出してください。",
                     exception.Diagnostic ?? exception.UserMessage,
                     exception);
             }
@@ -479,7 +479,7 @@ public sealed class MediaExportService
         if (request.Mode == ExportMode.StreamCopyApproximate &&
             (request.Crop is not null || request.AdditionalRotationDegreesClockwise != 0 || request.PlaybackSpeed != 1.0))
         {
-            throw new ExportValidationException("ストリームコピーではクロップ、追加回転、速度変更はできません。正確な書き出しを選択してください。");
+            throw new ExportValidationException("「無変換で切り出し」では、クロップ・回転・速度変更はできません。「無変換で切り出し」を外して書き出してください。");
         }
 
         if (request.Crop is { } crop)
@@ -516,13 +516,23 @@ public sealed class MediaExportService
             "-n"
         };
 
-        if (Math.Abs(media.StartTimeSeconds) > 0.001)
+        if (request.Mode == ExportMode.AccurateReencode && request.StartSeconds > 15 && Math.Abs(media.StartTimeSeconds) > 0.001)
+        {
+            // Two-stage seek for late trims on nonzero-start inputs: coarse
+            // input-side seek is fast, then output-side seek runs on the
+            // filtered timeline after setpts/atempo change playback speed.
+            arguments.AddRange(["-ss", FormatSeconds(request.StartSeconds - 10), "-noautorotate", "-i", sourcePath, "-ss", FormatSeconds(10 / request.PlaybackSpeed)]);
+        }
+        else if (Math.Abs(media.StartTimeSeconds) > 0.001)
         {
             // Some MPEG-TS demuxers expose their first video timestamp as a
             // positive start_time but still treat input-side -ss as an absolute
-            // timestamp. Output-side seeking is relative to the clip start and
-            // decodes the preroll, preserving the UI's zero-based timeline.
-            arguments.AddRange(["-noautorotate", "-i", sourcePath, "-ss", FormatSeconds(request.StartSeconds)]);
+            // timestamp. Output-side seeking decodes the preroll, but runs on
+            // the filtered timeline, after setpts/atempo change playback speed.
+            var outputSeekSeconds = request.Mode == ExportMode.AccurateReencode
+                ? request.StartSeconds / request.PlaybackSpeed
+                : request.StartSeconds;
+            arguments.AddRange(["-noautorotate", "-i", sourcePath, "-ss", FormatSeconds(outputSeekSeconds)]);
         }
         else
         {
@@ -565,6 +575,11 @@ public sealed class MediaExportService
         if (request.OutputContainer is ExportContainer.Mp4 or ExportContainer.Mov)
         {
             arguments.AddRange(["-movflags", "+faststart"]);
+        }
+
+        if (_options.Encoder == VideoEncoder.H265 && request.OutputContainer is ExportContainer.Mp4 or ExportContainer.Mov)
+        {
+            arguments.AddRange(["-tag:v", "hvc1"]);
         }
 
         arguments.AddRange(["-f", GetMuxer(request.OutputContainer), temporaryPath]);
@@ -625,12 +640,12 @@ public sealed class MediaExportService
                 output.IsHdr != source.IsHdr ||
                 (source.HasAudio && !string.Equals(output.AudioCodec, source.AudioCodec, StringComparison.OrdinalIgnoreCase)))
             {
-                throw new ExportException("ストリームコピー後の映像形式または表示情報が元動画と一致しませんでした。");
+                throw new ExportException("無変換で切り出した動画の映像形式または表示情報が、元動画と一致しませんでした。");
             }
 
             if (output.DurationSeconds > source.DurationSeconds + 1)
             {
-                throw new ExportException("ストリームコピーの出力時間が動画全体の長さを超えています。");
+                throw new ExportException("無変換で切り出した動画の長さが、元動画全体を超えています。");
             }
         }
         else
