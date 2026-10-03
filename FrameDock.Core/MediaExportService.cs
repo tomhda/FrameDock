@@ -91,6 +91,10 @@ public sealed class MediaExportService
         EnsureToolExists(_options.FfprobePath, "ffprobe");
 
         var media = await InspectAsync(sourcePath, cancellationToken);
+        if (request.Segments is { Count: > 0 })
+        {
+            return await ExportMultiSegmentAsync(request, request.Segments, media, sourcePath, destinationPath, destinationDirectory, outputExtension, progress, cancellationToken);
+        }
         ValidateRequest(request, media);
         if (request.Mode == ExportMode.AccurateReencode && media.IsHdr)
         {
@@ -192,6 +196,414 @@ public sealed class MediaExportService
         finally
         {
             TryDelete(temporaryPath);
+        }
+    }
+
+    private static void ValidateMultiSegmentRequest(ExportRequest request, MediaInfo media)
+    {
+        if (request.Mode is not ExportMode.AccurateReencode and not ExportMode.StreamCopyApproximate)
+        {
+            throw new ExportValidationException("書き出し方法を選択してください。");
+        }
+
+        if (!Enum.IsDefined(request.OutputContainer))
+        {
+            throw new ExportValidationException("書き出し形式を選択してください。");
+        }
+
+        var segments = request.Segments!;
+        if (request.Mode == ExportMode.StreamCopyApproximate && segments.Count >= 2)
+        {
+            throw new ExportValidationException("分割した動画は「高速切り出し（画質維持）」では書き出せません。");
+        }
+
+        foreach (var segment in segments)
+        {
+            if (!double.IsFinite(segment.StartSeconds) || !double.IsFinite(segment.EndSeconds))
+            {
+                throw new ExportValidationException("開始時刻と終了時刻には有限の数値を指定してください。");
+            }
+
+            if (segment.StartSeconds < 0)
+            {
+                throw new ExportValidationException("開始時刻は 0 秒以上にしてください。");
+            }
+
+            if (segment.EndSeconds <= segment.StartSeconds)
+            {
+                throw new ExportValidationException("終了時刻は開始時刻より後にしてください。");
+            }
+
+            if (segment.EndSeconds > media.DurationSeconds)
+            {
+                throw new ExportValidationException("終了時刻が動画の再生時間を超えています。");
+            }
+
+            MediaGeometry.ValidateAdditionalRotation(segment.AdditionalRotationDegreesClockwise);
+            MediaGeometry.ValidatePlaybackSpeed(segment.PlaybackSpeed);
+            MediaGeometry.ValidateZoom(segment.ZoomFactor, segment.ZoomFocusX, segment.ZoomFocusY);
+            if (segment.Crop is { } crop)
+            {
+                MediaGeometry.ValidateCrop(crop, media.DisplayWidth, media.DisplayHeight);
+            }
+        }
+
+        if (request.Mode == ExportMode.StreamCopyApproximate && segments.Count == 1)
+        {
+            var only = segments[0];
+            if (only.Crop is not null || only.AdditionalRotationDegreesClockwise != 0 || only.PlaybackSpeed != 1.0 || only.ZoomFactor > 1.0)
+            {
+                throw new ExportValidationException("「高速切り出し（画質維持）」では、クロップ・ズーム・回転・速度変更はできません。「高速切り出し（画質維持）」を解除して書き出してください。");
+            }
+        }
+
+        for (var i = 1; i < segments.Count; i++)
+        {
+            if (!(segments[i].StartSeconds >= segments[i - 1].EndSeconds))
+            {
+                throw new ExportValidationException("区間の順序が正しくないか、区間どうしが重なっています。");
+            }
+        }
+    }
+
+    private async Task<ExportResult> ExportMultiSegmentAsync(
+        ExportRequest request,
+        IReadOnlyList<ExportSegment> segments,
+        MediaInfo media,
+        string sourcePath,
+        string destinationPath,
+        string? destinationDirectory,
+        string outputExtension,
+        IProgress<ExportProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        ValidateMultiSegmentRequest(request, media);
+        if (request.Mode == ExportMode.AccurateReencode && media.IsHdr)
+        {
+            throw new ExportValidationException(
+                "HDR 動画の通常の書き出しには対応していません。色が変わるのを防ぐため、書き出しを中止しました。「高速切り出し（画質維持）」を選ぶと元の色のまま保存できます。");
+        }
+
+        if (request.Mode == ExportMode.StreamCopyApproximate)
+        {
+            var only = segments[0];
+            var single = new ExportRequest(
+                request.SourcePath,
+                request.DestinationPath,
+                only.StartSeconds,
+                only.EndSeconds,
+                only.Crop,
+                request.Mode,
+                only.AdditionalRotationDegreesClockwise,
+                only.PlaybackSpeed,
+                request.OutputContainer,
+                only.ZoomFactor,
+                only.ZoomFocusX,
+                only.ZoomFocusY);
+            return await ExportAsync(single, progress, cancellationToken);
+        }
+
+        var canvas = MediaGeometry.ComputeExportDimensions(media, segments[0].Crop, segments[0].AdditionalRotationDegreesClockwise);
+        var requestedDuration = 0d;
+        var expectedDuration = 0d;
+        foreach (var segment in segments)
+        {
+            var length = segment.EndSeconds - segment.StartSeconds;
+            requestedDuration += length;
+            expectedDuration += length / segment.PlaybackSpeed;
+        }
+
+        var temporaryPath = CreateTemporaryPath(destinationDirectory!, Path.GetFileNameWithoutExtension(destinationPath), outputExtension);
+        try
+        {
+            var arguments = BuildMultiSegmentArguments(media, request, segments, sourcePath, temporaryPath, canvas.Item1, canvas.Item2, expectedDuration);
+            var lastProgress = 0d;
+            void OnProgressLine(string line)
+            {
+                if (!TryReadProcessedSeconds(line, out var processedSeconds))
+                {
+                    return;
+                }
+
+                var fraction = Math.Clamp(processedSeconds / expectedDuration, 0, 0.995);
+                lastProgress = Math.Max(lastProgress, fraction);
+                Report(progress, ExportProgressPhase.Encoding, lastProgress, processedSeconds, expectedDuration, "動画を書き出し中…");
+            }
+
+            var processResult = await ProcessExecution.RunAsync(
+                _options.FfmpegPath,
+                arguments,
+                cancellationToken,
+                onStandardOutputLine: OnProgressLine,
+                maxDiagnosticCharacters: MaxDiagnosticCharacters);
+
+            if (processResult.ExitCode != 0)
+            {
+                throw new ExportException(
+                    "動画を書き出せませんでした。保存先の空き容量と FFmpeg の対応形式を確認してください。",
+                    FormatDiagnostic("FFmpeg", processResult.StandardError));
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!File.Exists(temporaryPath) || new FileInfo(temporaryPath).Length <= 0)
+            {
+                throw new ExportException("書き出した動画が空でした。保存先の空き容量を確認してください。");
+            }
+
+            Report(progress, ExportProgressPhase.Verifying, Math.Max(lastProgress, 0.995), expectedDuration, expectedDuration, "書き出した動画を確認中…");
+            var outputInfo = await InspectAsync(temporaryPath, cancellationToken);
+            ValidateMultiSegmentOutputMedia(outputInfo, media, request, segments, canvas.Item1, canvas.Item2, _options.Encoder);
+
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                File.Move(temporaryPath, destinationPath, overwrite: false);
+            }
+            catch (IOException) when (File.Exists(destinationPath))
+            {
+                throw new ExportValidationException("出力先には既にファイルがあります。別の名前を指定してください。");
+            }
+
+            Report(progress, ExportProgressPhase.Completed, 1, expectedDuration, expectedDuration, "書き出しが完了しました。");
+            return new ExportResult(
+                destinationPath,
+                requestedDuration,
+                outputInfo,
+                request.Mode,
+                false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (ExportException)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            throw new ExportException("動画を書き出せませんでした。保存先とアクセス権を確認してください。", exception.Message, exception);
+        }
+        finally
+        {
+            TryDelete(temporaryPath);
+        }
+    }
+
+    private IReadOnlyList<string> BuildMultiSegmentArguments(
+        MediaInfo media,
+        ExportRequest request,
+        IReadOnlyList<ExportSegment> segments,
+        string sourcePath,
+        string temporaryPath,
+        int canvasWidth,
+        int canvasHeight,
+        double expectedDuration)
+    {
+        var arguments = new List<string>
+        {
+            "-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1",
+            "-n"
+        };
+
+        foreach (var segment in segments)
+        {
+            arguments.AddRange(["-ss", FormatSeconds(segment.StartSeconds), "-noautorotate", "-i", sourcePath]);
+        }
+
+        var graph = new StringBuilder();
+        var videoLabels = new List<string>(segments.Count);
+        var audioLabels = new List<string>(segments.Count);
+        for (var index = 0; index < segments.Count; index++)
+        {
+            var segment = segments[index];
+            var sourceLength = segment.EndSeconds - segment.StartSeconds;
+            var trimEnd = FormatSeconds(sourceLength);
+            var filters = new List<string>
+            {
+                "setpts=PTS-STARTPTS",
+                $"trim=start=0:end={trimEnd}",
+                "setpts=PTS-STARTPTS",
+                $"scale={media.DisplayWidthBeforeRotation()}:{media.DisplayHeightBeforeRotation()}:flags=lanczos",
+                "setsar=1"
+            };
+
+            switch (media.RotationDegreesClockwise)
+            {
+                case 90:
+                    filters.Add("transpose=clock");
+                    break;
+                case 180:
+                    filters.Add("hflip,vflip");
+                    break;
+                case 270:
+                    filters.Add("transpose=cclock");
+                    break;
+            }
+
+            if (segment.Crop is { } rectangle)
+            {
+                filters.Add(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"crop={rectangle.Width}:{rectangle.Height}:{rectangle.X}:{rectangle.Y}"));
+            }
+
+            if (segment.ZoomFactor > 1.0)
+            {
+                var viewport = segment.Crop ?? new CropRect(0, 0, media.DisplayWidth, media.DisplayHeight);
+                var sample = MediaGeometry.ComputeZoomSampleRect(viewport, segment.ZoomFactor, segment.ZoomFocusX, segment.ZoomFocusY);
+                filters.Add(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"crop={sample.Width}:{sample.Height}:{sample.X - viewport.X}:{sample.Y - viewport.Y}"));
+                filters.Add(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"scale={viewport.Width}:{viewport.Height}:flags=lanczos"));
+            }
+
+            switch (segment.AdditionalRotationDegreesClockwise)
+            {
+                case 90:
+                    filters.Add("transpose=clock");
+                    break;
+                case 180:
+                    filters.Add("hflip,vflip");
+                    break;
+                case 270:
+                    filters.Add("transpose=cclock");
+                    break;
+            }
+
+            if (segment.PlaybackSpeed != 1.0)
+            {
+                filters.Add($"setpts=PTS/{FormatSeconds(segment.PlaybackSpeed)}");
+                filters.Add("setpts=PTS-STARTPTS");
+            }
+
+            filters.Add("pad=ceil(iw/2)*2:ceil(ih/2)*2");
+            var edited = MediaGeometry.ComputeExportDimensions(media, segment.Crop, segment.AdditionalRotationDegreesClockwise);
+            if (edited != (canvasWidth, canvasHeight))
+            {
+                filters.Add(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"scale={canvasWidth}:{canvasHeight}:force_original_aspect_ratio=decrease:flags=lanczos"));
+                filters.Add(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"pad={canvasWidth}:{canvasHeight}:(ow-iw)/2:(oh-ih)/2:black"));
+            }
+
+            filters.Add("setsar=1");
+            filters.Add("sidedata=mode=delete:type=DISPLAYMATRIX");
+            var videoOut = $"[v{index}]";
+            graph.Append($"[{index}:v:0]{string.Join(',', filters)}{videoOut};");
+            videoLabels.Add(videoOut);
+
+            if (media.HasAudio)
+            {
+                var audioFilters = new List<string>
+                {
+                    "asetpts=PTS-STARTPTS",
+                    $"atrim=start=0:end={trimEnd}",
+                    "asetpts=PTS-STARTPTS"
+                };
+                if (segment.PlaybackSpeed != 1.0)
+                {
+                    audioFilters.Add(BuildAtempoFilter(segment.PlaybackSpeed));
+                }
+
+                audioFilters.Add("asetpts=PTS-STARTPTS");
+                var audioOut = $"[a{index}]";
+                graph.Append($"[{index}:a:0]{string.Join(',', audioFilters)}{audioOut};");
+                audioLabels.Add(audioOut);
+            }
+        }
+
+        graph.Append($"{string.Concat(videoLabels)}concat=n={segments.Count}:v=1:a=0[vout]");
+        if (media.HasAudio)
+        {
+            graph.Append(';');
+            graph.Append($"{string.Concat(audioLabels)}concat=n={segments.Count}:v=0:a=1[aout]");
+        }
+
+        arguments.AddRange(["-filter_complex", graph.ToString()]);
+        arguments.AddRange(["-map", "[vout]"]);
+        if (media.HasAudio)
+        {
+            arguments.AddRange(["-map", "[aout]"]);
+        }
+
+        arguments.AddRange(["-sn", "-dn"]);
+        arguments.AddRange(["-t", FormatSeconds(expectedDuration)]);
+        arguments.AddRange(
+        [
+            "-map_metadata", "-1", "-map_metadata:s:v:0", "-1",
+            "-c:v", _options.Encoder == VideoEncoder.H264 ? "libx264" : "libx265", "-preset", ExportPresetName(),
+            "-crf", _options.ConstantRateFactor.ToString(CultureInfo.InvariantCulture),
+            "-pix_fmt", "yuv420p"
+        ]);
+
+        if (media.HasAudio)
+        {
+            arguments.AddRange(["-c:a", "aac", "-b:a", "192k"]);
+        }
+
+        if (request.OutputContainer is ExportContainer.Mp4 or ExportContainer.Mov)
+        {
+            arguments.AddRange(["-movflags", "+faststart"]);
+        }
+
+        if (_options.Encoder == VideoEncoder.H265 && request.OutputContainer is ExportContainer.Mp4 or ExportContainer.Mov)
+        {
+            arguments.AddRange(["-tag:v", "hvc1"]);
+        }
+
+        arguments.AddRange(["-f", GetMuxer(request.OutputContainer), temporaryPath]);
+        return arguments;
+    }
+
+    private static void ValidateMultiSegmentOutputMedia(
+        MediaInfo output,
+        MediaInfo source,
+        ExportRequest request,
+        IReadOnlyList<ExportSegment> segments,
+        int canvasWidth,
+        int canvasHeight,
+        VideoEncoder encoder)
+    {
+        ValidateOutputContainer(output, request.OutputContainer);
+        if (output.RotationDegreesClockwise != 0)
+        {
+            throw new ExportException("書き出した動画の回転情報が元動画と一致しませんでした。");
+        }
+
+        if (output.CodedWidth != canvasWidth || output.CodedHeight != canvasHeight)
+        {
+            throw new ExportException("書き出した動画のサイズが指定した範囲と一致しませんでした。");
+        }
+
+        if (output.HasAudio != source.HasAudio)
+        {
+            throw new ExportException("書き出した動画の音声ストリームが元動画と一致しませんでした。");
+        }
+
+        var expectedDuration = 0d;
+        foreach (var segment in segments)
+        {
+            expectedDuration += (segment.EndSeconds - segment.StartSeconds) / segment.PlaybackSpeed;
+        }
+
+        var baseTolerance = Math.Max(0.15, Math.Min(1, expectedDuration * 0.02));
+        var durationTolerance = baseTolerance + (0.1 * (segments.Count - 1));
+        var expectedVideoCodec = encoder == VideoEncoder.H264 ? "h264" : "hevc";
+        if (!output.VideoCodec.Equals(expectedVideoCodec, StringComparison.OrdinalIgnoreCase) ||
+            (source.HasAudio && !string.Equals(output.AudioCodec, "aac", StringComparison.OrdinalIgnoreCase)) ||
+            Math.Abs(output.DurationSeconds - expectedDuration) > durationTolerance)
+        {
+            throw new ExportException("書き出した動画の形式または再生時間が指定内容と一致しませんでした。");
+        }
+
+        if (!double.IsFinite(output.DurationSeconds) || output.DurationSeconds <= 0)
+        {
+            throw new ExportException("書き出した動画の再生時間を確認できませんでした。");
         }
     }
 

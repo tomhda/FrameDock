@@ -359,6 +359,20 @@ internal static class Program
             Pass("speed changes on offset-timestamp video preserve the selected frames and audio duration");
             await CheckLateStartSeekAsync(ffmpegPath, ffprobePath, service, testRoot);
             Pass("late trims past 20 seconds use two-stage seek and preserve the selected frames");
+            await CheckMultiSegmentEditsAsync(service, ffmpegPath, testRoot);
+            Pass("multi-segment edits share the first canvas, fit later segments with black bars, and match total time");
+            await CheckMultiSegmentGapAsync(service, ffmpegPath, testRoot);
+            Pass("multi-segment gaps join end-adjacent frames without decoding deleted ranges");
+            await CheckMultiSegmentSpeedsAsync(service, ffmpegPath, ffprobePath, testRoot);
+            Pass("multi-segment speeds sum video and audio to the speed-adjusted total with progress");
+            await CheckMultiSegmentSilentAsync(service, ffmpegPath, testRoot);
+            Pass("multi-segment export handles silent video without inventing audio");
+            await CheckMultiSegmentOffsetStartAsync(service, ffmpegPath, testRoot);
+            Pass("multi-segment trims on nonzero-start MPEG-TS use clip-relative times including past 20 seconds");
+            await CheckMultiSegmentValidationAsync(service, ffmpegPath, testRoot);
+            Pass("multi-segment validation rejects overlap, order, stream-copy, and range errors with fixed copy");
+            await CheckMultiSegmentCancellationAsync(service, ffmpegPath, testRoot);
+            Pass("multi-segment cancellation removes temporaries and preserves the input");
 
             var cancelSource = await CreateCancellationFixtureAsync(ffmpegPath, testRoot);
             var cancelHash = await HashFileAsync(cancelSource);
@@ -579,6 +593,227 @@ internal static class Program
             Assert(Math.Abs(await ReadStreamDurationAsync(ffprobePath, output, "a:0") - expectedDuration) < 0.25,
                 "late audio must cover the same speed-adjusted interval as video");
         }
+    }
+
+    private static async Task<string> CreateTimed12FixtureAsync(string ffmpegPath, string testRoot)
+    {
+        var source = Path.Combine(testRoot, $"timed12-{Guid.NewGuid():N}.mp4");
+        await RunFfmpegAsync(ffmpegPath,
+        [
+            "-hide_banner", "-loglevel", "error",
+            "-f", "lavfi", "-i", "color=red:s=64x48:r=30:d=4",
+            "-f", "lavfi", "-i", "color=green:s=64x48:r=30:d=4",
+            "-f", "lavfi", "-i", "color=blue:s=64x48:r=30:d=4",
+            "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=12",
+            "-filter_complex", "[0:v][1:v][2:v]concat=n=3:v=1:a=0[v]",
+            "-map", "[v]", "-map", "3:a", "-c:v", "libx264", "-preset", "ultrafast",
+            "-g", "30", "-pix_fmt", "yuv420p", "-c:a", "aac", "-y", source
+        ]);
+        return source;
+    }
+
+    private static async Task CheckMultiSegmentEditsAsync(MediaExportService service, string ffmpegPath, string testRoot)
+    {
+        var source = await CreateTimed12FixtureAsync(ffmpegPath, testRoot);
+        var segments = new List<ExportSegment>
+        {
+            new(0, 2),
+            new(4, 6, AdditionalRotationDegreesClockwise: 90),
+            new(8, 10, Crop: new CropRect(0, 0, 32, 32), ZoomFactor: 2.0)
+        };
+        var output = Path.Combine(testRoot, $"multi-edits-{Guid.NewGuid():N}.mp4");
+        var result = await service.ExportAsync(new ExportRequest(source, output, 0, 1, Segments: segments));
+        Assert(result.OutputMediaInfo.CodedWidth == 64 && result.OutputMediaInfo.CodedHeight == 48, "canvas should follow the first segment at 64x48");
+        Assert(Math.Abs(result.RequestedDurationSeconds - 6.0) < 0.001, "requested duration should sum source lengths before speed");
+        Assert(Math.Abs(result.OutputMediaInfo.DurationSeconds - 6.0) < 0.3, $"edited output should last about 6s, got {result.OutputMediaInfo.DurationSeconds}s");
+        var first = await ReadFramePixelAtAsync(ffmpegPath, output, 1.0, 32, 24, testRoot);
+        Assert(first.R > 200 && first.G < 30 && first.B < 30, $"first segment should stay red, got RGB {first.R},{first.G},{first.B}");
+        var secondCenter = await ReadFramePixelAtAsync(ffmpegPath, output, 3.0, 32, 24, testRoot);
+        Assert(secondCenter.G > 80 && secondCenter.R < 30 && secondCenter.B < 30, $"rotated second segment should stay green at the center, got RGB {secondCenter.R},{secondCenter.G},{secondCenter.B}");
+        var secondEdge = await ReadFramePixelAtAsync(ffmpegPath, output, 3.0, 3, 24, testRoot);
+        Assert(secondEdge.R < 30 && secondEdge.G < 30 && secondEdge.B < 30, $"rotated segment fitted to the canvas should pad the sides black, got RGB {secondEdge.R},{secondEdge.G},{secondEdge.B}");
+        var thirdCenter = await ReadFramePixelAtAsync(ffmpegPath, output, 5.0, 32, 24, testRoot);
+        Assert(thirdCenter.B > 80 && thirdCenter.R < 30 && thirdCenter.G < 30, $"cropped and zoomed third segment should stay blue at the center, got RGB {thirdCenter.R},{thirdCenter.G},{thirdCenter.B}");
+        var thirdEdge = await ReadFramePixelAtAsync(ffmpegPath, output, 5.0, 2, 24, testRoot);
+        Assert(thirdEdge.R < 30 && thirdEdge.G < 30 && thirdEdge.B < 30, $"cropped segment fitted to the canvas should pad the sides black, got RGB {thirdEdge.R},{thirdEdge.G},{thirdEdge.B}");
+    }
+
+    private static async Task CheckMultiSegmentGapAsync(MediaExportService service, string ffmpegPath, string testRoot)
+    {
+        var source = await CreateTimed12FixtureAsync(ffmpegPath, testRoot);
+        var segments = new List<ExportSegment> { new(1, 2), new(5, 6) };
+        var output = Path.Combine(testRoot, $"multi-gap-{Guid.NewGuid():N}.mp4");
+        var result = await service.ExportAsync(new ExportRequest(source, output, 0, 1, Segments: segments));
+        Assert(Math.Abs(result.OutputMediaInfo.DurationSeconds - 2.0) < 0.3, $"gapped output should last about 2s, got {result.OutputMediaInfo.DurationSeconds}s");
+        var beforeJoint = await ReadFramePixelAtAsync(ffmpegPath, output, 0.9, 32, 24, testRoot);
+        Assert(beforeJoint.R > 200 && beforeJoint.G < 30 && beforeJoint.B < 30, $"frame before the joint should be the first segment tail (red), got RGB {beforeJoint.R},{beforeJoint.G},{beforeJoint.B}");
+        var afterJoint = await ReadFramePixelAtAsync(ffmpegPath, output, 1.1, 32, 24, testRoot);
+        Assert(afterJoint.G > 80 && afterJoint.R < 30 && afterJoint.B < 30, $"frame after the joint should be the second segment head (green), got RGB {afterJoint.R},{afterJoint.G},{afterJoint.B}");
+    }
+
+    private static async Task CheckMultiSegmentSpeedsAsync(MediaExportService service, string ffmpegPath, string ffprobePath, string testRoot)
+    {
+        var source = await CreateTimed12FixtureAsync(ffmpegPath, testRoot);
+        var segments = new List<ExportSegment> { new(0, 2, PlaybackSpeed: 1.0), new(4, 6, PlaybackSpeed: 2.0) };
+        var output = Path.Combine(testRoot, $"multi-speed-{Guid.NewGuid():N}.mp4");
+        ExportProgress? latestEncodingProgress = null;
+        var result = await service.ExportAsync(
+            new ExportRequest(source, output, 0, 1, Segments: segments),
+            new ImmediateProgress<ExportProgress>(item =>
+            {
+                if (item.Phase == ExportProgressPhase.Encoding)
+                {
+                    latestEncodingProgress = item;
+                }
+            }));
+        Assert(Math.Abs(result.RequestedDurationSeconds - 4.0) < 0.001, "requested duration should sum lengths before speed");
+        Assert(Math.Abs(result.OutputMediaInfo.DurationSeconds - 3.0) < 0.3, $"speed output should last about 3s, got {result.OutputMediaInfo.DurationSeconds}s");
+        var audioDuration = await ReadStreamDurationAsync(ffprobePath, output, "a:0");
+        Assert(Math.Abs(audioDuration - 3.0) < 0.3, $"speed audio should also last about 3s, got {audioDuration}s");
+        Assert(latestEncodingProgress is not null && Math.Abs(latestEncodingProgress.ExpectedSeconds - 3.0) < 0.001, "encoding progress should use the summed speed-adjusted duration");
+    }
+
+    private static async Task CheckMultiSegmentSilentAsync(MediaExportService service, string ffmpegPath, string testRoot)
+    {
+        var silentSource = Path.Combine(testRoot, $"multi-silent-{Guid.NewGuid():N}.mp4");
+        await RunFfmpegAsync(ffmpegPath,
+        [
+            "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc2=size=64x48:rate=30:duration=4",
+            "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-y", silentSource
+        ]);
+        Assert(!(await service.InspectAsync(silentSource)).HasAudio, "silent multi fixture should report no audio");
+        var segments = new List<ExportSegment> { new(0, 1), new(2, 3) };
+        var output = Path.Combine(testRoot, $"multi-silent-out-{Guid.NewGuid():N}.mp4");
+        var result = await service.ExportAsync(new ExportRequest(silentSource, output, 0, 1, Segments: segments));
+        Assert(!result.OutputMediaInfo.HasAudio, "silent multi export should stay silent");
+        Assert(Math.Abs(result.OutputMediaInfo.DurationSeconds - 2.0) < 0.3, $"silent multi output should last about 2s, got {result.OutputMediaInfo.DurationSeconds}s");
+    }
+
+    private static async Task CheckMultiSegmentOffsetStartAsync(MediaExportService service, string ffmpegPath, string testRoot)
+    {
+        var source = Path.Combine(testRoot, $"multi-timed30-{Guid.NewGuid():N}.mp4");
+        await RunFfmpegAsync(ffmpegPath,
+        [
+            "-hide_banner", "-loglevel", "error",
+            "-f", "lavfi", "-i", "color=red:s=64x48:r=30:d=10",
+            "-f", "lavfi", "-i", "color=green:s=64x48:r=30:d=10",
+            "-f", "lavfi", "-i", "color=blue:s=64x48:r=30:d=10",
+            "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=30",
+            "-filter_complex", "[0:v][1:v][2:v]concat=n=3:v=1:a=0[v]",
+            "-map", "[v]", "-map", "3:a", "-c:v", "libx264", "-preset", "ultrafast",
+            "-g", "30", "-pix_fmt", "yuv420p", "-c:a", "aac", "-y", source
+        ]);
+        var offsetSource = Path.Combine(testRoot, $"multi-timed30-offset-{Guid.NewGuid():N}.ts");
+        await RunFfmpegAsync(ffmpegPath,
+        ["-hide_banner", "-loglevel", "error", "-i", source, "-c", "copy", "-output_ts_offset", "1.4", "-f", "mpegts", "-y", offsetSource]);
+        Assert((await service.InspectAsync(offsetSource)).StartTimeSeconds > 1, "offset fixture must exercise nonzero start timestamps");
+        var segments = new List<ExportSegment> { new(1, 3), new(21, 23) };
+        var output = Path.Combine(testRoot, $"multi-offset-{Guid.NewGuid():N}.mp4");
+        var result = await service.ExportAsync(new ExportRequest(offsetSource, output, 0, 1, Segments: segments));
+        Assert(Math.Abs(result.OutputMediaInfo.DurationSeconds - 4.0) < 0.4, $"offset multi output should last about 4s, got {result.OutputMediaInfo.DurationSeconds}s");
+        var head = await ReadFramePixelAtAsync(ffmpegPath, output, 0.5, 32, 24, testRoot);
+        Assert(head.R > 200 && head.G < 30 && head.B < 30, $"offset multi head should be red, got RGB {head.R},{head.G},{head.B}");
+        var tail = await ReadFramePixelAtAsync(ffmpegPath, output, 3.0, 32, 24, testRoot);
+        Assert(tail.B > 80 && tail.R < 30 && tail.G < 30, $"offset multi tail past 20s should be blue, got RGB {tail.R},{tail.G},{tail.B}");
+    }
+
+    private static async Task CheckMultiSegmentValidationAsync(MediaExportService service, string ffmpegPath, string testRoot)
+    {
+        var source = await CreateTimed12FixtureAsync(ffmpegPath, testRoot);
+        await AssertExportRejectedWithMessageAsync(
+            service,
+            new ExportRequest(source, Path.Combine(testRoot, "overlap.mp4"), 0, 1, Segments: new List<ExportSegment> { new(1, 3), new(2, 4) }),
+            "区間の順序が正しくないか、区間どうしが重なっています。",
+            "overlapping segments");
+        await AssertExportRejectedWithMessageAsync(
+            service,
+            new ExportRequest(source, Path.Combine(testRoot, "order.mp4"), 0, 1, Segments: new List<ExportSegment> { new(5, 6), new(1, 2) }),
+            "区間の順序が正しくないか、区間どうしが重なっています。",
+            "out-of-order segments");
+        await AssertExportRejectedWithMessageAsync(
+            service,
+            new ExportRequest(source, Path.Combine(testRoot, "copy-multi.mp4"), 0, 1, Mode: ExportMode.StreamCopyApproximate, Segments: new List<ExportSegment> { new(1, 2), new(3, 4) }),
+            "分割した動画は「高速切り出し（画質維持）」では書き出せません。",
+            "multi-segment stream-copy");
+        await AssertExportRejectedAsync(
+            service,
+            new ExportRequest(source, Path.Combine(testRoot, "past-end.mp4"), 0, 1, Segments: new List<ExportSegment> { new(1, 20) }),
+            "segment past duration");
+        await AssertExportRejectedAsync(
+            service,
+            new ExportRequest(source, Path.Combine(testRoot, "copy-one-crop.mp4"), 0, 1, Mode: ExportMode.StreamCopyApproximate, Segments: new List<ExportSegment> { new(1, 2, Crop: new CropRect(0, 0, 32, 32)) }),
+            "single-segment stream-copy crop");
+        var adjacentOutput = Path.Combine(testRoot, $"multi-adjacent-{Guid.NewGuid():N}.mp4");
+        var adjacentResult = await service.ExportAsync(new ExportRequest(
+            source, adjacentOutput, 0, 1, Segments: new List<ExportSegment> { new(1, 2), new(2, 3) }));
+        Assert(Math.Abs(adjacentResult.OutputMediaInfo.DurationSeconds - 2.0) < 0.3, "adjacent segments sharing a boundary should concatenate");
+    }
+
+    private static async Task CheckMultiSegmentCancellationAsync(MediaExportService service, string ffmpegPath, string testRoot)
+    {
+        var cancelSource = await CreateCancellationFixtureAsync(ffmpegPath, testRoot);
+        var cancelHash = await HashFileAsync(cancelSource);
+        var cancelDestination = Path.Combine(testRoot, "multi-cancelled-output.mp4");
+        using var cancellation = new CancellationTokenSource();
+        var cancellationProgress = new ImmediateProgress<ExportProgress>(item =>
+        {
+            if (item.Phase == ExportProgressPhase.Encoding)
+            {
+                cancellation.Cancel();
+            }
+        });
+        var segments = new List<ExportSegment> { new(0, 20), new(20, 40), new(40, 60) };
+        var cancellationThrown = false;
+        try
+        {
+            await service.ExportAsync(new ExportRequest(cancelSource, cancelDestination, 0, 1, Segments: segments), cancellationProgress, cancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            cancellationThrown = true;
+        }
+
+        Assert(cancellationThrown, "cancel request should cancel the multi-segment export");
+        Assert(!File.Exists(cancelDestination), "cancelled multi export must not commit the final output");
+        Assert(!Directory.EnumerateFiles(testRoot, "*.partial.mp4").Any(), "cancelled multi export must remove its own temporary file");
+        Assert(cancelHash == await HashFileAsync(cancelSource), "cancelled multi export must preserve the input bytes");
+    }
+
+    private static async Task<(byte R, byte G, byte B)> ReadFramePixelAtAsync(
+        string ffmpegPath,
+        string videoPath,
+        double seconds,
+        int x,
+        int y,
+        string testRoot)
+    {
+        var imagePath = Path.Combine(testRoot, $"sample-{Guid.NewGuid():N}.ppm");
+        await RunFfmpegAsync(ffmpegPath,
+        ["-hide_banner", "-loglevel", "error", "-ss", seconds.ToString(CultureInfo.InvariantCulture), "-i", videoPath, "-frames:v", "1", "-f", "image2", "-vcodec", "ppm", "-y", imagePath]);
+        var bytes = await File.ReadAllBytesAsync(imagePath);
+        var offset = FindPpmPixelOffset(bytes, out var width, out var height);
+        if (x < 0 || y < 0 || x >= width || y >= height)
+        {
+            throw new InvalidOperationException($"sample pixel {x},{y} exceeds output image {width}x{height}");
+        }
+
+        offset += (y * width + x) * 3;
+        return (bytes[offset], bytes[offset + 1], bytes[offset + 2]);
+    }
+
+    private static async Task AssertExportRejectedWithMessageAsync(MediaExportService service, ExportRequest request, string expectedMessage, string assertionName)
+    {
+        try
+        {
+            await service.ExportAsync(request);
+        }
+        catch (ExportValidationException exception)
+        {
+            Assert(exception.UserMessage == expectedMessage, $"expected fixed copy for {assertionName}, got '{exception.UserMessage}'");
+            return;
+        }
+
+        throw new InvalidOperationException($"expected validation rejection for {assertionName}");
     }
 
     private static async Task<string> CreateCancellationFixtureAsync(string ffmpegPath, string testRoot)

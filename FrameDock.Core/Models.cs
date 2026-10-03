@@ -58,6 +58,16 @@ public enum ExportContainer
     Mov
 }
 
+public sealed record ExportSegment(
+    double StartSeconds,
+    double EndSeconds,
+    CropRect? Crop = null,
+    int AdditionalRotationDegreesClockwise = 0,
+    double PlaybackSpeed = 1.0,
+    double ZoomFactor = 1.0,
+    double ZoomFocusX = 0.5,
+    double ZoomFocusY = 0.5);
+
 public sealed record ExportRequest(
     string SourcePath,
     string DestinationPath,
@@ -70,7 +80,8 @@ public sealed record ExportRequest(
     ExportContainer OutputContainer = ExportContainer.Mp4,
     double ZoomFactor = 1.0,
     double ZoomFocusX = 0.5,
-    double ZoomFocusY = 0.5);
+    double ZoomFocusY = 0.5,
+    IReadOnlyList<ExportSegment>? Segments = null);
 
 public enum ExportProgressPhase
 {
