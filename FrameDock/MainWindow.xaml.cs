@@ -479,7 +479,21 @@ public sealed partial class MainWindow : Window
         titleBar.ButtonHoverForegroundColor = foreground;
         titleBar.ButtonPressedBackgroundColor = pressed;
         titleBar.ButtonPressedForegroundColor = foreground;
+
+        // AppWindowTitleBar colors alone leave a one-pixel strip of the default
+        // (light) frame above and below the caption at fractional scales such
+        // as 125%. Theme the frame itself so nothing light shows through.
+        var useDarkFrame = dark ? 1 : 0;
+        var captionColor = background.R | (background.G << 8) | (background.B << 16);
+        _ = DwmSetWindowAttribute(_windowHandle, DwmUseImmersiveDarkMode, ref useDarkFrame, sizeof(int));
+        _ = DwmSetWindowAttribute(_windowHandle, DwmCaptionColor, ref captionColor, sizeof(int));
     }
+
+    private const int DwmUseImmersiveDarkMode = 20;
+    private const int DwmCaptionColor = 35;
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
     private void UpdateControlsBackground()
     {
