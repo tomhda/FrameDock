@@ -1,94 +1,117 @@
 # FrameDock
 
-FrameDock は Windows 向けの動画プレイヤーです。動画を開いて再生し、同じウィンドウで範囲指定、クロップ、回転、速度変更をして、MP4 / MKV / MOV に書き出せます。
+[日本語](README.ja.md)
 
-## 必要な環境
+FrameDock is a video player for Windows, made to add what the built-in Media Player app lacks. It opens a video and plays it like any player, and in the same window you can step frame by frame, save frames, and trim, crop, rotate, zoom, change speed, split, and export.
 
-- Windows 10 バージョン 2004（ビルド 19041）以降、または Windows 11 x64
-- .NET 8 SDK
-- 初回の依存取得時はインターネット接続と、Windows 11 に含まれる `tar.exe`
-- PowerShell 5.1 以降
+![Playback with the controls hidden](docs/images/playback.jpg)
 
-## Release の作成と実行
+## What it does
 
-リポジトリのルートで PowerShell を開き、次を実行します。スクリプトは依存アーカイブとライセンス文書の SHA-256 を検証してから配置します。実行ポリシーの変更が必要な環境では、次のように現在のプロセスだけに指定できます。
+- Plays local video files with libmpv, with frame-by-frame stepping and a configurable skip interval.
+- Saves the current frame as a PNG, or copies it to the clipboard.
+- Trims a range and exports it as MP4, MKV, or MOV (H.264 video and AAC audio).
+- Crops, rotates in 90° steps, zooms 1×–4×, and changes speed 0.5×–4× for the export, with a live preview.
+- Splits the range into segments. Each segment has its own crop, rotation, zoom, and speed, and segments can be deleted. The remaining segments are exported as one file.
+- Cuts without re-encoding ("Fast cut") when no other edit is applied.
+- Shows its interface in English or Japanese.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-release.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run.ps1
-```
+## Screenshots
 
-Release は `artifacts\release\win-x64` に生成されます。スクリプトは Release 中間生成物を clean してから発行し、WinUI の `App.xbf`、`MainWindow.xbf`、`FrameDock.pri` を含むことを確認します。`FrameDock.exe` と同じ場所に `libmpv-2.dll`、`Media\ffmpeg.exe`、`Media\ffprobe.exe` が配置され、`ThirdPartyNotices` にライセンスとビルド情報が入ります。
+In the maximized and full-screen modes the controls stay out of the way and appear when you move the pointer to the bottom of the window.
 
-## Windows インストーラー
+![Playback with the controls shown](docs/images/playback-controls.jpg)
 
-Inno Setup はビルド時だけ使用し、インストール先には同梱しません。商用利用時は [Inno Setup のライセンス案内](https://jrsoftware.org/isorder.php) を確認してください。
+"Edit and more" (the **…** button) opens the menu for copying a frame, the editor, the display mode, the playback speed, and the settings.
 
-Windows x64 で次を実行すると、Release を作成して一つのオフライン対応セットアップ EXE をビルドします。
+![The menu](docs/images/menu-en.jpg)
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-installer.ps1
-```
+The editor opens below the video. This screenshot shows a video split into three segments, with the last one deleted.
 
-出力先は `artifacts\installer\FrameDock-Setup-<バージョン>-win-x64.exe` です（現在のアプリバージョンは `1.0.0`）。初回のビルドは固定バージョンの Inno Setup 7.1.0 を公式 GitHub リリースから取得し、SHA-256 と Authenticode 署名を確認して `tools\.cache\` 内だけに展開します。セットアップには Release のアプリ、WinUI リソース、libmpv、FFmpeg、ライセンス通知が入るため、インストール先で追加ダウンロードはありません。既存 Release を使う場合は `-SkipReleaseBuild` を指定できます。
+![The editor](docs/images/editor-en.jpg)
 
-セットアップはユーザーごとに `%LOCALAPPDATA%\Programs\FrameDock` へインストールし、スタートメニューの起動項目とアンインストーラーを作成します。デスクトップアイコンと一般的な動画形式の「プログラムから開く」登録は任意です。Windows の既定アプリは変更しません。セットアップは未署名のため、Windows SmartScreen が警告を表示する場合があります。
+The screenshots show [*Tears of Steel*](https://mango.blender.org/), (CC) Blender Foundation, licensed under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
 
-依存物は `vendor\`、ダウンロードしたアーカイブと一時ファイルは `tools\.cache\` に置かれます。これらはブートストラップが管理する生成物です。別の配置先で動作確認する場合は、`-InstallRoot` と `-CacheRoot` を指定できます。ローカルに保管したアーカイブを使う場合は `-MpvArchivePath` と `-FfmpegArchivePath` を渡せますが、固定 SHA-256 に合わないファイルは拒否されます。
+## Install
 
-```powershell
-$bootstrapScript = Join-Path (Join-Path $PWD 'tools') 'bootstrap-dependencies.ps1'
-& $bootstrapScript -InstallRoot 'D:/FrameDock-stage' -CacheRoot 'D:/FrameDock-cache' -MpvArchivePath 'D:/archives/mpv-dev-lgpl-x86_64-20260925-git-35af06172b.7z' -FfmpegArchivePath 'D:/archives/ffmpeg-9.0.2-essentials_build.7z'
-```
+FrameDock runs on Windows 10 version 2004 (build 19041) or later and Windows 11, x64.
 
-`build-release.ps1` は既定で依存を再検証します。すでに取得済みでネット接続がない場合は `-SkipDependencyBootstrap` を指定できます。その場合も `vendor\` 内の全バイナリとライセンス文書の SHA-256 を照合します。出力先を変えるときは、リポジトリ内のパスを `-OutputDirectory` に指定してください。
+1. Download `FrameDock-Setup-<version>-win-x64.exe` from the [Releases](../../releases) page.
+2. Run it. The setup is not code-signed, so Windows SmartScreen may show "Windows protected your PC". Select **More info**, then **Run anyway**.
+3. Follow the setup. It installs for the current user into `%LOCALAPPDATA%\Programs\FrameDock` and needs no administrator rights.
 
-## 使い方
+The setup contains everything FrameDock needs and downloads nothing. A desktop icon and an "Open with" entry for common video formats are optional. FrameDock does not change your default apps. To remove it, use **Installed apps** in Windows Settings.
 
-1. 「動画を開く」ボタンまたはドラッグ＆ドロップでローカル動画を開きます。
-2. 再生、シーク、フレーム送り、音量は下部の操作列から使えます。右端の「その他の操作」→「表示モード」で「常時表示」「最大化（タスクバー表示）」「全画面表示」を切り替えられます。速度と再生設定も「その他の操作」にあります。
-3. カメラボタンは表示中のフレームを PNG で保存します。保存先は「その他の操作」→「設定…」で、`ピクチャ\FrameDock`（既定）、指定したフォルダー、動画と同じフォルダー、動画と同じ場所のサブフォルダーから選べます。選んだ場所に保存できない場合は `ピクチャ\FrameDock` に保存します。ファイル名には動画名と再生時刻が入り、同名画像がある場合は番号を付けて残します。保存すると映像の上に通知が出て、「フォルダーを開く」で保存した場所を開けます。動画上で右クリックすると、現在のフレームをコピーできます。
-4. 「その他の操作」から「編集…」を開きます。再生位置を合わせて `[` のボタン（I キー）で開始点、`]` のボタン（O キー）で終了点を設定します。タイムライン上の範囲をドラッグするか、「開始」「終了」に `0:12.5` の形式または秒数を入力しても調整できます。
-5. 必要なら「クロップ」を押し、四隅と四辺の 8 つのハンドルで範囲を調整して「完了」を押します。「解除」で画面全体に戻ります。範囲は回転補正後の正方ピクセル表示を基準に扱います。回転ボタンは時計回りに 90 度ずつ回転します。
-6. ズームは 1×〜4× で調整でき、拡大中は映像をドラッグして表示位置を移動できます。倍率と位置は書き出しにも反映されます。「速度」ではプレビューと書き出しの速度を 0.5×〜4× から選べます。通常再生の速度とは別に設定します。「リセット」は編集内容を最初の状態に戻し、「×」は編集内容を残したまま編集を閉じます。新しい動画を開くと編集内容は初期化されます。
-7. ハサミのボタン（S キー）は再生位置で区間を分割します。クロップ、回転、ズーム、速度は、再生位置がある区間にだけ適用されます。ごみ箱のボタン（Delete キー）はその区間を削除し、もう一度押すと元に戻します。その右のボタンは前の区間と結合します。書き出しでは、残した区間を順につなげて 1 つのファイルにします。区間によって画面サイズが異なる場合は、最初の区間のサイズに合わせ、ほかの区間は縦横比を保ったまま黒い余白を付けて収めます。
-8. ファイル名、出力形式（MP4 / MKV / MOV）、保存先を決めて「書き出し」を押します。書き出し後のサイズはボタンの下に表示されます。既定は CPU による再エンコードです。書き出し中はキャンセルできます。完了すると映像の上に通知が出て、「フォルダーを開く」で書き出したファイルの場所を開けます。書き出し中に別の動画を開くかウィンドウを閉じると、書き出しを中止するか確認します。
+## Use
 
-「高速切り出し（画質維持）」にチェックを入れると、映像と音声を再エンコードせずにコピーします。キーフレームの位置で切れるため、指定した秒と前後することがあります。クロップ、回転、ズーム、速度変更、複数区間の書き出しとは併用できません。
+### Play
 
-キーボード操作: Space で再生／一時停止、← → で設定した秒数だけ移動、`,` `.` で 1 フレーム移動、F で全画面表示の切り替え、Esc で全画面表示またはクロップの終了、Ctrl+O で動画を開く、Ctrl+S でフレーム画像を保存します。編集中は I で開始点、O で終了点を再生位置に設定し、S で分割、Delete で区間の削除と復元を切り替えます。シークバーや音量バーにフォーカスがあるときの矢印キーは、そのバーの操作になります。
+- Open a video with the **Open video** button (Ctrl+O), or drop a file onto the window.
+- The controls along the bottom play and pause, skip, step one frame, and set the volume.
+- "Edit and more" → **Display mode** switches between always showing the controls below the video, a maximized window, and full screen.
+- "Edit and more" → **Playback speed** sets the viewing speed.
 
-表示言語は日本語と英語に対応しています。既定では Windows の表示言語に従い、「設定…」の「表示言語」で切り替えられます。切り替えは次回の起動時に反映されます。
+### Save a frame
 
-エラーの詳細は `%LOCALAPPDATA%\FrameDock\error.log` に記録されます。
+- The camera button (Ctrl+S) saves the current frame as a PNG. The file name contains the video name and the playback time, and an existing file is never overwritten.
+- A notification shows the full path, with an **Open folder** button.
+- Right-click the video to copy the current frame to the clipboard.
+- **Settings** chooses where frames go: `Pictures\FrameDock` (the default), a folder you choose, the folder of the video, or a subfolder next to the video. If that location can't be written to, the frame is saved to `Pictures\FrameDock`.
 
-## 制限
+### Edit and export
 
-- 入力と出力はローカルファイルを対象にし、出力形式は MP4 / MKV / MOV です。
-- 再エンコードはソフトウェア `libx264`（H.264）と AAC を使います。GPU エンコーダーは必要ありません。
-- HDR 動画の再エンコードは、色調を誤って変換しないよう現在は拒否します。HDR は「高速切り出し（画質維持）」であればメタデータを保ったまま出力できます。
-- 4:2:0 H.264 のクロップ範囲は、回転補正後の表示座標で指定し、位置と大きさを偶数ピクセルにそろえます。クロップなしの奇数サイズ映像は右端または下端に最大 1 ピクセルを追加します。
-- 出力先に同名ファイルがある場合は上書きせず、元動画を出力先に指定することもできません。
+Open the editor with "Edit and more" → **Edit…**.
 
-## ビルドとテスト
+1. **Range.** Move the playhead and set the start with the `[` button (I) and the end with the `]` button (O). You can also drag the range on the timeline, or type times as `0:12.5` or in seconds.
+2. **Picture.** **Crop** shows eight handles; adjust the area and select **Done**. **Clear** removes the crop. The rotate button turns the picture 90° clockwise each time. **Zoom** magnifies up to 4×, and while zoomed in you can drag the video to reposition it.
+3. **Speed.** Sets the speed of the preview and the export, separately from the viewing speed.
+4. **Split.** The scissors button (S) splits at the playhead. Crop, rotation, zoom, and speed apply only to the segment under the playhead. The trash button (Delete) deletes that segment, and pressing it again restores it. The button to its right merges the segment with the previous one.
+5. **Export.** Set the file name, the format, and the destination folder, then select **Export**. The output size is shown under the button. When the export finishes, a notification offers **Open folder**.
 
-Core ライブラリのビルドと、FFmpeg を使わない幾何チェック:
+Kept segments are joined in order into one file. If segments differ in size, the first kept segment sets the output size and the others are fitted inside it with black bars.
 
-```powershell
-dotnet build .\FrameDock.Core\FrameDock.Core.csproj
-dotnet run --project .\FrameDock.Core.Tests\FrameDock.Core.Tests.csproj
-```
+**Fast cut (original quality)** copies the video and audio without re-encoding. The cut points move to the nearest keyframes, so they can differ from the times you set. It can't be combined with crop, rotation, zoom, speed changes, or more than one segment.
 
-同梱 FFmpeg でエンコード・ffprobe 統合チェックも実行するには、次の環境変数を設定してからテストハーネスを起動します。
+**Reset** returns every edit to its initial state. **×** closes the editor and keeps your edits. Opening another video clears them.
 
-```powershell
-$env:FRAMEDOCK_TEST_FFMPEG = (Resolve-Path .\vendor\ffmpeg\ffmpeg.exe).Path
-$env:FRAMEDOCK_TEST_FFPROBE = (Resolve-Path .\vendor\ffmpeg\ffprobe.exe).Path
-dotnet run --project .\FrameDock.Core.Tests\FrameDock.Core.Tests.csproj
-```
+### Keyboard
 
-両方の環境変数が設定されていない場合、外部ツールを使う統合チェックは明示的に `SKIP` と表示されます。テスト項目と Core の座標・時間契約は [`EXPORT-NOTES.md`](EXPORT-NOTES.md) に記載しています。
+| Key | Action |
+|---|---|
+| Space | Play or pause |
+| ← → | Skip back or forward by the interval in Settings |
+| `,` `.` | Step one frame back or forward |
+| F | Enter or leave full screen |
+| Esc | Leave full screen, or finish cropping |
+| Ctrl+O | Open a video |
+| Ctrl+S | Save the current frame |
+| I, O | In the editor: set the start or end to the playhead |
+| S | In the editor: split at the playhead |
+| Delete | In the editor: delete or restore the segment |
 
-## ライセンスと依存関係
+When the seek bar or the volume slider has focus, the arrow keys move that slider.
 
-FFmpeg の同梱ビルドは GPLv3 構成です。mpv DLL は LGPLv2.1 以降のビルドです。配布元、ソース、SHA-256、同梱するライセンス文書は [`THIRD-PARTY-LICENSES.md`](THIRD-PARTY-LICENSES.md) を参照してください。FrameDock 全体の配布ライセンスはまだ宣言していません。Release を他者に配布する前に、GPLv3 の条件を含む各コンポーネントの条件を満たす配布形態を決めてください。
+### Settings
+
+"Edit and more" → **Settings…** sets the skip interval, where frames are saved, and the display language. By default FrameDock follows the Windows display language. A language change takes effect the next time FrameDock starts.
+
+Error details are written to `%LOCALAPPDATA%\FrameDock\error.log`.
+
+## Limits
+
+- Input and output are local files. Output formats are MP4, MKV, and MOV.
+- Re-encoding uses the software encoder `libx264` (H.264) and AAC. No GPU encoder is used.
+- HDR video is not re-encoded, to avoid changing its colors. HDR can be exported with "Fast cut (original quality)", which keeps its metadata.
+- Crop positions and sizes are aligned to even pixels. An uncropped video with an odd width or height gets at most one pixel added on the right or bottom edge.
+- An export never overwrites an existing file, and the source video can't be the destination.
+- When several segments have their speed raised, a join can be off by up to about two frames. The total length is correct.
+
+## Build
+
+See [docs/BUILDING.md](docs/BUILDING.md) for building, testing, and creating the installer. [EXPORT-NOTES.md](EXPORT-NOTES.md) describes the export library.
+
+## License
+
+FrameDock is licensed under the [GNU General Public License v3.0](LICENSE).
+
+The installer bundles FFmpeg (a GPLv3 build), libmpv (LGPLv2.1 or later), and the Microsoft Windows App SDK. Their sources, versions, hashes, and license texts are listed in [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md), and the license texts are installed in the `ThirdPartyNotices` folder.

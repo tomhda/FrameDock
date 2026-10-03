@@ -21,4 +21,4 @@ FrameDock は .NET 8 と WinUI 3 で動く Windows x64 の動画プレイヤー�
 
 - Release 画面で動画再生、フレーム保存、クロップ操作、正確な書き出し、高速コピーを手動で一通り確認する。
 - PNG フレーム生成後のクリップボードコピー修正を含め、画像コピー操作を再確認する。
-- ユーザー向けの制限とビルド・テスト手順は [`README.md`](README.md) と [`EXPORT-NOTES.md`](EXPORT-NOTES.md)、依存物の詳細は [`THIRD-PARTY-LICENSES.md`](THIRD-PARTY-LICENSES.md) に記載する。
+- ユーザー向けの使い方と制限は [`README.md`](README.md)（日本語版は [`README.ja.md`](README.ja.md)）、ビルド・テスト手順は [`docs/BUILDING.ja.md`](docs/BUILDING.ja.md) と [`EXPORT-NOTES.md`](EXPORT-NOTES.md)、依存物の詳細は [`THIRD-PARTY-LICENSES.md`](THIRD-PARTY-LICENSES.md) に記載する。
