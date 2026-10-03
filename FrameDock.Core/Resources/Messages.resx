@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Diagnostic_Detail" xml:space="preserve">
+    <value>{0} details:
+{1}</value>
+  </data>
+  <data name="Diagnostic_NoDetail" xml:space="preserve">
+    <value>{0} returned no error details.</value>
+  </data>
+  <data name="Error_AdditionalRotationRange" xml:space="preserve">
+    <value>Rotation must be 0, 90, 180, or 270 degrees.</value>
+  </data>
+  <data name="Error_CropEvenRequired" xml:space="preserve">
+    <value>For H.264 output, the crop position and size must be even numbers of pixels.</value>
+  </data>
+  <data name="Error_CropOutOfBounds" xml:space="preserve">
+    <value>The crop area extends beyond the video.</value>
+  </data>
+  <data name="Error_CropRectInvalid" xml:space="preserve">
+    <value>Check the position and size of the crop area.</value>
+  </data>
+  <data name="Error_DestinationExists" xml:space="preserve">
+    <value>A file already exists at the destination. Choose a different name.</value>
+  </data>
+  <data name="Error_DestinationFolderMissing" xml:space="preserve">
+    <value>The destination folder wasn't found. Check the folder.</value>
+  </data>
+  <data name="Error_DestinationNameInvalid" xml:space="preserve">
+    <value>Check the destination file name.</value>
+  </data>
+  <data name="Error_DestinationNameRequired" xml:space="preserve">
+    <value>Enter a destination file name.</value>
+  </data>
+  <data name="Error_DisplayRectOutOfBounds" xml:space="preserve">
+    <value>The displayed area extends beyond the video.</value>
+  </data>
+  <data name="Error_DisplayRectUnmappable" xml:space="preserve">
+    <value>The displayed area can't be mapped to pixels in the source video.</value>
+  </data>
+  <data name="Error_DisplaySizeInvalid" xml:space="preserve">
+    <value>The video's display size is too large or invalid.</value>
+  </data>
+  <data name="Error_DisplaySizeWrong" xml:space="preserve">
+    <value>The video's display size is invalid.</value>
+  </data>
+  <data name="Error_EncoderInvalid" xml:space="preserve">
+    <value>The encoder settings are invalid.</value>
+  </data>
+  <data name="Error_EndAfterStart" xml:space="preserve">
+    <value>The end time must be after the start time.</value>
+  </data>
+  <data name="Error_EndBeyondDuration" xml:space="preserve">
+    <value>The end time is past the end of the video.</value>
+  </data>
+  <data name="Error_ExportContainerRequired" xml:space="preserve">
+    <value>Select an output format.</value>
+  </data>
+  <data name="Error_ExportEmpty" xml:space="preserve">
+    <value>The exported video was empty. Check the free space in the destination folder.</value>
+  </data>
+  <data name="Error_ExportFailed" xml:space="preserve">
+    <value>Couldn't export the video. Check the free space in the destination folder and whether FFmpeg supports the format.</value>
+  </data>
+  <data name="Error_ExportModeRequired" xml:space="preserve">
+    <value>Select an export method.</value>
+  </data>
+  <data name="Error_ExportWriteFailed" xml:space="preserve">
+    <value>Couldn't export the video. Check the destination folder and its permissions.</value>
+  </data>
+  <data name="Error_ExtensionMismatch" xml:space="preserve">
+    <value>The selected format uses the {0} extension. Check the destination file name.</value>
+  </data>
+  <data name="Error_HdrAccurateNotSupported" xml:space="preserve">
+    <value>HDR video can't be re-encoded. The export was stopped so the colors wouldn't change. Select "Fast cut (original quality)" to export with the original colors.</value>
+  </data>
+  <data name="Error_InputFileNotFound" xml:space="preserve">
+    <value>The source video wasn't found. Check the file location.</value>
+  </data>
+  <data name="Error_InspectFailed" xml:space="preserve">
+    <value>Couldn't read the video information. Check that the file is a supported video.</value>
+  </data>
+  <data name="Error_InspectParseFailed" xml:space="preserve">
+    <value>Couldn't read the video information. The ffprobe output couldn't be parsed.</value>
+  </data>
+  <data name="Error_MultiSegmentStreamCopyNotSupported" xml:space="preserve">
+    <value>A split video can't be exported with "Fast cut (original quality)".</value>
+  </data>
+  <data name="Error_NoDuration" xml:space="preserve">
+    <value>Couldn't read the video's duration.</value>
+  </data>
+  <data name="Error_NoVideoInfo" xml:space="preserve">
+    <value>No video information was found.</value>
+  </data>
+  <data name="Error_NoVideoStream" xml:space="preserve">
+    <value>No video stream was found. Select a video file.</value>
+  </data>
+  <data name="Error_OutputAudioMismatch" xml:space="preserve">
+    <value>The exported video's audio doesn't match the source.</value>
+  </data>
+  <data name="Error_OutputContainerMismatch" xml:space="preserve">
+    <value>The exported video's container doesn't match the selected format.</value>
+  </data>
+  <data name="Error_OutputDurationUnknown" xml:space="preserve">
+    <value>Couldn't verify the exported video's duration.</value>
+  </data>
+  <data name="Error_OutputFormatMismatch" xml:space="preserve">
+    <value>The exported video's format or duration doesn't match what was requested.</value>
+  </data>
+  <data name="Error_OutputRotationMismatch" xml:space="preserve">
+    <value>The exported video's rotation doesn't match the source.</value>
+  </data>
+  <data name="Error_OutputSizeMismatch" xml:space="preserve">
+    <value>The exported video's size doesn't match the selected area.</value>
+  </data>
+  <data name="Error_PlaybackSpeedRange" xml:space="preserve">
+    <value>Speed must be between 0.25× and 4×.</value>
+  </data>
+  <data name="Error_QualityOutOfRange" xml:space="preserve">
+    <value>The video quality setting is out of range.</value>
+  </data>
+  <data name="Error_RotationNotRightAngle" xml:space="preserve">
+    <value>This video's rotation isn't a multiple of 90 degrees, so the crop position can't be calculated.</value>
+  </data>
+  <data name="Error_RotationSizeMismatch" xml:space="preserve">
+    <value>The video's rotation and display size don't match.</value>
+  </data>
+  <data name="Error_SameAsSource" xml:space="preserve">
+    <value>The export can't overwrite the source video. Choose a different destination.</value>
+  </data>
+  <data name="Error_SegmentOrderOverlap" xml:space="preserve">
+    <value>The segments are out of order or overlap.</value>
+  </data>
+  <data name="Error_StartNonNegative" xml:space="preserve">
+    <value>The start time must be 0 seconds or later.</value>
+  </data>
+  <data name="Error_StreamCopyFailed" xml:space="preserve">
+    <value>Fast cut failed. The range may contain no keyframe, or the selected format can't hold the original video and audio. Turn off "Fast cut (original quality)" and export again.</value>
+  </data>
+  <data name="Error_StreamCopyNoKeyframe" xml:space="preserve">
+    <value>Fast cut failed because the range contains no keyframe. Turn off "Fast cut (original quality)" and export again.</value>
+  </data>
+  <data name="Error_StreamCopyTooLong" xml:space="preserve">
+    <value>The fast-cut video is longer than the entire source video.</value>
+  </data>
+  <data name="Error_StreamCopyTransformNotSupported" xml:space="preserve">
+    <value>"Fast cut (original quality)" can't be combined with crop, zoom, rotation, or speed changes. Turn off "Fast cut (original quality)" and export again.</value>
+  </data>
+  <data name="Error_StreamCopyVerifyMismatch" xml:space="preserve">
+    <value>The fast-cut video's format or display properties don't match the source.</value>
+  </data>
+  <data name="Error_TimeMustBeFinite" xml:space="preserve">
+    <value>The start and end times must be finite numbers.</value>
+  </data>
+  <data name="Error_ToolLaunchFailed" xml:space="preserve">
+    <value>Couldn't start the video processing tool.</value>
+  </data>
+  <data name="Error_ToolLaunchFailedCheckFiles" xml:space="preserve">
+    <value>Couldn't start the video processing tool. Reinstall FrameDock if files are missing.</value>
+  </data>
+  <data name="Error_ToolMissing" xml:space="preserve">
+    <value>{0} wasn't found. Reinstall FrameDock if files are missing.</value>
+  </data>
+  <data name="Error_VideoSizeUnknown" xml:space="preserve">
+    <value>Couldn't read the video's frame size.</value>
+  </data>
+  <data name="Error_ZoomFocusRange" xml:space="preserve">
+    <value>The zoom position must be between 0 and 1.</value>
+  </data>
+  <data name="Error_ZoomRange" xml:space="preserve">
+    <value>The zoom level must be between 1× and 4×.</value>
+  </data>
+  <data name="Error_ZoomRectInvalid" xml:space="preserve">
+    <value>Check the position and size of the zoom area.</value>
+  </data>
+  <data name="Error_ZoomTooSmall" xml:space="preserve">
+    <value>The selected area is too small to zoom to this level.</value>
+  </data>
+  <data name="Hdr_Bt2020Possible" xml:space="preserve">
+    <value>BT.2020 color gamut (possibly HDR)</value>
+  </data>
+  <data name="Progress_Completed" xml:space="preserve">
+    <value>Export complete.</value>
+  </data>
+  <data name="Progress_Encoding" xml:space="preserve">
+    <value>Exporting…</value>
+  </data>
+  <data name="Progress_Preparing" xml:space="preserve">
+    <value>Preparing to export…</value>
+  </data>
+  <data name="Progress_Verifying" xml:space="preserve">
+    <value>Verifying the exported video…</value>
+  </data>
+</root>

@@ -9,8 +9,18 @@ internal enum PlayerDisplayMode
     Fullscreen
 }
 
+internal enum FrameSaveLocation
+{
+    Pictures,
+    CustomFolder,
+    VideoFolder,
+    VideoSubfolder
+}
+
 internal sealed class PlayerSettings
 {
+    internal const string DefaultFrameSaveSubfolder = "FrameDock";
+
     private static readonly SemaphoreSlim SaveGate = new(1, 1);
 
     public double SkipSeconds { get; set; } = 10;
@@ -18,11 +28,26 @@ internal sealed class PlayerSettings
     public double Speed { get; set; } = 1;
     public bool Muted { get; set; }
     public PlayerDisplayMode DisplayMode { get; set; } = PlayerDisplayMode.MaximizedOverlay;
+    public string Language { get; set; } = "";
+    public FrameSaveLocation FrameSaveLocation { get; set; } = FrameSaveLocation.Pictures;
+    public string FrameSaveFolder { get; set; } = "";
+    public string FrameSaveSubfolder { get; set; } = DefaultFrameSaveSubfolder;
 
-    public static string SettingsPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "FrameDock",
-        "settings.json");
+    internal static bool IsValidFolderName(string? name)
+    {
+        var trimmed = name?.Trim();
+        return !string.IsNullOrEmpty(trimmed) && trimmed is not ("." or "..") &&
+            trimmed.IndexOfAny(Path.GetInvalidFileNameChars()) < 0 && !trimmed.EndsWith('.');
+    }
+
+    // FRAMEDOCK_SETTINGS_PATH lets UI automation run against a scratch file
+    // instead of the user's own settings.
+    public static string SettingsPath => Environment.GetEnvironmentVariable("FRAMEDOCK_SETTINGS_PATH") is { Length: > 0 } overridePath
+        ? overridePath
+        : Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "FrameDock",
+            "settings.json");
 
     public static PlayerSettings Load()
     {
@@ -37,16 +62,53 @@ internal sealed class PlayerSettings
             loaded.SkipSeconds = double.IsFinite(loaded.SkipSeconds) ? Math.Clamp(loaded.SkipSeconds, 1, 600) : 10;
             loaded.Volume = double.IsFinite(loaded.Volume) ? Math.Clamp(loaded.Volume, 0, 100) : 75;
             loaded.Speed = double.IsFinite(loaded.Speed) ? Math.Clamp(loaded.Speed, 0.25, 4) : 1;
+            loaded.FrameSaveLocation = Enum.IsDefined(loaded.FrameSaveLocation) ? loaded.FrameSaveLocation : FrameSaveLocation.Pictures;
+            loaded.FrameSaveFolder ??= "";
+            loaded.FrameSaveSubfolder = IsValidFolderName(loaded.FrameSaveSubfolder) ? loaded.FrameSaveSubfolder.Trim() : DefaultFrameSaveSubfolder;
             if (!Enum.IsDefined(loaded.DisplayMode))
             {
                 loaded.DisplayMode = PlayerDisplayMode.MaximizedOverlay;
             }
 
+            loaded.Language = NormalizeLanguage(loaded.Language);
             return loaded;
         }
         catch
         {
             return new PlayerSettings();
+        }
+    }
+
+    private static string NormalizeLanguage(string? value) => value switch
+    {
+        "ja-JP" => "ja-JP",
+        "en-US" => "en-US",
+        _ => "",
+    };
+
+    // Reads only the display language without full validation so App can
+    // decide resources before any window exists. Reads the file once.
+    public static string ReadLanguageOnly()
+    {
+        try
+        {
+            if (!File.Exists(SettingsPath))
+            {
+                return "";
+            }
+
+            using var document = JsonDocument.Parse(File.ReadAllText(SettingsPath));
+            if (document.RootElement.TryGetProperty("Language", out var element) &&
+                element.ValueKind == JsonValueKind.String)
+            {
+                return NormalizeLanguage(element.GetString());
+            }
+
+            return "";
+        }
+        catch
+        {
+            return "";
         }
     }
 

@@ -15,7 +15,7 @@ public static class MediaGeometry
         var normalized = ((degreesClockwise % 360) + 360) % 360;
         if (normalized % 90 != 0)
         {
-            throw new ExportValidationException("この動画の回転情報は 90 度単位ではないため、クロップ位置を計算できません。");
+            throw new ExportValidationException(Messages.Get("Error_RotationNotRightAngle"));
         }
 
         return normalized;
@@ -33,7 +33,7 @@ public static class MediaGeometry
     {
         if (codedWidth <= 0 || codedHeight <= 0)
         {
-            throw new ExportValidationException("動画の映像サイズを読み取れませんでした。");
+            throw new ExportValidationException(Messages.Get("Error_VideoSizeUnknown"));
         }
 
         if (sampleAspectRatio.Numerator <= 0 || sampleAspectRatio.Denominator <= 0)
@@ -47,7 +47,7 @@ public static class MediaGeometry
             MidpointRounding.AwayFromZero);
         if (!double.IsFinite(correctedWidth) || correctedWidth < 1 || correctedWidth > int.MaxValue)
         {
-            throw new ExportValidationException("動画の表示サイズが大きすぎるか、正しくありません。");
+            throw new ExportValidationException(Messages.Get("Error_DisplaySizeInvalid"));
         }
 
         var width = checked((int)correctedWidth);
@@ -65,7 +65,7 @@ public static class MediaGeometry
         ArgumentNullException.ThrowIfNull(media);
         if (media.DisplayWidth <= 0 || media.DisplayHeight <= 0)
         {
-            throw new ExportValidationException("動画の表示サイズが正しくありません。");
+            throw new ExportValidationException(Messages.Get("Error_DisplaySizeWrong"));
         }
 
         if (crop is { } rectangle)
@@ -74,7 +74,7 @@ public static class MediaGeometry
                 (long)rectangle.X + rectangle.Width > media.DisplayWidth ||
                 (long)rectangle.Y + rectangle.Height > media.DisplayHeight)
             {
-                throw new ExportValidationException("クロップ範囲が動画の表示領域を超えています。");
+                throw new ExportValidationException(Messages.Get("Error_CropOutOfBounds"));
             }
 
             return (rectangle.Width, rectangle.Height);
@@ -95,7 +95,7 @@ public static class MediaGeometry
         if (viewport.X < 0 || viewport.Y < 0 || viewport.Width <= 0 || viewport.Height <= 0 ||
             ((viewport.X | viewport.Y) & 1) != 0)
         {
-            throw new ExportValidationException("ズーム範囲の位置とサイズを確認してください。");
+            throw new ExportValidationException(Messages.Get("Error_ZoomRectInvalid"));
         }
 
         if (zoom == 1.0)
@@ -107,7 +107,7 @@ public static class MediaGeometry
         var sampleHeight = FloorToEven(viewport.Height / zoom);
         if (sampleWidth < 2 || sampleHeight < 2)
         {
-            throw new ExportValidationException("選択範囲が小さすぎて、この倍率ではズームできません。");
+            throw new ExportValidationException(Messages.Get("Error_ZoomTooSmall"));
         }
 
         var maximumXOffset = ((viewport.Width - sampleWidth) / 2) * 2;
@@ -132,14 +132,14 @@ public static class MediaGeometry
         ArgumentNullException.ThrowIfNull(media);
         if (media.CodedWidth <= 0 || media.CodedHeight <= 0 || media.DisplayWidth <= 0 || media.DisplayHeight <= 0)
         {
-            throw new ExportValidationException("動画の表示サイズが正しくありません。");
+            throw new ExportValidationException(Messages.Get("Error_DisplaySizeWrong"));
         }
 
         if (displayRect.X < 0 || displayRect.Y < 0 || displayRect.Width <= 0 || displayRect.Height <= 0 ||
             (long)displayRect.X + displayRect.Width > media.DisplayWidth ||
             (long)displayRect.Y + displayRect.Height > media.DisplayHeight)
         {
-            throw new ExportValidationException("表示範囲が動画の表示領域を超えています。");
+            throw new ExportValidationException(Messages.Get("Error_DisplayRectOutOfBounds"));
         }
 
         var rotation = NormalizeRightAngleRotation(media.RotationDegreesClockwise);
@@ -155,7 +155,7 @@ public static class MediaGeometry
             rotation);
         if (expectedDisplayDimensions != (media.DisplayWidth, media.DisplayHeight))
         {
-            throw new ExportValidationException("動画の回転情報または表示サイズが一致しません。");
+            throw new ExportValidationException(Messages.Get("Error_RotationSizeMismatch"));
         }
 
         var (preX, preY, preWidth, preHeight) = rotation switch
@@ -173,7 +173,7 @@ public static class MediaGeometry
         if (preX < 0 || preY < 0 || preWidth <= 0 || preHeight <= 0 ||
             (long)preX + preWidth > preRotationWidth || (long)preY + preHeight > preRotationHeight)
         {
-            throw new ExportValidationException("表示範囲を元動画の画素位置に変換できません。");
+            throw new ExportValidationException(Messages.Get("Error_DisplayRectUnmappable"));
         }
 
         var left = ScaleFloor(preX, media.CodedWidth, preRotationWidth);
@@ -192,12 +192,12 @@ public static class MediaGeometry
     {
         if (!double.IsFinite(zoom) || zoom is < 1.0 or > 4.0)
         {
-            throw new ExportValidationException("ズーム倍率は 1 倍から 4 倍の範囲で指定してください。");
+            throw new ExportValidationException(Messages.Get("Error_ZoomRange"));
         }
 
         if (!double.IsFinite(focusX) || !double.IsFinite(focusY) || focusX is < 0 or > 1 || focusY is < 0 or > 1)
         {
-            throw new ExportValidationException("ズーム位置は 0 から 1 の範囲で指定してください。");
+            throw new ExportValidationException(Messages.Get("Error_ZoomFocusRange"));
         }
     }
 
@@ -209,22 +209,22 @@ public static class MediaGeometry
     {
         if (displayWidth <= 0 || displayHeight <= 0)
         {
-            throw new ExportValidationException("動画の表示サイズが正しくありません。");
+            throw new ExportValidationException(Messages.Get("Error_DisplaySizeWrong"));
         }
 
         if (crop.X < 0 || crop.Y < 0 || crop.Width <= 0 || crop.Height <= 0)
         {
-            throw new ExportValidationException("クロップ範囲の位置とサイズを確認してください。");
+            throw new ExportValidationException(Messages.Get("Error_CropRectInvalid"));
         }
 
         if ((long)crop.X + crop.Width > displayWidth || (long)crop.Y + crop.Height > displayHeight)
         {
-            throw new ExportValidationException("クロップ範囲が動画の表示領域を超えています。");
+            throw new ExportValidationException(Messages.Get("Error_CropOutOfBounds"));
         }
 
         if (((crop.X | crop.Y | crop.Width | crop.Height) & 1) != 0)
         {
-            throw new ExportValidationException("H.264 の出力では、クロップ位置とサイズを偶数ピクセルにしてください。");
+            throw new ExportValidationException(Messages.Get("Error_CropEvenRequired"));
         }
     }
 
@@ -331,7 +331,7 @@ public static class MediaGeometry
     {
         if (degreesClockwise is not (0 or 90 or 180 or 270))
         {
-            throw new ExportValidationException("追加回転は 0、90、180、または 270 度を指定してください。");
+            throw new ExportValidationException(Messages.Get("Error_AdditionalRotationRange"));
         }
     }
 
@@ -339,7 +339,7 @@ public static class MediaGeometry
     {
         if (!double.IsFinite(playbackSpeed) || playbackSpeed is < 0.25 or > 4.0)
         {
-            throw new ExportValidationException("再生速度は 0.25 倍から 4 倍の範囲で指定してください。");
+            throw new ExportValidationException(Messages.Get("Error_PlaybackSpeedRange"));
         }
     }
 

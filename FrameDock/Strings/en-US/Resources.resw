@@ -1,0 +1,684 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="Accessibility_Mute" xml:space="preserve">
+    <value>Mute</value>
+  </data>
+  <data name="Accessibility_Pause" xml:space="preserve">
+    <value>Pause</value>
+  </data>
+  <data name="Accessibility_Play" xml:space="preserve">
+    <value>Play</value>
+  </data>
+  <data name="Accessibility_SkipBack" xml:space="preserve">
+    <value>Skip back {0} seconds</value>
+  </data>
+  <data name="Accessibility_SkipForward" xml:space="preserve">
+    <value>Skip forward {0} seconds</value>
+  </data>
+  <data name="Accessibility_Unmute" xml:space="preserve">
+    <value>Unmute</value>
+  </data>
+  <data name="AlwaysVisibleModeItem.Text" xml:space="preserve">
+    <value>Always show controls (below the video)</value>
+  </data>
+  <data name="ApproximateCopyCheckBox.Content" xml:space="preserve">
+    <value>Fast cut (original quality)</value>
+  </data>
+  <data name="ApproximateCopyCheckBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Fast cut (original quality). Cut points may shift, and it can't be combined with crop, rotation, zoom, or speed changes</value>
+  </data>
+  <data name="ApproximateCopyHost.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Saves without re-encoding. Cut points may shift to the nearest keyframes. Can't be combined with crop, rotation, zoom, or speed changes.</value>
+  </data>
+  <data name="BackButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Skip back</value>
+  </data>
+  <data name="BackButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Skip back (←)</value>
+  </data>
+  <data name="CancelEditButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Reset edits</value>
+  </data>
+  <data name="CancelEditButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Reset the range, crop, rotation, zoom, speed, and export settings</value>
+  </data>
+  <data name="CancelEditLabel.Text" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="CancelExportButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Cancel export</value>
+  </data>
+  <data name="CancelExportButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Cancel export</value>
+  </data>
+  <data name="CloseEditButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Close the editor</value>
+  </data>
+  <data name="CloseEditButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Close the editor (your edits are kept)</value>
+  </data>
+  <data name="ContextMenu_CopyFrame" xml:space="preserve">
+    <value>Copy current frame</value>
+  </data>
+  <data name="CopyFrameMenuItem.Text" xml:space="preserve">
+    <value>Copy frame</value>
+  </data>
+  <data name="CopyFrameMenuItem.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Copy current frame</value>
+  </data>
+  <data name="CropButton_Crop" xml:space="preserve">
+    <value>Crop</value>
+  </data>
+  <data name="CropButton_Done" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="CropDisabledByRotation" xml:space="preserve">
+    <value>Set rotation back to 0° to edit the crop</value>
+  </data>
+  <data name="CropInfoText.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Output size</value>
+  </data>
+  <data name="CropModeButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Adjust crop area</value>
+  </data>
+  <data name="CropModeButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Adjust the area with the 8 handles on the corners and edges</value>
+  </data>
+  <data name="CropModeButtonText.Text" xml:space="preserve">
+    <value>Crop</value>
+  </data>
+  <data name="CropMode_NameActive" xml:space="preserve">
+    <value>Finish cropping</value>
+  </data>
+  <data name="CropMode_NameInactive" xml:space="preserve">
+    <value>Adjust crop area</value>
+  </data>
+  <data name="CropMode_TooltipActive" xml:space="preserve">
+    <value>Drag the 8 handles to adjust the area. Select again to apply.</value>
+  </data>
+  <data name="CropMode_TooltipInactive" xml:space="preserve">
+    <value>Adjust the area with the 8 handles on the corners and edges</value>
+  </data>
+  <data name="CropResetButton.Content" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="CropResetButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Clear crop</value>
+  </data>
+  <data name="CropResetButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Clear the crop and show the full picture</value>
+  </data>
+  <data name="Crop_OutputSize" xml:space="preserve">
+    <value>Output {0} × {1} px</value>
+  </data>
+  <data name="DeleteSegmentButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Delete this segment</value>
+  </data>
+  <data name="DeleteSegmentButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Delete this segment (Delete)</value>
+  </data>
+  <data name="DeleteSegment_NameDelete" xml:space="preserve">
+    <value>Delete this segment</value>
+  </data>
+  <data name="DeleteSegment_NameRestore" xml:space="preserve">
+    <value>Restore this segment</value>
+  </data>
+  <data name="DeleteSegment_TooltipDelete" xml:space="preserve">
+    <value>Delete this segment (Delete)</value>
+  </data>
+  <data name="DeleteSegment_TooltipRestore" xml:space="preserve">
+    <value>Restore this segment (Delete)</value>
+  </data>
+  <data name="Dialog_AbortAndClose" xml:space="preserve">
+    <value>Stop and exit</value>
+  </data>
+  <data name="Dialog_AbortAndOpen" xml:space="preserve">
+    <value>Stop and open</value>
+  </data>
+  <data name="Dialog_AbortExportTitle" xml:space="preserve">
+    <value>Stop the export?</value>
+  </data>
+  <data name="Dialog_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Dialog_CloseDuringExportContent" xml:space="preserve">
+    <value>An export is in progress. Exiting will stop it.</value>
+  </data>
+  <data name="Dialog_OpenDuringExportContent" xml:space="preserve">
+    <value>An export is in progress. Opening another video will stop it.</value>
+  </data>
+  <data name="DisplayModeMenuItem.Text" xml:space="preserve">
+    <value>Display mode</value>
+  </data>
+  <data name="DisplayMode_Always" xml:space="preserve">
+    <value>Display mode: Always show controls</value>
+  </data>
+  <data name="DisplayMode_Fullscreen" xml:space="preserve">
+    <value>Display mode: Full screen</value>
+  </data>
+  <data name="DisplayMode_Maximized" xml:space="preserve">
+    <value>Display mode: Maximized (taskbar visible)</value>
+  </data>
+  <data name="DisplayMode_Plain" xml:space="preserve">
+    <value>Display mode</value>
+  </data>
+  <data name="EditMenuItem.Text" xml:space="preserve">
+    <value>Edit…</value>
+  </data>
+  <data name="EditMenuItem.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Edit: trim, crop, and export</value>
+  </data>
+  <data name="EditPlayButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Play or pause</value>
+  </data>
+  <data name="EditPlayButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Play or pause (Space)</value>
+  </data>
+  <data name="EditRangeText.Text" xml:space="preserve">
+    <value>Set the start and end</value>
+  </data>
+  <data name="EditRange_Confirm" xml:space="preserve">
+    <value>Set the start and end</value>
+  </data>
+  <data name="EditRange_Invalid" xml:space="preserve">
+    <value>Start must be 0 or later, and end must be after start</value>
+  </data>
+  <data name="EditRange_Multi" xml:space="preserve">
+    <value>{0} segments, {1} total</value>
+  </data>
+  <data name="EditRange_Single" xml:space="preserve">
+    <value>{0} – {1} (length {2})</value>
+  </data>
+  <data name="EditorTitle.Text" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="EditSpeedButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Export speed</value>
+  </data>
+  <data name="EditSpeedButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Speed for preview and export</value>
+  </data>
+  <data name="EditSpeed_Name" xml:space="preserve">
+    <value>Export speed {0}</value>
+  </data>
+  <data name="EditSpeed_Tooltip" xml:space="preserve">
+    <value>Speed for preview and export: {0}</value>
+  </data>
+  <data name="EmptyOpenButton.Content" xml:space="preserve">
+    <value>Open file</value>
+  </data>
+  <data name="EmptyStateHint.Text" xml:space="preserve">
+    <value>Open a video, or drop one here</value>
+  </data>
+  <data name="Error_CopyFrameBusy" xml:space="preserve">
+    <value>Couldn't copy the image. Close any app that is using the clipboard, then try again.</value>
+  </data>
+  <data name="Error_CopyFrameFailed" xml:space="preserve">
+    <value>Couldn't copy the image.</value>
+  </data>
+  <data name="Error_CropImpossible" xml:space="preserve">
+    <value>This video's display size can't be cropped.</value>
+  </data>
+  <data name="Error_DropOpenFailed" xml:space="preserve">
+    <value>Couldn't open the dropped file.</value>
+  </data>
+  <data name="Error_ExportFailedGeneric" xml:space="preserve">
+    <value>Couldn't export the video. Check the free space and permissions of the destination folder.</value>
+  </data>
+  <data name="Error_FileExists" xml:space="preserve">
+    <value>A file with that name already exists in the destination folder. Choose a different name.</value>
+  </data>
+  <data name="Error_FileNameInvalid" xml:space="preserve">
+    <value>Enter a valid file name.</value>
+  </data>
+  <data name="Error_FileNotFound" xml:space="preserve">
+    <value>File not found: {0}</value>
+  </data>
+  <data name="Error_FilePickerFailed" xml:space="preserve">
+    <value>Couldn't open the file picker. You can also drop a video onto the window.</value>
+  </data>
+  <data name="Error_FolderPickerFailed" xml:space="preserve">
+    <value>Couldn't open the folder picker.</value>
+  </data>
+  <data name="Error_FrameSaveFailed" xml:space="preserve">
+    <value>Couldn't save the frame. Check the free space and permissions of the destination folder.</value>
+  </data>
+  <data name="Error_HdrExportNotSupported" xml:space="preserve">
+    <value>HDR video can't be re-encoded. Select "Fast cut (original quality)" to export with the original colors.</value>
+  </data>
+  <data name="Error_InspectFallback" xml:space="preserve">
+    <value>Couldn't read the video information. You can play the video, but editing and export are unavailable.</value>
+  </data>
+  <data name="Error_InspectTimeout" xml:space="preserve">
+    <value>Couldn't read the video information within 30 seconds. For files on a network or cloud drive, copy them to this PC first.</value>
+  </data>
+  <data name="Error_MuteFailed" xml:space="preserve">
+    <value>Couldn't mute or unmute.</value>
+  </data>
+  <data name="Error_NoEditableVideo" xml:space="preserve">
+    <value>Open a video to edit.</value>
+  </data>
+  <data name="Error_OpenFileAccess" xml:space="preserve">
+    <value>Couldn't open the file. Check its location and permissions.</value>
+  </data>
+  <data name="Error_OpenFileFailed" xml:space="preserve">
+    <value>Couldn't open the video. Check the file location.</value>
+  </data>
+  <data name="Error_OpenFolderFailed" xml:space="preserve">
+    <value>Couldn't open the folder.</value>
+  </data>
+  <data name="Error_OpenVideoFirst" xml:space="preserve">
+    <value>Open a video first.</value>
+  </data>
+  <data name="Error_PlaybackFailed" xml:space="preserve">
+    <value>Couldn't play this video. The file may be damaged or in an unsupported format.</value>
+  </data>
+  <data name="Error_PrepareRenderFailed" xml:space="preserve">
+    <value>Couldn't set up the video display. Restart FrameDock.</value>
+  </data>
+  <data name="Error_PreviewFailed" xml:space="preserve">
+    <value>Couldn't update the preview. Reset the zoom or crop, then try again.</value>
+  </data>
+  <data name="Error_RenderSizeFailed" xml:space="preserve">
+    <value>Couldn't resize the video display.</value>
+  </data>
+  <data name="Error_SeekFailed" xml:space="preserve">
+    <value>Couldn't move the playback position.</value>
+  </data>
+  <data name="Error_SettingsOpenFailed" xml:space="preserve">
+    <value>Couldn't open the settings.</value>
+  </data>
+  <data name="Error_SettingsSaveFailed" xml:space="preserve">
+    <value>Couldn't save the settings.</value>
+  </data>
+  <data name="Error_SkipRange" xml:space="preserve">
+    <value>Enter a skip interval from 1 to 600 seconds.</value>
+  </data>
+  <data name="Error_SpeedFailed" xml:space="preserve">
+    <value>Couldn't change the playback speed.</value>
+  </data>
+  <data name="Error_StepFrameFailed" xml:space="preserve">
+    <value>Couldn't step to the frame.</value>
+  </data>
+  <data name="Error_StreamCopyCropConflict" xml:space="preserve">
+    <value>Crop can't be combined with "Fast cut (original quality)". Clear the crop, or turn off "Fast cut (original quality)".</value>
+  </data>
+  <data name="Error_StreamCopyTransformConflict" xml:space="preserve">
+    <value>A video with rotation, zoom, or speed changes can't be exported with "Fast cut (original quality)".</value>
+  </data>
+  <data name="Error_TimeRangeInvalid" xml:space="preserve">
+    <value>Check the start and end times.</value>
+  </data>
+  <data name="Error_TogglePlayFailed" xml:space="preserve">
+    <value>Couldn't play or pause.</value>
+  </data>
+  <data name="Error_VolumeFailed" xml:space="preserve">
+    <value>Couldn't change the volume.</value>
+  </data>
+  <data name="ExportButton.Content" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="ExportButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Export video</value>
+  </data>
+  <data name="ExportButton_Export" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="ExportButton_Exporting" xml:space="preserve">
+    <value>Exporting…</value>
+  </data>
+  <data name="ForwardButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Skip forward</value>
+  </data>
+  <data name="ForwardButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Skip forward (→)</value>
+  </data>
+  <data name="FullscreenButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Full screen</value>
+  </data>
+  <data name="FullscreenButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Full screen (F)</value>
+  </data>
+  <data name="FullscreenModeItem.Text" xml:space="preserve">
+    <value>Full screen</value>
+  </data>
+  <data name="Fullscreen_Enter" xml:space="preserve">
+    <value>Full screen (F)</value>
+  </data>
+  <data name="Fullscreen_Exit" xml:space="preserve">
+    <value>Exit full screen (Esc)</value>
+  </data>
+  <data name="HdrNoteText.Text" xml:space="preserve">
+    <value>HDR: "Fast cut (original quality)" only</value>
+  </data>
+  <data name="Log_ClipboardBusy" xml:space="preserve">
+    <value>The clipboard is in use by another app.</value>
+  </data>
+  <data name="Log_ClipboardBusyRetry" xml:space="preserve">
+    <value>The Windows clipboard is in use. Try again in a moment.</value>
+  </data>
+  <data name="MarkTrimEndButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Set end to playhead</value>
+  </data>
+  <data name="MarkTrimEndButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Set end to playhead (O)</value>
+  </data>
+  <data name="MarkTrimStartButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Set start to playhead</value>
+  </data>
+  <data name="MarkTrimStartButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Set start to playhead (I)</value>
+  </data>
+  <data name="MaximizedOverlayModeItem.Text" xml:space="preserve">
+    <value>Maximized (taskbar visible)</value>
+  </data>
+  <data name="MergeSegmentButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Merge with the previous segment</value>
+  </data>
+  <data name="MergeSegmentButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Merge with the previous segment</value>
+  </data>
+  <data name="MuteButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Mute</value>
+  </data>
+  <data name="MuteButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Mute or unmute</value>
+  </data>
+  <data name="NextFrameButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Next frame</value>
+  </data>
+  <data name="NextFrameButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Pause and step to the next frame (.)</value>
+  </data>
+  <data name="Notice_CropNeedsZeroRotation" xml:space="preserve">
+    <value>Set rotation back to 0° to edit the crop area.</value>
+  </data>
+  <data name="Notice_ExportCancelled" xml:space="preserve">
+    <value>Export canceled.</value>
+  </data>
+  <data name="Notice_ExportDone" xml:space="preserve">
+    <value>Exported: {0}</value>
+  </data>
+  <data name="Notice_ExportDoneApproxSuffix" xml:space="preserve">
+    <value> (cut points were moved to the nearest keyframes)</value>
+  </data>
+  <data name="Notice_FrameCopied" xml:space="preserve">
+    <value>Frame copied to the clipboard.</value>
+  </data>
+  <data name="Notice_FrameSaved" xml:space="preserve">
+    <value>Frame saved: {0}</value>
+  </data>
+  <data name="NotificationBar.Title" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="NotifyTitle_Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="NotifyTitle_Success" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="NotifyTitle_Warning" xml:space="preserve">
+    <value>Notice</value>
+  </data>
+  <data name="OpenButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Open video</value>
+  </data>
+  <data name="OpenButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Open video (Ctrl+O)</value>
+  </data>
+  <data name="OutputContainerComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Output format</value>
+  </data>
+  <data name="OutputContainerComboBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Output format</value>
+  </data>
+  <data name="OutputFolderButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Choose destination folder</value>
+  </data>
+  <data name="OutputFolderButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Choose destination folder</value>
+  </data>
+  <data name="OutputFolderLabel.Text" xml:space="preserve">
+    <value>Save to</value>
+  </data>
+  <data name="OutputFolderText.Text" xml:space="preserve">
+    <value>Same folder as the source video</value>
+  </data>
+  <data name="OutputFolderText.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Same folder as the source video</value>
+  </data>
+  <data name="OutputFolder_Default" xml:space="preserve">
+    <value>Same folder as the source video</value>
+  </data>
+  <data name="OutputNameBox.PlaceholderText" xml:space="preserve">
+    <value>File name</value>
+  </data>
+  <data name="OutputNameBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Output file name (without extension)</value>
+  </data>
+  <data name="OutputNameLabel.Text" xml:space="preserve">
+    <value>File name</value>
+  </data>
+  <data name="OverflowButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Edit and more</value>
+  </data>
+  <data name="OverflowButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Edit and more</value>
+  </data>
+  <data name="PlaybackSpeed_Menu" xml:space="preserve">
+    <value>Playback speed: {0}×</value>
+  </data>
+  <data name="PlayButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Play or pause</value>
+  </data>
+  <data name="PlayButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Play or pause (Space)</value>
+  </data>
+  <data name="PreviousFrameButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Previous frame</value>
+  </data>
+  <data name="PreviousFrameButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Pause and step to the previous frame (,)</value>
+  </data>
+  <data name="RangeGroupLabel.Text" xml:space="preserve">
+    <value>Range</value>
+  </data>
+  <data name="RevealButton_OpenFolder" xml:space="preserve">
+    <value>Open folder</value>
+  </data>
+  <data name="RotateButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Rotate</value>
+  </data>
+  <data name="RotateButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Rotate 90° clockwise</value>
+  </data>
+  <data name="Rotate_Name" xml:space="preserve">
+    <value>Rotate clockwise: {0} degrees</value>
+  </data>
+  <data name="Rotate_Tooltip" xml:space="preserve">
+    <value>Rotate 90° clockwise (currently {0}°)</value>
+  </data>
+  <data name="SaveFrameButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Save frame as image</value>
+  </data>
+  <data name="SaveFrameButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Save the current frame as an image (Ctrl+S)</value>
+  </data>
+  <data name="ScreenGroupLabel.Text" xml:space="preserve">
+    <value>Picture</value>
+  </data>
+  <data name="SegmentGroupLabel.Text" xml:space="preserve">
+    <value>Segment</value>
+  </data>
+  <data name="Segment_DeletedSuffix" xml:space="preserve">
+    <value> (deleted)</value>
+  </data>
+  <data name="SettingsMenuItem.Text" xml:space="preserve">
+    <value>Settings…</value>
+  </data>
+  <data name="SettingsMenuItem.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Settings_LanguageEnglish" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Settings_LanguageHeader" xml:space="preserve">
+    <value>Display language</value>
+  </data>
+  <data name="Settings_LanguageJapanese" xml:space="preserve">
+    <value>日本語</value>
+  </data>
+  <data name="Settings_LanguageRestartNote" xml:space="preserve">
+    <value>The display language changes the next time you start FrameDock.</value>
+  </data>
+  <data name="Settings_LanguageSystem" xml:space="preserve">
+    <value>Use system language</value>
+  </data>
+  <data name="Settings_Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Settings_SkipHeader" xml:space="preserve">
+    <value>Skip interval (seconds)</value>
+  </data>
+  <data name="Settings_Title" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="SpeedGroupLabel.Text" xml:space="preserve">
+    <value>Speed</value>
+  </data>
+  <data name="SpeedMenuItem.Text" xml:space="preserve">
+    <value>Playback speed</value>
+  </data>
+  <data name="SpeedMenuItem.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Playback speed</value>
+  </data>
+  <data name="SplitButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Split at playhead</value>
+  </data>
+  <data name="SplitButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Split at playhead (S)</value>
+  </data>
+  <data name="TimelineSlider.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Playback position</value>
+  </data>
+  <data name="TimelineSlider.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Playback position</value>
+  </data>
+  <data name="TimeText.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Playback time</value>
+  </data>
+  <data name="TrimEndBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>End time</value>
+  </data>
+  <data name="TrimEndBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>End time of the clip. Enter as 0:12.5 or in seconds.</value>
+  </data>
+  <data name="TrimEndHandle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Clip end</value>
+  </data>
+  <data name="TrimEndLabel.Text" xml:space="preserve">
+    <value>End</value>
+  </data>
+  <data name="TrimEndReadout.Text" xml:space="preserve">
+    <value>End 00:00</value>
+  </data>
+  <data name="TrimPlayheadKnob.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Drag the playhead</value>
+  </data>
+  <data name="TrimPlayheadLine.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Playhead</value>
+  </data>
+  <data name="TrimPlayheadReadout.Text" xml:space="preserve">
+    <value>Playhead 00:00</value>
+  </data>
+  <data name="TrimReadout_End" xml:space="preserve">
+    <value>End {0}</value>
+  </data>
+  <data name="TrimReadout_Position" xml:space="preserve">
+    <value>Playhead {0}</value>
+  </data>
+  <data name="TrimReadout_Start" xml:space="preserve">
+    <value>Start {0}</value>
+  </data>
+  <data name="TrimStartBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Start time</value>
+  </data>
+  <data name="TrimStartBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Start time of the clip. Enter as 0:12.5 or in seconds.</value>
+  </data>
+  <data name="TrimStartHandle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Clip start</value>
+  </data>
+  <data name="TrimStartLabel.Text" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="TrimStartReadout.Text" xml:space="preserve">
+    <value>Start 00:00</value>
+  </data>
+  <data name="TrimTimelineCanvas.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Clip range and playhead</value>
+  </data>
+  <data name="VolumeSlider.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Volume</value>
+  </data>
+  <data name="VolumeSlider.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Volume</value>
+  </data>
+  <data name="ZoomButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Zoom</value>
+  </data>
+  <data name="ZoomButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Zoom level. While zoomed in, drag the video to reposition it.</value>
+  </data>
+  <data name="ZoomFlyoutHint.Text" xml:space="preserve">
+    <value>While zoomed in, drag the video to reposition it.</value>
+  </data>
+  <data name="ZoomFlyoutTitle.Text" xml:space="preserve">
+    <value>Zoom</value>
+  </data>
+  <data name="ZoomResetButton.Content" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="ZoomResetButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Reset zoom</value>
+  </data>
+  <data name="ZoomResetButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Reset to 1× and center</value>
+  </data>
+  <data name="ZoomSlider.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>Zoom level</value>
+  </data>
+  <data name="Notice_FrameSavedFallback" xml:space="preserve">
+    <value>Couldn't save to the selected location, so the frame was saved to Pictures\FrameDock: {0}</value>
+  </data>
+  <data name="Settings_FrameSaveHeader" xml:space="preserve">
+    <value>Save frames to</value>
+  </data>
+  <data name="Settings_FrameSavePictures" xml:space="preserve">
+    <value>Pictures\FrameDock</value>
+  </data>
+  <data name="Settings_FrameSaveCustom" xml:space="preserve">
+    <value>A folder you choose</value>
+  </data>
+  <data name="Settings_FrameSaveVideoFolder" xml:space="preserve">
+    <value>Same folder as the video</value>
+  </data>
+  <data name="Settings_FrameSaveVideoSubfolder" xml:space="preserve">
+    <value>A subfolder next to the video</value>
+  </data>
+  <data name="Settings_FrameSaveChoose" xml:space="preserve">
+    <value>Choose folder…</value>
+  </data>
+  <data name="Settings_FrameSaveFolderNone" xml:space="preserve">
+    <value>Not selected</value>
+  </data>
+  <data name="Settings_FrameSaveSubfolderHeader" xml:space="preserve">
+    <value>Subfolder name</value>
+  </data>
+  <data name="Error_FrameSaveFolderRequired" xml:space="preserve">
+    <value>Choose a folder to save frames to.</value>
+  </data>
+  <data name="Error_FrameSaveSubfolderInvalid" xml:space="preserve">
+    <value>Enter a valid folder name for the subfolder.</value>
+  </data>
+</root>

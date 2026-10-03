@@ -18,7 +18,7 @@ public sealed class MediaExportService
 
     public async Task<MediaInfo> InspectAsync(string sourcePath, CancellationToken cancellationToken = default)
     {
-        var normalizedPath = NormalizeExistingFile(sourcePath, "入力動画が見つかりません。ファイルの場所を確認してください。");
+        var normalizedPath = NormalizeExistingFile(sourcePath, Messages.Get("Error_InputFileNotFound"));
         EnsureToolExists(_options.FfprobePath, "ffprobe");
 
         var result = await ProcessExecution.RunAsync(
@@ -30,7 +30,7 @@ public sealed class MediaExportService
         if (result.ExitCode != 0)
         {
             throw new ExportException(
-                "動画の情報を読み取れませんでした。対応している動画ファイルか確認してください。",
+                Messages.Get("Error_InspectFailed"),
                 FormatDiagnostic("ffprobe", result.StandardError));
         }
 
@@ -46,7 +46,7 @@ public sealed class MediaExportService
         catch (JsonException exception)
         {
             throw new ExportException(
-                "動画の情報を読み取れませんでした。ffprobe の出力を解析できません。",
+                Messages.Get("Error_InspectParseFailed"),
                 exception.Message,
                 exception);
         }
@@ -59,31 +59,31 @@ public sealed class MediaExportService
     {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
-        Report(progress, ExportProgressPhase.Preparing, 0, 0, 0, "書き出しの準備中…");
+        Report(progress, ExportProgressPhase.Preparing, 0, 0, 0, Messages.Get("Progress_Preparing"));
 
-        var sourcePath = NormalizeExistingFile(request.SourcePath, "入力動画が見つかりません。ファイルの場所を確認してください。");
+        var sourcePath = NormalizeExistingFile(request.SourcePath, Messages.Get("Error_InputFileNotFound"));
         var destinationPath = NormalizeDestination(request.DestinationPath);
 
         if (string.Equals(sourcePath, destinationPath, StringComparison.OrdinalIgnoreCase))
         {
-            throw new ExportValidationException("入力動画と同じ場所には書き出せません。別の保存先を指定してください。");
+            throw new ExportValidationException(Messages.Get("Error_SameAsSource"));
         }
 
         var outputExtension = GetExtension(request.OutputContainer);
         if (!string.Equals(Path.GetExtension(destinationPath), outputExtension, StringComparison.OrdinalIgnoreCase))
         {
-            throw new ExportValidationException($"選択した形式の拡張子は {outputExtension} です。保存先の名前を確認してください。");
+            throw new ExportValidationException(Messages.Format("Error_ExtensionMismatch", outputExtension));
         }
 
         if (File.Exists(destinationPath))
         {
-            throw new ExportValidationException("出力先には既にファイルがあります。別の名前を指定してください。");
+            throw new ExportValidationException(Messages.Get("Error_DestinationExists"));
         }
 
         var destinationDirectory = Path.GetDirectoryName(destinationPath);
         if (string.IsNullOrEmpty(destinationDirectory) || !Directory.Exists(destinationDirectory))
         {
-            throw new ExportValidationException("保存先フォルダーが見つかりません。フォルダーを確認してください。");
+            throw new ExportValidationException(Messages.Get("Error_DestinationFolderMissing"));
         }
 
         ValidateEncoderOptions();
@@ -99,7 +99,7 @@ public sealed class MediaExportService
         if (request.Mode == ExportMode.AccurateReencode && media.IsHdr)
         {
             throw new ExportValidationException(
-                "HDR 動画の通常の書き出しには対応していません。色が変わるのを防ぐため、書き出しを中止しました。「高速切り出し（画質維持）」を選ぶと元の色のまま保存できます。");
+                Messages.Get("Error_HdrAccurateNotSupported"));
         }
 
         var temporaryPath = CreateTemporaryPath(destinationDirectory, Path.GetFileNameWithoutExtension(destinationPath), outputExtension);
@@ -120,7 +120,7 @@ public sealed class MediaExportService
 
                 var fraction = Math.Clamp(processedSeconds / expectedDuration, 0, 0.995);
                 lastProgress = Math.Max(lastProgress, fraction);
-                Report(progress, ExportProgressPhase.Encoding, lastProgress, processedSeconds, expectedDuration, "動画を書き出し中…");
+                Report(progress, ExportProgressPhase.Encoding, lastProgress, processedSeconds, expectedDuration, Messages.Get("Progress_Encoding"));
             }
 
             var processResult = await ProcessExecution.RunAsync(
@@ -134,18 +134,18 @@ public sealed class MediaExportService
             {
                 throw new ExportException(
                     request.Mode == ExportMode.StreamCopyApproximate
-                        ? "高速切り出しを実行できませんでした。指定範囲にキーフレームがないか、選んだ出力形式に元の映像・音声を格納できません。「高速切り出し（画質維持）」を解除して書き出してください。"
-                        : "動画を書き出せませんでした。保存先の空き容量と FFmpeg の対応形式を確認してください。",
+                        ? Messages.Get("Error_StreamCopyFailed")
+                        : Messages.Get("Error_ExportFailed"),
                     FormatDiagnostic("FFmpeg", processResult.StandardError));
             }
 
             cancellationToken.ThrowIfCancellationRequested();
             if (!File.Exists(temporaryPath) || new FileInfo(temporaryPath).Length <= 0)
             {
-                throw new ExportException("書き出した動画が空でした。保存先の空き容量を確認してください。");
+                throw new ExportException(Messages.Get("Error_ExportEmpty"));
             }
 
-            Report(progress, ExportProgressPhase.Verifying, Math.Max(lastProgress, 0.995), expectedDuration, expectedDuration, "書き出した動画を確認中…");
+            Report(progress, ExportProgressPhase.Verifying, Math.Max(lastProgress, 0.995), expectedDuration, expectedDuration, Messages.Get("Progress_Verifying"));
             MediaInfo outputInfo;
             try
             {
@@ -154,7 +154,7 @@ public sealed class MediaExportService
             catch (ExportException exception) when (request.Mode == ExportMode.StreamCopyApproximate)
             {
                 throw new ExportException(
-                    "指定範囲にキーフレームがないため、高速切り出しを実行できません。「高速切り出し（画質維持）」を解除して書き出してください。",
+                    Messages.Get("Error_StreamCopyNoKeyframe"),
                     exception.Diagnostic ?? exception.UserMessage,
                     exception);
             }
@@ -170,10 +170,10 @@ public sealed class MediaExportService
             }
             catch (IOException) when (File.Exists(destinationPath))
             {
-                throw new ExportValidationException("出力先には既にファイルがあります。別の名前を指定してください。");
+                throw new ExportValidationException(Messages.Get("Error_DestinationExists"));
             }
 
-            Report(progress, ExportProgressPhase.Completed, 1, expectedDuration, expectedDuration, "書き出しが完了しました。");
+            Report(progress, ExportProgressPhase.Completed, 1, expectedDuration, expectedDuration, Messages.Get("Progress_Completed"));
             return new ExportResult(
                 destinationPath,
                 requestedDuration,
@@ -191,7 +191,7 @@ public sealed class MediaExportService
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
         {
-            throw new ExportException("動画を書き出せませんでした。保存先とアクセス権を確認してください。", exception.Message, exception);
+            throw new ExportException(Messages.Get("Error_ExportWriteFailed"), exception.Message, exception);
         }
         finally
         {
@@ -203,40 +203,40 @@ public sealed class MediaExportService
     {
         if (request.Mode is not ExportMode.AccurateReencode and not ExportMode.StreamCopyApproximate)
         {
-            throw new ExportValidationException("書き出し方法を選択してください。");
+            throw new ExportValidationException(Messages.Get("Error_ExportModeRequired"));
         }
 
         if (!Enum.IsDefined(request.OutputContainer))
         {
-            throw new ExportValidationException("書き出し形式を選択してください。");
+            throw new ExportValidationException(Messages.Get("Error_ExportContainerRequired"));
         }
 
         var segments = request.Segments!;
         if (request.Mode == ExportMode.StreamCopyApproximate && segments.Count >= 2)
         {
-            throw new ExportValidationException("分割した動画は「高速切り出し（画質維持）」では書き出せません。");
+            throw new ExportValidationException(Messages.Get("Error_MultiSegmentStreamCopyNotSupported"));
         }
 
         foreach (var segment in segments)
         {
             if (!double.IsFinite(segment.StartSeconds) || !double.IsFinite(segment.EndSeconds))
             {
-                throw new ExportValidationException("開始時刻と終了時刻には有限の数値を指定してください。");
+                throw new ExportValidationException(Messages.Get("Error_TimeMustBeFinite"));
             }
 
             if (segment.StartSeconds < 0)
             {
-                throw new ExportValidationException("開始時刻は 0 秒以上にしてください。");
+                throw new ExportValidationException(Messages.Get("Error_StartNonNegative"));
             }
 
             if (segment.EndSeconds <= segment.StartSeconds)
             {
-                throw new ExportValidationException("終了時刻は開始時刻より後にしてください。");
+                throw new ExportValidationException(Messages.Get("Error_EndAfterStart"));
             }
 
             if (segment.EndSeconds > media.DurationSeconds)
             {
-                throw new ExportValidationException("終了時刻が動画の再生時間を超えています。");
+                throw new ExportValidationException(Messages.Get("Error_EndBeyondDuration"));
             }
 
             MediaGeometry.ValidateAdditionalRotation(segment.AdditionalRotationDegreesClockwise);
@@ -253,7 +253,7 @@ public sealed class MediaExportService
             var only = segments[0];
             if (only.Crop is not null || only.AdditionalRotationDegreesClockwise != 0 || only.PlaybackSpeed != 1.0 || only.ZoomFactor > 1.0)
             {
-                throw new ExportValidationException("「高速切り出し（画質維持）」では、クロップ・ズーム・回転・速度変更はできません。「高速切り出し（画質維持）」を解除して書き出してください。");
+                throw new ExportValidationException(Messages.Get("Error_StreamCopyTransformNotSupported"));
             }
         }
 
@@ -261,7 +261,7 @@ public sealed class MediaExportService
         {
             if (!(segments[i].StartSeconds >= segments[i - 1].EndSeconds))
             {
-                throw new ExportValidationException("区間の順序が正しくないか、区間どうしが重なっています。");
+                throw new ExportValidationException(Messages.Get("Error_SegmentOrderOverlap"));
             }
         }
     }
@@ -281,7 +281,7 @@ public sealed class MediaExportService
         if (request.Mode == ExportMode.AccurateReencode && media.IsHdr)
         {
             throw new ExportValidationException(
-                "HDR 動画の通常の書き出しには対応していません。色が変わるのを防ぐため、書き出しを中止しました。「高速切り出し（画質維持）」を選ぶと元の色のまま保存できます。");
+                Messages.Get("Error_HdrAccurateNotSupported"));
         }
 
         if (request.Mode == ExportMode.StreamCopyApproximate)
@@ -327,7 +327,7 @@ public sealed class MediaExportService
 
                 var fraction = Math.Clamp(processedSeconds / expectedDuration, 0, 0.995);
                 lastProgress = Math.Max(lastProgress, fraction);
-                Report(progress, ExportProgressPhase.Encoding, lastProgress, processedSeconds, expectedDuration, "動画を書き出し中…");
+                Report(progress, ExportProgressPhase.Encoding, lastProgress, processedSeconds, expectedDuration, Messages.Get("Progress_Encoding"));
             }
 
             var processResult = await ProcessExecution.RunAsync(
@@ -340,17 +340,17 @@ public sealed class MediaExportService
             if (processResult.ExitCode != 0)
             {
                 throw new ExportException(
-                    "動画を書き出せませんでした。保存先の空き容量と FFmpeg の対応形式を確認してください。",
+                    Messages.Get("Error_ExportFailed"),
                     FormatDiagnostic("FFmpeg", processResult.StandardError));
             }
 
             cancellationToken.ThrowIfCancellationRequested();
             if (!File.Exists(temporaryPath) || new FileInfo(temporaryPath).Length <= 0)
             {
-                throw new ExportException("書き出した動画が空でした。保存先の空き容量を確認してください。");
+                throw new ExportException(Messages.Get("Error_ExportEmpty"));
             }
 
-            Report(progress, ExportProgressPhase.Verifying, Math.Max(lastProgress, 0.995), expectedDuration, expectedDuration, "書き出した動画を確認中…");
+            Report(progress, ExportProgressPhase.Verifying, Math.Max(lastProgress, 0.995), expectedDuration, expectedDuration, Messages.Get("Progress_Verifying"));
             var outputInfo = await InspectAsync(temporaryPath, cancellationToken);
             ValidateMultiSegmentOutputMedia(outputInfo, media, request, segments, canvas.Item1, canvas.Item2, _options.Encoder);
 
@@ -361,10 +361,10 @@ public sealed class MediaExportService
             }
             catch (IOException) when (File.Exists(destinationPath))
             {
-                throw new ExportValidationException("出力先には既にファイルがあります。別の名前を指定してください。");
+                throw new ExportValidationException(Messages.Get("Error_DestinationExists"));
             }
 
-            Report(progress, ExportProgressPhase.Completed, 1, expectedDuration, expectedDuration, "書き出しが完了しました。");
+            Report(progress, ExportProgressPhase.Completed, 1, expectedDuration, expectedDuration, Messages.Get("Progress_Completed"));
             return new ExportResult(
                 destinationPath,
                 requestedDuration,
@@ -382,7 +382,7 @@ public sealed class MediaExportService
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
         {
-            throw new ExportException("動画を書き出せませんでした。保存先とアクセス権を確認してください。", exception.Message, exception);
+            throw new ExportException(Messages.Get("Error_ExportWriteFailed"), exception.Message, exception);
         }
         finally
         {
@@ -572,17 +572,17 @@ public sealed class MediaExportService
         ValidateOutputContainer(output, request.OutputContainer);
         if (output.RotationDegreesClockwise != 0)
         {
-            throw new ExportException("書き出した動画の回転情報が元動画と一致しませんでした。");
+            throw new ExportException(Messages.Get("Error_OutputRotationMismatch"));
         }
 
         if (output.CodedWidth != canvasWidth || output.CodedHeight != canvasHeight)
         {
-            throw new ExportException("書き出した動画のサイズが指定した範囲と一致しませんでした。");
+            throw new ExportException(Messages.Get("Error_OutputSizeMismatch"));
         }
 
         if (output.HasAudio != source.HasAudio)
         {
-            throw new ExportException("書き出した動画の音声ストリームが元動画と一致しませんでした。");
+            throw new ExportException(Messages.Get("Error_OutputAudioMismatch"));
         }
 
         var expectedDuration = 0d;
@@ -598,12 +598,12 @@ public sealed class MediaExportService
             (source.HasAudio && !string.Equals(output.AudioCodec, "aac", StringComparison.OrdinalIgnoreCase)) ||
             Math.Abs(output.DurationSeconds - expectedDuration) > durationTolerance)
         {
-            throw new ExportException("書き出した動画の形式または再生時間が指定内容と一致しませんでした。");
+            throw new ExportException(Messages.Get("Error_OutputFormatMismatch"));
         }
 
         if (!double.IsFinite(output.DurationSeconds) || output.DurationSeconds <= 0)
         {
-            throw new ExportException("書き出した動画の再生時間を確認できませんでした。");
+            throw new ExportException(Messages.Get("Error_OutputDurationUnknown"));
         }
     }
 
@@ -611,14 +611,14 @@ public sealed class MediaExportService
     {
         if (!root.TryGetProperty("streams", out var streamsElement) || streamsElement.ValueKind != JsonValueKind.Array)
         {
-            throw new ExportException("動画の映像情報が見つかりませんでした。");
+            throw new ExportException(Messages.Get("Error_NoVideoInfo"));
         }
 
         var streams = streamsElement.EnumerateArray().ToArray();
         var video = streams.FirstOrDefault(IsVideoStream);
         if (video.ValueKind == JsonValueKind.Undefined)
         {
-            throw new ExportException("映像ストリームが見つかりません。動画ファイルを選択してください。");
+            throw new ExportException(Messages.Get("Error_NoVideoStream"));
         }
 
         var width = ReadInt(video, "width");
@@ -638,7 +638,7 @@ public sealed class MediaExportService
         }
         if (!double.IsFinite(duration) || duration <= 0)
         {
-            throw new ExportException("動画の再生時間を読み取れませんでした。");
+            throw new ExportException(Messages.Get("Error_NoDuration"));
         }
 
         var startTime = ReadNumber(video, "start_time") ?? ReadNumber(root, "format", "start_time") ?? 0;
@@ -722,7 +722,7 @@ public sealed class MediaExportService
         if (string.Equals(primaries, "bt2020", StringComparison.OrdinalIgnoreCase) &&
             (transfer is null || transfer.Equals("unknown", StringComparison.OrdinalIgnoreCase)))
         {
-            return "BT.2020 色域（HDR の可能性あり）";
+            return Messages.Get("Hdr_Bt2020Possible");
         }
 
         return null;
@@ -762,7 +762,7 @@ public sealed class MediaExportService
         var nearest = Math.Round(angle / 90, MidpointRounding.AwayFromZero) * 90;
         if (Math.Abs(nearest - angle) > 0.1)
         {
-            throw new ExportValidationException("この動画の回転情報は 90 度単位ではないため、クロップ位置を計算できません。");
+            throw new ExportValidationException(Messages.Get("Error_RotationNotRightAngle"));
         }
 
         return ((checked((int)nearest) % 360) + 360) % 360;
@@ -819,7 +819,7 @@ public sealed class MediaExportService
     {
         if (!parent.TryGetProperty(propertyName, out var value) || !value.TryGetInt32(out var result))
         {
-            throw new ExportException("動画の映像サイズを読み取れませんでした。");
+            throw new ExportException(Messages.Get("Error_VideoSizeUnknown"));
         }
 
         return result;
@@ -857,32 +857,32 @@ public sealed class MediaExportService
     {
         if (!double.IsFinite(request.StartSeconds) || !double.IsFinite(request.EndSeconds))
         {
-            throw new ExportValidationException("開始時刻と終了時刻には有限の数値を指定してください。");
+            throw new ExportValidationException(Messages.Get("Error_TimeMustBeFinite"));
         }
 
         if (request.StartSeconds < 0)
         {
-            throw new ExportValidationException("開始時刻は 0 秒以上にしてください。");
+            throw new ExportValidationException(Messages.Get("Error_StartNonNegative"));
         }
 
         if (request.EndSeconds <= request.StartSeconds)
         {
-            throw new ExportValidationException("終了時刻は開始時刻より後にしてください。");
+            throw new ExportValidationException(Messages.Get("Error_EndAfterStart"));
         }
 
         if (request.EndSeconds > media.DurationSeconds)
         {
-            throw new ExportValidationException("終了時刻が動画の再生時間を超えています。");
+            throw new ExportValidationException(Messages.Get("Error_EndBeyondDuration"));
         }
 
         if (request.Mode is not ExportMode.AccurateReencode and not ExportMode.StreamCopyApproximate)
         {
-            throw new ExportValidationException("書き出し方法を選択してください。");
+            throw new ExportValidationException(Messages.Get("Error_ExportModeRequired"));
         }
 
         if (!Enum.IsDefined(request.OutputContainer))
         {
-            throw new ExportValidationException("書き出し形式を選択してください。");
+            throw new ExportValidationException(Messages.Get("Error_ExportContainerRequired"));
         }
 
         MediaGeometry.ValidateAdditionalRotation(request.AdditionalRotationDegreesClockwise);
@@ -892,7 +892,7 @@ public sealed class MediaExportService
         if (request.Mode == ExportMode.StreamCopyApproximate &&
             (request.Crop is not null || request.AdditionalRotationDegreesClockwise != 0 || request.PlaybackSpeed != 1.0 || request.ZoomFactor > 1.0))
         {
-            throw new ExportValidationException("「高速切り出し（画質維持）」では、クロップ・ズーム・回転・速度変更はできません。「高速切り出し（画質維持）」を解除して書き出してください。");
+            throw new ExportValidationException(Messages.Get("Error_StreamCopyTransformNotSupported"));
         }
 
         if (request.Crop is { } crop)
@@ -905,12 +905,12 @@ public sealed class MediaExportService
     {
         if (_options.ConstantRateFactor is < 0 or > 51)
         {
-            throw new ExportValidationException("動画品質設定が範囲外です。");
+            throw new ExportValidationException(Messages.Get("Error_QualityOutOfRange"));
         }
 
         if (!Enum.IsDefined(_options.Preset) || !Enum.IsDefined(_options.Encoder))
         {
-            throw new ExportValidationException("エンコード設定が正しくありません。");
+            throw new ExportValidationException(Messages.Get("Error_EncoderInvalid"));
         }
     }
 
@@ -1036,17 +1036,17 @@ public sealed class MediaExportService
         var expectedRotation = request.Mode == ExportMode.StreamCopyApproximate ? source.RotationDegreesClockwise : 0;
         if (output.RotationDegreesClockwise != expectedRotation)
         {
-            throw new ExportException("書き出した動画の回転情報が元動画と一致しませんでした。");
+            throw new ExportException(Messages.Get("Error_OutputRotationMismatch"));
         }
 
         if (output.CodedWidth != expected.Item1 || output.CodedHeight != expected.Item2)
         {
-            throw new ExportException("書き出した動画のサイズが指定した範囲と一致しませんでした。");
+            throw new ExportException(Messages.Get("Error_OutputSizeMismatch"));
         }
 
         if (output.HasAudio != source.HasAudio)
         {
-            throw new ExportException("書き出した動画の音声ストリームが元動画と一致しませんでした。");
+            throw new ExportException(Messages.Get("Error_OutputAudioMismatch"));
         }
 
         if (request.Mode == ExportMode.StreamCopyApproximate)
@@ -1056,12 +1056,12 @@ public sealed class MediaExportService
                 output.IsHdr != source.IsHdr ||
                 (source.HasAudio && !string.Equals(output.AudioCodec, source.AudioCodec, StringComparison.OrdinalIgnoreCase)))
             {
-                throw new ExportException("高速切り出しで保存した動画の映像形式または表示情報が、元動画と一致しませんでした。");
+                throw new ExportException(Messages.Get("Error_StreamCopyVerifyMismatch"));
             }
 
             if (output.DurationSeconds > source.DurationSeconds + 1)
             {
-                throw new ExportException("高速切り出しで保存した動画の長さが、元動画全体を超えています。");
+                throw new ExportException(Messages.Get("Error_StreamCopyTooLong"));
             }
         }
         else
@@ -1073,13 +1073,13 @@ public sealed class MediaExportService
                 (source.HasAudio && !string.Equals(output.AudioCodec, "aac", StringComparison.OrdinalIgnoreCase)) ||
                 Math.Abs(output.DurationSeconds - expectedDuration) > durationTolerance)
             {
-                throw new ExportException("書き出した動画の形式または再生時間が指定内容と一致しませんでした。");
+                throw new ExportException(Messages.Get("Error_OutputFormatMismatch"));
             }
         }
 
         if (!double.IsFinite(output.DurationSeconds) || output.DurationSeconds <= 0)
         {
-            throw new ExportException("書き出した動画の再生時間を確認できませんでした。");
+            throw new ExportException(Messages.Get("Error_OutputDurationUnknown"));
         }
     }
 
@@ -1100,7 +1100,7 @@ public sealed class MediaExportService
 
         if (!matches)
         {
-            throw new ExportException("書き出した動画のコンテナが選択した形式と一致しませんでした。");
+            throw new ExportException(Messages.Get("Error_OutputContainerMismatch"));
         }
     }
 
@@ -1109,7 +1109,7 @@ public sealed class MediaExportService
         ExportContainer.Mp4 => ".mp4",
         ExportContainer.Mkv => ".mkv",
         ExportContainer.Mov => ".mov",
-        _ => throw new ExportValidationException("書き出し形式を選択してください。")
+        _ => throw new ExportValidationException(Messages.Get("Error_ExportContainerRequired"))
     };
 
     private static string GetMuxer(ExportContainer container) => container switch
@@ -1117,7 +1117,7 @@ public sealed class MediaExportService
         ExportContainer.Mp4 => "mp4",
         ExportContainer.Mkv => "matroska",
         ExportContainer.Mov => "mov",
-        _ => throw new ExportValidationException("書き出し形式を選択してください。")
+        _ => throw new ExportValidationException(Messages.Get("Error_ExportContainerRequired"))
     };
 
     private static string NormalizeExistingFile(string? path, string errorMessage)
@@ -1149,7 +1149,7 @@ public sealed class MediaExportService
     {
         if (string.IsNullOrWhiteSpace(path))
         {
-            throw new ExportValidationException("保存先のファイル名を指定してください。");
+            throw new ExportValidationException(Messages.Get("Error_DestinationNameRequired"));
         }
 
         try
@@ -1158,7 +1158,7 @@ public sealed class MediaExportService
         }
         catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
         {
-            throw new ExportValidationException("保存先のファイル名を確認してください。");
+            throw new ExportValidationException(Messages.Get("Error_DestinationNameInvalid"));
         }
     }
 
@@ -1178,7 +1178,7 @@ public sealed class MediaExportService
     {
         if (!File.Exists(path))
         {
-            throw new ExportException($"{displayName} が見つかりません。アプリの依存ファイルを確認してください。");
+            throw new ExportException(Messages.Format("Error_ToolMissing", displayName));
         }
     }
 
@@ -1209,7 +1209,7 @@ public sealed class MediaExportService
     private static string FormatDiagnostic(string toolName, string diagnostic)
     {
         var clean = new string(diagnostic.Where(character => !char.IsControl(character) || character is '\r' or '\n' or '\t').ToArray()).Trim();
-        return clean.Length == 0 ? $"{toolName} から詳細なエラーは返されませんでした。" : $"{toolName} の詳細:\n{clean}";
+        return clean.Length == 0 ? Messages.Format("Diagnostic_NoDetail", toolName) : Messages.Format("Diagnostic_Detail", toolName, clean);
     }
 
     private static void Report(
@@ -1277,7 +1277,7 @@ internal static class ProcessExecution
         {
             if (!process.Start())
             {
-                throw new ExportException("動画処理ツールを起動できませんでした。");
+                throw new ExportException(Messages.Get("Error_ToolLaunchFailed"));
             }
         }
         catch (ExportException)
@@ -1286,7 +1286,7 @@ internal static class ProcessExecution
         }
         catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
-            throw new ExportException("動画処理ツールを起動できませんでした。アプリの依存ファイルを確認してください。", exception.Message, exception);
+            throw new ExportException(Messages.Get("Error_ToolLaunchFailedCheckFiles"), exception.Message, exception);
         }
 
         var stderrTail = new BoundedTailBuffer(maxDiagnosticCharacters);

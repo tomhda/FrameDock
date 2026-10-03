@@ -402,7 +402,7 @@ internal sealed class MpvController : IDisposable
                 var endFile = Marshal.PtrToStructure<MpvEventEndFile>(mpvEvent.Data);
                 if (endFile.Error < 0)
                 {
-                    _onError?.Invoke("この動画を再生できませんでした。ファイルが破損しているか、対応していない形式の可能性があります。");
+                    _onError?.Invoke(Localization.Strings.Get("Error_PlaybackFailed"));
                 }
             }
         }

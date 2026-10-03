@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Resources;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -13,10 +14,14 @@ internal static class Program
 
     private static async Task<int> Main()
     {
+        var japaneseCulture = CultureInfo.GetCultureInfo("ja-JP");
+        CultureInfo.CurrentUICulture = japaneseCulture;
+        CultureInfo.DefaultThreadCurrentUICulture = japaneseCulture;
         Run("SAR and rotation produce oriented square-pixel dimensions", TestDisplayDimensions);
         Run("crop bounds and H.264 chroma alignment are enforced", TestCropValidation);
         Run("zoom sample rectangles and display-to-coded mapping honor focus, SAR, and rotation", TestZoomGeometry);
         Run("rotation accepts only right angles", TestRotationValidation);
+        Run("localized messages follow CurrentUICulture and resx keys match", TestLocalization);
 
         var ffmpegPath = Environment.GetEnvironmentVariable("FRAMEDOCK_TEST_FFMPEG");
         var ffprobePath = Environment.GetEnvironmentVariable("FRAMEDOCK_TEST_FFPROBE");
@@ -412,6 +417,80 @@ internal static class Program
                 Console.Error.WriteLine($"WARN: temporary test files remain at {testRoot}");
             }
         }
+    }
+
+    private static void TestLocalization()
+    {
+        var japanese = CultureInfo.GetCultureInfo("ja-JP");
+        var english = CultureInfo.GetCultureInfo("en-US");
+        try
+        {
+            CultureInfo.CurrentUICulture = japanese;
+            Assert(ReadValidationMessage(() => MediaGeometry.ValidateCrop(new CropRect(96, 0, 2, 2), 96, 213)) == "クロップ範囲が動画の表示領域を超えています。", "crop bounds message should be Japanese");
+            Assert(ReadValidationMessage(() => MediaGeometry.ValidateZoom(4.1, 0.5, 0.5)) == "ズーム倍率は 1 倍から 4 倍の範囲で指定してください。", "zoom range message should be Japanese");
+            CultureInfo.CurrentUICulture = english;
+            Assert(ReadValidationMessage(() => MediaGeometry.ValidateCrop(new CropRect(96, 0, 2, 2), 96, 213)) == "The crop area extends beyond the video.", "crop bounds message should be English");
+            Assert(ReadValidationMessage(() => MediaGeometry.ValidateZoom(4.1, 0.5, 0.5)) == "The zoom level must be between 1× and 4×.", "zoom range message should be English");
+            Assert(ReadValidationMessage(() => MediaGeometry.NormalizeRightAngleRotation(45)) == "This video's rotation isn't a multiple of 90 degrees, so the crop position can't be calculated.", "rotation message should be English");
+            var manager = new ResourceManager("FrameDock.Core.Messages", typeof(MediaInfo).Assembly);
+            using var neutralSet = manager.GetResourceSet(CultureInfo.InvariantCulture, true, true);
+            using var japaneseSet = manager.GetResourceSet(japanese, true, true);
+            Assert(neutralSet is not null && japaneseSet is not null, "both resx resource sets should load");
+            var neutralKeys = new HashSet<string>();
+            foreach (System.Collections.DictionaryEntry entry in neutralSet!)
+            {
+                neutralKeys.Add((string)entry.Key);
+            }
+            var japaneseKeys = new HashSet<string>();
+            foreach (System.Collections.DictionaryEntry entry in japaneseSet!)
+            {
+                japaneseKeys.Add((string)entry.Key);
+            }
+            Assert(neutralKeys.SetEquals(japaneseKeys), "resx keys should match between English and Japanese");
+            foreach (var key in neutralKeys)
+            {
+                var neutralPlaceholders = CountPlaceholders(manager.GetString(key, CultureInfo.InvariantCulture));
+                var japanesePlaceholders = CountPlaceholders(manager.GetString(key, japanese));
+                Assert(neutralPlaceholders == japanesePlaceholders, "placeholder count should match for " + key);
+            }
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = japanese;
+        }
+    }
+
+    private static string ReadValidationMessage(Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (ExportValidationException exception)
+        {
+            return exception.UserMessage;
+        }
+
+        throw new InvalidOperationException("expected ExportValidationException");
+    }
+
+    private static int CountPlaceholders(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return 0;
+        }
+
+        var count = 0;
+        for (var index = 0; index < text.Length; index++)
+        {
+            if (text[index] == '{' && index + 1 < text.Length && char.IsDigit(text[index + 1]))
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private static void TestDisplayDimensions()

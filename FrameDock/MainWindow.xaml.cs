@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using FrameDock.Core;
+using FrameDock.Localization;
 using FrameDock.Player;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
@@ -182,7 +183,7 @@ public sealed partial class MainWindow : Window
         {
             InlineNoticeText.Visibility = Visibility.Collapsed;
             InlineNoticeText.Text = string.Empty;
-            if (NotificationBar.Severity is InfoBarSeverity.Success or InfoBarSeverity.Informational)
+            if (NotificationBar.Severity is InfoBarSeverity.Success or InfoBarSeverity.Informational || NotificationBar.ActionButton is not null)
             {
                 // Errors stay until dismissed; routine notices clear themselves.
                 NotificationBar.IsOpen = false;
@@ -234,7 +235,7 @@ public sealed partial class MainWindow : Window
             catch (Exception ex)
             {
                 App.WriteErrorLog(ex);
-                ShowError("動画を開けませんでした。ファイルの場所を確認してください。");
+                ShowError(Strings.Get("Error_OpenFileFailed"));
             }
         }
     }
@@ -468,7 +469,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             App.WriteErrorLog(ex);
-            ShowError("動画表示のサイズを更新できませんでした。");
+            ShowError(Strings.Get("Error_RenderSizeFailed"));
         }
     }
 
@@ -544,7 +545,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             App.WriteErrorLog(ex);
-            ShowError("ファイルを選ぶ画面を開けませんでした。動画をウィンドウにドロップして開くこともできます。");
+            ShowError(Strings.Get("Error_FilePickerFailed"));
         }
     }
 
@@ -572,7 +573,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             App.WriteErrorLog(ex);
-            ShowError("ドロップしたファイルを開けませんでした。");
+            ShowError(Strings.Get("Error_DropOpenFailed"));
         }
     }
 
@@ -582,10 +583,10 @@ public sealed partial class MainWindow : Window
         {
             var confirmOpen = new ContentDialog
             {
-                Title = "書き出しを中止しますか？",
-                Content = "書き出し中です。別の動画を開くと、書き出しを中止します。",
-                PrimaryButtonText = "中止して開く",
-                CloseButtonText = "キャンセル",
+                Title = Strings.Get("Dialog_AbortExportTitle"),
+                Content = Strings.Get("Dialog_OpenDuringExportContent"),
+                PrimaryButtonText = Strings.Get("Dialog_AbortAndOpen"),
+                CloseButtonText = Strings.Get("Dialog_Cancel"),
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = RootGrid.XamlRoot
             };
@@ -643,14 +644,14 @@ public sealed partial class MainWindow : Window
             fullPath = Path.GetFullPath(path);
             if (!File.Exists(fullPath))
             {
-                ShowError($"ファイルが見つかりません: {path}");
+                ShowError(Strings.Format("Error_FileNotFound", path));
                 return;
             }
         }
         catch (Exception ex)
         {
             App.WriteErrorLog(ex);
-            ShowError("ファイルを開けませんでした。ファイルの場所とアクセス権を確認してください。");
+            ShowError(Strings.Get("Error_OpenFileAccess"));
             return;
         }
 
@@ -700,8 +701,8 @@ public sealed partial class MainWindow : Window
             CropOverlayCanvas.Visibility = Visibility.Collapsed;
             EmptyState.Visibility = Visibility.Collapsed;
             TimelineSlider.IsEnabled = false;
-            OutputFolderText.Text = "元動画と同じフォルダー";
-            ToolTipService.SetToolTip(OutputFolderText, "元動画と同じフォルダー");
+            OutputFolderText.Text = Strings.Get("OutputFolder_Default");
+            ToolTipService.SetToolTip(OutputFolderText, Strings.Get("OutputFolder_Default"));
             OutputNameBox.Text = $"{Path.GetFileNameWithoutExtension(fullPath)}-clip";
             CropInfoText.Text = string.Empty;
             CropResetButton.IsEnabled = false;
@@ -756,7 +757,7 @@ public sealed partial class MainWindow : Window
                 catch (Exception ex)
                 {
                     App.WriteErrorLog(ex);
-                    ShowError("動画の表示を準備できませんでした。アプリを再起動してください。");
+                    ShowError(Strings.Get("Error_PrepareRenderFailed"));
                 }
             });
             player.FileLoaded += () => DispatcherQueue.TryEnqueue(() =>
@@ -786,7 +787,7 @@ public sealed partial class MainWindow : Window
                 catch (OperationCanceledException timeout) when (inspectTimeout.IsCancellationRequested)
                 {
                     App.WriteErrorLog(timeout);
-                    ShowError("動画の情報を 30 秒以内に読み取れませんでした。ネットワーク上やクラウド上のファイルは、ローカルにコピーしてから開いてください。");
+                    ShowError(Strings.Get("Error_InspectTimeout"));
                     return;
                 }
                 if (_isClosing || !ReferenceEquals(_player, player))
@@ -819,7 +820,7 @@ public sealed partial class MainWindow : Window
             catch (Exception ex)
             {
                 App.WriteErrorLog(ex);
-                ShowError("動画の情報を読み取れませんでした。再生はできますが、編集と書き出しは使用できません。");
+                ShowError(Strings.Get("Error_InspectFallback"));
             }
         }
         catch (Exception ex)
@@ -833,7 +834,7 @@ public sealed partial class MainWindow : Window
             TimelineSlider.IsEnabled = false;
             _statusTimer?.Stop();
             App.WriteErrorLog(ex);
-            ShowError("この動画を再生できませんでした。ファイルが破損しているか、対応していない形式の可能性があります。");
+            ShowError(Strings.Get("Error_PlaybackFailed"));
         }
 
     }
@@ -906,8 +907,8 @@ public sealed partial class MainWindow : Window
         var isPaused = _player.GetFlag("pause");
         PlayIcon.Glyph = isPaused ? "\uE768" : "\uE769";
         EditPlayIcon.Glyph = isPaused ? "\uE768" : "\uE769";
-        PlayButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, isPaused ? "再生" : "一時停止");
-        EditPlayButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, isPaused ? "再生" : "一時停止");
+        PlayButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, isPaused ? Strings.Get("Accessibility_Play") : Strings.Get("Accessibility_Pause"));
+        EditPlayButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, isPaused ? Strings.Get("Accessibility_Play") : Strings.Get("Accessibility_Pause"));
     }
 
     internal static string FormatTime(double seconds)
@@ -944,7 +945,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             App.WriteErrorLog(ex);
-            ShowError("再生を切り替えられませんでした。");
+            ShowError(Strings.Get("Error_TogglePlayFailed"));
         }
     }
 
@@ -966,7 +967,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             App.WriteErrorLog(ex);
-            ShowError("フレームを移動できませんでした。");
+            ShowError(Strings.Get("Error_StepFrameFailed"));
         }
     }
 
@@ -979,7 +980,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             App.WriteErrorLog(ex);
-            ShowError("再生位置を移動できませんでした。");
+            ShowError(Strings.Get("Error_SeekFailed"));
         }
     }
 
@@ -1013,7 +1014,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             App.WriteErrorLog(ex);
-            ShowError("再生位置を移動できませんでした。");
+            ShowError(Strings.Get("Error_SeekFailed"));
         }
     }
 
@@ -1200,9 +1201,9 @@ public sealed partial class MainWindow : Window
         SetTimelineElement(TrimPlayheadLine, playheadX - TrimPlayheadLine.Width / 2, 1, TrimPlayheadLine.Width, TrimPlayheadLine.Height);
         SetTimelineElement(TrimPlayheadKnob, playheadX - TrimPlayheadKnob.Width / 2, 0, TrimPlayheadKnob.Width, TrimPlayheadKnob.Height);
 
-        TrimStartReadout.Text = $"開始 {FormatTime(start)}";
-        TrimPlayheadReadout.Text = $"再生位置 {FormatTime(position)}";
-        TrimEndReadout.Text = $"終了 {FormatTime(end)}";
+        TrimStartReadout.Text = Strings.Format("TrimReadout_Start", FormatTime(start));
+        TrimPlayheadReadout.Text = Strings.Format("TrimReadout_Position", FormatTime(position));
+        TrimEndReadout.Text = Strings.Format("TrimReadout_End", FormatTime(end));
         UpdateSegmentTimelineVisuals(trackWidth, duration, pad, trackY, trackHeight, position);
     }
 
@@ -1522,7 +1523,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             App.WriteErrorLog(ex);
-            ShowError("音量を変更できませんでした。");
+            ShowError(Strings.Get("Error_VolumeFailed"));
         }
 
         ScheduleSettingsSave();
@@ -1540,7 +1541,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             App.WriteErrorLog(ex);
-            ShowError("ミュートを切り替えられませんでした。");
+            ShowError(Strings.Get("Error_MuteFailed"));
         }
 
         ScheduleSettingsSave();
@@ -1549,7 +1550,7 @@ public sealed partial class MainWindow : Window
     private void UpdateMuteButton()
     {
         MuteIcon.Glyph = _isMuted ? "\uE74F" : "\uE767";
-        MuteButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, _isMuted ? "ミュートを解除" : "ミュート");
+        MuteButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, _isMuted ? Strings.Get("Accessibility_Unmute") : Strings.Get("Accessibility_Mute"));
     }
 
     private void SpeedMenuItem_Click(object sender, RoutedEventArgs e)
@@ -1599,7 +1600,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             App.WriteErrorLog(ex);
-            ShowError("再生速度を変更できませんでした。");
+            ShowError(Strings.Get("Error_SpeedFailed"));
         }
     }
 
@@ -1611,15 +1612,15 @@ public sealed partial class MainWindow : Window
                 Math.Abs(itemSpeed - speed) < 0.001;
         }
 
-        SpeedMenuItem.Text = $"再生速度: {speed.ToString("0.##", CultureInfo.InvariantCulture)}×";
+        SpeedMenuItem.Text = Strings.Format("PlaybackSpeed_Menu", speed.ToString("0.##", CultureInfo.InvariantCulture));
     }
 
     private void UpdateEditSpeedControl(double speed)
     {
         var label = $"{speed.ToString("0.##", CultureInfo.InvariantCulture)}×";
         EditSpeedText.Text = label;
-        ToolTipService.SetToolTip(EditSpeedButton, $"プレビューと書き出しの速度: {label}");
-        EditSpeedButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, $"書き出しの速度 {label}");
+        ToolTipService.SetToolTip(EditSpeedButton, Strings.Format("EditSpeed_Tooltip", label));
+        EditSpeedButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, Strings.Format("EditSpeed_Name", label));
         if (EditSpeedButton.Flyout is MenuFlyout flyout)
         {
             foreach (var item in flyout.Items.OfType<ToggleMenuFlyoutItem>())
@@ -1807,7 +1808,7 @@ public sealed partial class MainWindow : Window
             App.WriteErrorLog(ex);
             if (showError)
             {
-                ShowError("編集プレビューを更新できませんでした。ズームやクロップを元に戻して再度お試しください。");
+                ShowError(Strings.Get("Error_PreviewFailed"));
             }
 
             return false;
@@ -1933,8 +1934,8 @@ public sealed partial class MainWindow : Window
         var seconds = _settings.SkipSeconds.ToString("0.##", CultureInfo.InvariantCulture);
         BackSkipText.Text = seconds;
         ForwardSkipText.Text = seconds;
-        var backLabel = $"{seconds}秒戻る";
-        var forwardLabel = $"{seconds}秒進む";
+        var backLabel = Strings.Format("Accessibility_SkipBack", seconds);
+        var forwardLabel = Strings.Format("Accessibility_SkipForward", seconds);
         ToolTipService.SetToolTip(BackButton, $"{backLabel} (←)");
         ToolTipService.SetToolTip(ForwardButton, $"{forwardLabel} (→)");
         BackButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, backLabel);
@@ -1963,7 +1964,7 @@ public sealed partial class MainWindow : Window
             if (!_isClosing)
             {
                 App.WriteErrorLog(ex);
-                ShowError("設定を保存できませんでした。");
+                ShowError(Strings.Get("Error_SettingsSaveFailed"));
             }
         }
     }
@@ -1972,19 +1973,100 @@ public sealed partial class MainWindow : Window
     {
         var skipBox = new NumberBox
         {
-            Header = "左右に移動する秒数",
+            Header = Strings.Get("Settings_SkipHeader"),
             Minimum = 1,
             Maximum = 600,
             Value = _settings.SkipSeconds,
             SmallChange = 1,
             SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact
         };
+        var languageLabel = new TextBlock
+        {
+            Text = Strings.Get("Settings_LanguageHeader")
+        };
+        var languageBox = new ComboBox();
+        languageBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_LanguageSystem"), Tag = "" });
+        languageBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_LanguageJapanese"), Tag = "ja-JP" });
+        languageBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_LanguageEnglish"), Tag = "en-US" });
+        languageBox.SelectedIndex = _settings.Language switch
+        {
+            "ja-JP" => 1,
+            "en-US" => 2,
+            _ => 0
+        };
+        var frameSaveLabel = new TextBlock
+        {
+            Text = Strings.Get("Settings_FrameSaveHeader")
+        };
+        var frameSaveBox = new ComboBox { MinWidth = 280 };
+        frameSaveBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_FrameSavePictures"), Tag = FrameSaveLocation.Pictures });
+        frameSaveBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_FrameSaveCustom"), Tag = FrameSaveLocation.CustomFolder });
+        frameSaveBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_FrameSaveVideoFolder"), Tag = FrameSaveLocation.VideoFolder });
+        frameSaveBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_FrameSaveVideoSubfolder"), Tag = FrameSaveLocation.VideoSubfolder });
+        frameSaveBox.SelectedIndex = (int)_settings.FrameSaveLocation;
+        var frameSaveFolder = _settings.FrameSaveFolder;
+        var frameSaveFolderText = new TextBlock
+        {
+            Text = string.IsNullOrWhiteSpace(frameSaveFolder) ? Strings.Get("Settings_FrameSaveFolderNone") : frameSaveFolder,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            MaxWidth = 300
+        };
+        ToolTipService.SetToolTip(frameSaveFolderText, frameSaveFolderText.Text);
+        var frameSaveFolderButton = new Button { Content = Strings.Get("Settings_FrameSaveChoose") };
+        frameSaveFolderButton.Click += async (_, _) =>
+        {
+            try
+            {
+                var picker = new FolderPicker();
+                picker.FileTypeFilter.Add("*");
+                InitializeWithWindow.Initialize(picker, _windowHandle);
+                var folder = await picker.PickSingleFolderAsync();
+                if (folder is not null)
+                {
+                    frameSaveFolder = folder.Path;
+                    frameSaveFolderText.Text = folder.Path;
+                    ToolTipService.SetToolTip(frameSaveFolderText, folder.Path);
+                }
+            }
+            catch (Exception pickerFailure)
+            {
+                App.WriteErrorLog(pickerFailure);
+                ShowError(Strings.Get("Error_FolderPickerFailed"));
+            }
+        };
+        var frameSaveFolderRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        frameSaveFolderRow.Children.Add(frameSaveFolderButton);
+        frameSaveFolderRow.Children.Add(frameSaveFolderText);
+        var frameSaveSubfolderBox = new TextBox
+        {
+            Header = Strings.Get("Settings_FrameSaveSubfolderHeader"),
+            Text = _settings.FrameSaveSubfolder,
+            MaxLength = 80
+        };
+        void UpdateFrameSaveFields()
+        {
+            var location = (frameSaveBox.SelectedItem as ComboBoxItem)?.Tag as FrameSaveLocation? ?? FrameSaveLocation.Pictures;
+            frameSaveFolderRow.Visibility = location == FrameSaveLocation.CustomFolder ? Visibility.Visible : Visibility.Collapsed;
+            frameSaveSubfolderBox.Visibility = location == FrameSaveLocation.VideoSubfolder ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        frameSaveBox.SelectionChanged += (_, _) => UpdateFrameSaveFields();
+        UpdateFrameSaveFields();
+        var settingsPanel = new StackPanel { Spacing = 12 };
+        settingsPanel.Children.Add(skipBox);
+        settingsPanel.Children.Add(frameSaveLabel);
+        settingsPanel.Children.Add(frameSaveBox);
+        settingsPanel.Children.Add(frameSaveFolderRow);
+        settingsPanel.Children.Add(frameSaveSubfolderBox);
+        settingsPanel.Children.Add(languageLabel);
+        settingsPanel.Children.Add(languageBox);
         var dialog = new ContentDialog
         {
-            Title = "再生設定",
-            Content = skipBox,
-            PrimaryButtonText = "保存",
-            CloseButtonText = "キャンセル",
+            Title = Strings.Get("Settings_Title"),
+            Content = settingsPanel,
+            PrimaryButtonText = Strings.Get("Settings_Save"),
+            CloseButtonText = Strings.Get("Dialog_Cancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = RootGrid.XamlRoot
         };
@@ -1996,20 +2078,47 @@ public sealed partial class MainWindow : Window
             {
                 if (!double.IsFinite(skipBox.Value) || skipBox.Value < 1 || skipBox.Value > 600)
                 {
-                    ShowError("移動する秒数は 1〜600 の範囲で指定してください。");
+                    ShowError(Strings.Get("Error_SkipRange"));
                     return;
+                }
+
+                var frameSaveLocation = (frameSaveBox.SelectedItem as ComboBoxItem)?.Tag as FrameSaveLocation? ?? FrameSaveLocation.Pictures;
+                if (frameSaveLocation == FrameSaveLocation.CustomFolder && (string.IsNullOrWhiteSpace(frameSaveFolder) || !Directory.Exists(frameSaveFolder)))
+                {
+                    ShowError(Strings.Get("Error_FrameSaveFolderRequired"));
+                    return;
+                }
+
+                if (frameSaveLocation == FrameSaveLocation.VideoSubfolder && !PlayerSettings.IsValidFolderName(frameSaveSubfolderBox.Text))
+                {
+                    ShowError(Strings.Get("Error_FrameSaveSubfolderInvalid"));
+                    return;
+                }
+
+                _settings.FrameSaveLocation = frameSaveLocation;
+                _settings.FrameSaveFolder = frameSaveFolder ?? "";
+                if (PlayerSettings.IsValidFolderName(frameSaveSubfolderBox.Text))
+                {
+                    _settings.FrameSaveSubfolder = frameSaveSubfolderBox.Text.Trim();
                 }
 
                 _settings.SkipSeconds = skipBox.Value;
                 UpdateSkipLabels();
+                var selectedLanguage = (languageBox.SelectedItem as ComboBoxItem)?.Tag as string ?? "";
+                var languageChanged = !string.Equals(_settings.Language, selectedLanguage, StringComparison.Ordinal);
+                _settings.Language = selectedLanguage;
                 await SaveSettingsAsync();
+                if (languageChanged)
+                {
+                    ShowNotice(Strings.Get("Settings_LanguageRestartNote"), InfoBarSeverity.Informational);
+                }
             }
         }
         catch (Exception ex)
         {
             // ShowAsync throws while another dialog is open.
             App.WriteErrorLog(ex);
-            ShowError("再生設定を開けませんでした。");
+            ShowError(Strings.Get("Error_SettingsOpenFailed"));
         }
         finally
         {
@@ -2105,7 +2214,7 @@ public sealed partial class MainWindow : Window
         }
 
         FullscreenIcon.Glyph = _isFullscreen ? "\uE73F" : "\uE740";
-        var fullscreenLabel = _isFullscreen ? "全画面を終了 (Esc)" : "全画面表示 (F)";
+        var fullscreenLabel = _isFullscreen ? Strings.Get("Fullscreen_Exit") : Strings.Get("Fullscreen_Enter");
         ToolTipService.SetToolTip(FullscreenButton, fullscreenLabel);
         FullscreenButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, fullscreenLabel);
         UpdateDisplayModeMenu();
@@ -2145,10 +2254,10 @@ public sealed partial class MainWindow : Window
         FullscreenModeItem.IsChecked = _displayMode == PlayerDisplayMode.Fullscreen;
         DisplayModeMenuItem.Text = _displayMode switch
         {
-            PlayerDisplayMode.AlwaysVisible => "表示モード: 常時表示",
-            PlayerDisplayMode.MaximizedOverlay => "表示モード: 最大化（タスクバー表示）",
-            PlayerDisplayMode.Fullscreen => "表示モード: 全画面表示",
-            _ => "表示モード"
+            PlayerDisplayMode.AlwaysVisible => Strings.Get("DisplayMode_Always"),
+            PlayerDisplayMode.MaximizedOverlay => Strings.Get("DisplayMode_Maximized"),
+            PlayerDisplayMode.Fullscreen => Strings.Get("DisplayMode_Fullscreen"),
+            _ => Strings.Get("DisplayMode_Plain")
         };
     }
 
@@ -2285,7 +2394,7 @@ public sealed partial class MainWindow : Window
     {
         if (_mediaInfo is null)
         {
-            ShowError("編集できる動画を開いてください。");
+            ShowError(Strings.Get("Error_NoEditableVideo"));
             return;
         }
 
@@ -2366,8 +2475,8 @@ public sealed partial class MainWindow : Window
         ApproximateCopyCheckBox.IsChecked = false;
         OutputContainerComboBox.SelectedIndex = 0;
         _outputDirectory = _loadedPath is null ? null : Path.GetDirectoryName(_loadedPath);
-        OutputFolderText.Text = "元動画と同じフォルダー";
-        ToolTipService.SetToolTip(OutputFolderText, "元動画と同じフォルダー");
+        OutputFolderText.Text = Strings.Get("OutputFolder_Default");
+        ToolTipService.SetToolTip(OutputFolderText, Strings.Get("OutputFolder_Default"));
         OutputNameBox.Text = _loadedPath is null ? string.Empty : $"{Path.GetFileNameWithoutExtension(_loadedPath)}-clip";
 
         _editSpeed = 1;
@@ -2393,7 +2502,7 @@ public sealed partial class MainWindow : Window
         var menu = new MenuFlyout();
         menu.Opened += (_, _) => ControlsFlyoutOpened();
         menu.Closed += (_, _) => ControlsFlyoutClosed();
-        var copyItem = new MenuFlyoutItem { Text = "表示中のフレームをコピー" };
+        var copyItem = new MenuFlyoutItem { Text = Strings.Get("ContextMenu_CopyFrame") };
         copyItem.Icon = new FontIcon { Glyph = "\uE8C8" };
         copyItem.Click += CopyFrameButton_Click;
         menu.Items.Add(copyItem);
@@ -2716,7 +2825,7 @@ public sealed partial class MainWindow : Window
             var readout = $"{_currentSegmentIndex + 1} / {_segments.Count}";
             if (_segments[_currentSegmentIndex].IsDeleted)
             {
-                readout += "（削除済み）";
+                readout += Strings.Get("Segment_DeletedSuffix");
             }
 
             SegmentReadoutText.Text = readout;
@@ -2754,14 +2863,14 @@ public sealed partial class MainWindow : Window
         if (current.IsDeleted)
         {
             DeleteSegmentIcon.Glyph = "\uE7A7";
-            ToolTipService.SetToolTip(DeleteSegmentButton, "この区間を元に戻す (Delete)");
-            DeleteSegmentButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, "この区間を元に戻す");
+            ToolTipService.SetToolTip(DeleteSegmentButton, Strings.Get("DeleteSegment_TooltipRestore"));
+            DeleteSegmentButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, Strings.Get("DeleteSegment_NameRestore"));
         }
         else
         {
             DeleteSegmentIcon.Glyph = "\uE74D";
-            ToolTipService.SetToolTip(DeleteSegmentButton, "この区間を削除 (Delete)");
-            DeleteSegmentButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, "この区間を削除");
+            ToolTipService.SetToolTip(DeleteSegmentButton, Strings.Get("DeleteSegment_TooltipDelete"));
+            DeleteSegmentButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, Strings.Get("DeleteSegment_NameDelete"));
         }
 
         var canSplit = _segments.Count < MaxSegmentCount && !current.IsDeleted;
@@ -3082,7 +3191,7 @@ public sealed partial class MainWindow : Window
         if (_mediaInfo is null)
         {
             ExportButton.IsEnabled = false;
-            EditRangeText.Text = "開始と終了を確認してください";
+            EditRangeText.Text = Strings.Get("EditRange_Confirm");
             UpdateTrimTimeline();
             return;
         }
@@ -3106,16 +3215,16 @@ public sealed partial class MainWindow : Window
                     }
                 }
 
-                EditRangeText.Text = $"{remainingCount} 区間・合計 {FormatTime(totalOutputLength)}";
+                EditRangeText.Text = Strings.Format("EditRange_Multi", remainingCount, FormatTime(totalOutputLength));
             }
             else
             {
-                EditRangeText.Text = $"{FormatTime(start)} 〜 {FormatTime(end)}（長さ {FormatTime(end - start)}）";
+                EditRangeText.Text = Strings.Format("EditRange_Single", FormatTime(start), FormatTime(end), FormatTime(end - start));
             }
         }
         else
         {
-            EditRangeText.Text = "開始は 0 以上、終了は開始より後にしてください";
+            EditRangeText.Text = Strings.Get("EditRange_Invalid");
         }
 
         UpdateTrimTimeline();
@@ -3130,7 +3239,7 @@ public sealed partial class MainWindow : Window
 
         if (!_isCropMode && _additionalRotationDegreesClockwise != 0)
         {
-            ShowNotice("クロップ範囲を編集するには、回転を 0° に戻してください。", InfoBarSeverity.Informational);
+            ShowNotice(Strings.Get("Notice_CropNeedsZeroRotation"), InfoBarSeverity.Informational);
             return;
         }
 
@@ -3140,7 +3249,7 @@ public sealed partial class MainWindow : Window
             var evenHeight = _mediaInfo.DisplayHeight & ~1;
             if (evenWidth < 2 || evenHeight < 2)
             {
-                ShowError("この動画の表示サイズではクロップできません。");
+                ShowError(Strings.Get("Error_CropImpossible"));
                 return;
             }
 
@@ -3180,11 +3289,11 @@ public sealed partial class MainWindow : Window
             _cropDragPointerOrigin = null;
             _cropDragHandleOrigin = null;
         }
-        CropModeButtonText.Text = _isCropMode ? "完了" : "クロップ";
-        CropModeButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, _isCropMode ? "クロップ編集を完了" : "クロップ範囲を調整");
+        CropModeButtonText.Text = _isCropMode ? Strings.Get("CropButton_Done") : Strings.Get("CropButton_Crop");
+        CropModeButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, _isCropMode ? Strings.Get("CropMode_NameActive") : Strings.Get("CropMode_NameInactive"));
         ToolTipService.SetToolTip(CropModeButton, _isCropMode
-            ? "8つのハンドルをドラッグして範囲を調整。もう一度押すと確定"
-            : "四隅と四辺の8つのハンドルで範囲を調整");
+            ? Strings.Get("CropMode_TooltipActive")
+            : Strings.Get("CropMode_TooltipInactive"));
         CropOverlayCanvas.IsHitTestVisible = _isCropMode;
         CropOverlayCanvas.Visibility = _isCropMode ? Visibility.Visible : Visibility.Collapsed;
         if (_isCropMode)
@@ -3240,12 +3349,12 @@ public sealed partial class MainWindow : Window
     private void UpdateRotationControl()
     {
         RotateButtonText.Text = $"{_additionalRotationDegreesClockwise}°";
-        RotateButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, $"時計回りに回転: {_additionalRotationDegreesClockwise} 度");
-        ToolTipService.SetToolTip(RotateButton, $"時計回りに 90 度ずつ回転（現在 {_additionalRotationDegreesClockwise}°）");
+        RotateButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, Strings.Format("Rotate_Name", _additionalRotationDegreesClockwise));
+        ToolTipService.SetToolTip(RotateButton, Strings.Format("Rotate_Tooltip", _additionalRotationDegreesClockwise));
         CropModeButton.IsEnabled = _mediaInfo is not null && _additionalRotationDegreesClockwise == 0;
         ToolTipService.SetToolTip(CropModeButton, _additionalRotationDegreesClockwise == 0
-            ? "四隅と四辺の8つのハンドルで範囲を調整"
-            : "クロップを編集するには、回転を 0° に戻してください");
+            ? Strings.Get("CropMode_TooltipInactive")
+            : Strings.Get("CropDisabledByRotation"));
     }
 
     private void UpdateApproximateCopyAvailability()
@@ -3678,7 +3787,7 @@ public sealed partial class MainWindow : Window
 
         width += width & 1;
         height += height & 1;
-        CropInfoText.Text = $"出力 {width} × {height} px";
+        CropInfoText.Text = Strings.Format("Crop_OutputSize", width, height);
     }
 
     private async void OutputFolderButton_Click(object sender, RoutedEventArgs e)
@@ -3699,7 +3808,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             App.WriteErrorLog(ex);
-            ShowError("保存先フォルダーを選ぶ画面を開けませんでした。");
+            ShowError(Strings.Get("Error_FolderPickerFailed"));
         }
     }
 
@@ -3721,7 +3830,7 @@ public sealed partial class MainWindow : Window
     {
         if (_mediaInfo is null || _loadedPath is null)
         {
-            ShowError("編集できる動画を開いてください。");
+            ShowError(Strings.Get("Error_NoEditableVideo"));
             return;
         }
 
@@ -3729,7 +3838,7 @@ public sealed partial class MainWindow : Window
         var end = TrimEndBox.Value;
         if (!double.IsFinite(start) || !double.IsFinite(end) || start < 0 || end <= start || end > _mediaInfo.DurationSeconds)
         {
-            ShowError("開始時刻と終了時刻を確認してください。");
+            ShowError(Strings.Get("Error_TimeRangeInvalid"));
             return;
         }
 
@@ -3750,14 +3859,14 @@ public sealed partial class MainWindow : Window
 
         if (EditorPanel.Visibility == Visibility.Visible && _segments.Count > 0 && remainingExportSegments.Count == 0)
         {
-            ShowError("開始時刻と終了時刻を確認してください。");
+            ShowError(Strings.Get("Error_TimeRangeInvalid"));
             return;
         }
 
         var mode = ApproximateCopyCheckBox.IsChecked == true ? ExportMode.StreamCopyApproximate : ExportMode.AccurateReencode;
         if (mode == ExportMode.AccurateReencode && _mediaInfo.IsHdr)
         {
-            ShowError("HDR 動画は通常の書き出しに対応していません。「高速切り出し（画質維持）」を選ぶと元の色のまま保存できます。");
+            ShowError(Strings.Get("Error_HdrExportNotSupported"));
             return;
         }
 
@@ -3768,14 +3877,14 @@ public sealed partial class MainWindow : Window
         var copyZoom = copySegment?.ZoomFactor ?? _editorZoomFactor;
         if (mode == ExportMode.StreamCopyApproximate && copyCrop is not null)
         {
-            ShowError("クロップと「高速切り出し（画質維持）」は併用できません。クロップを解除するか、通常の書き出しを選んでください。");
+            ShowError(Strings.Get("Error_StreamCopyCropConflict"));
             return;
         }
 
         if (mode == ExportMode.StreamCopyApproximate &&
             (copyRotation != 0 || Math.Abs(copySpeed - 1) > 0.001 || copyZoom > 1.001))
         {
-            ShowError("回転、ズーム、速度を変更した動画は「高速切り出し（画質維持）」では書き出せません。");
+            ShowError(Strings.Get("Error_StreamCopyTransformConflict"));
             return;
         }
 
@@ -3791,7 +3900,7 @@ public sealed partial class MainWindow : Window
 
         if (string.IsNullOrWhiteSpace(fileStem) || fileStem is "." or ".." || Path.GetFileName(fileStem) != fileStem || fileStem.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
         {
-            ShowError("出力ファイル名には、ファイル名として使える文字を入力してください。");
+            ShowError(Strings.Get("Error_FileNameInvalid"));
             return;
         }
 
@@ -3800,7 +3909,7 @@ public sealed partial class MainWindow : Window
         var destination = Path.Combine(directory, fileStem + GetExportExtension(outputContainer));
         if (File.Exists(destination))
         {
-            ShowError("同じ名前のファイルが保存先にあります。別の名前を指定してください。");
+            ShowError(Strings.Get("Error_FileExists"));
             return;
         }
 
@@ -3863,7 +3972,7 @@ public sealed partial class MainWindow : Window
         ExportProgressBar.Value = 0;
         ExportProgressBar.Visibility = Visibility.Visible;
         CancelExportButton.Visibility = Visibility.Visible;
-        ExportButton.Content = "書き出し中…";
+        ExportButton.Content = Strings.Get("ExportButton_Exporting");
         OutputContainerComboBox.IsEnabled = false;
         ApproximateCopyCheckBox.IsEnabled = false;
         OutputFolderButton.IsEnabled = false;
@@ -3889,10 +3998,10 @@ public sealed partial class MainWindow : Window
             var result = await exportTask;
             if (!_isClosing && ReferenceEquals(_exportCancellation, exportCancellation))
             {
-                var successMessage = $"書き出しました: {result.DestinationPath}";
+                var successMessage = Strings.Format("Notice_ExportDone", result.DestinationPath);
                 if (result.BoundariesAreApproximate)
                 {
-                    successMessage += " (キーフレーム位置に合わせたため、境界は指定時刻と異なります)";
+                    successMessage += Strings.Get("Notice_ExportDoneApproxSuffix");
                 }
 
                 ShowNotice(successMessage, InfoBarSeverity.Success, revealPath: result.DestinationPath);
@@ -3902,7 +4011,7 @@ public sealed partial class MainWindow : Window
         {
             if (!_isClosing && ReferenceEquals(_exportCancellation, exportCancellation))
             {
-                ShowNotice("書き出しをキャンセルしました。", InfoBarSeverity.Informational);
+                ShowNotice(Strings.Get("Notice_ExportCancelled"), InfoBarSeverity.Informational);
             }
         }
         catch (ExportException ex)
@@ -3917,7 +4026,7 @@ public sealed partial class MainWindow : Window
             if (!_isClosing && ReferenceEquals(_exportCancellation, exportCancellation))
             {
                 App.WriteErrorLog(ex);
-                ShowError("動画を書き出せませんでした。保存先の空き容量とアクセス権を確認してください。");
+                ShowError(Strings.Get("Error_ExportFailedGeneric"));
             }
         }
         finally
@@ -3937,7 +4046,7 @@ public sealed partial class MainWindow : Window
                     ExportProgressBar.IsIndeterminate = false;
                     ExportProgressBar.Visibility = Visibility.Collapsed;
                     CancelExportButton.Visibility = Visibility.Collapsed;
-                    ExportButton.Content = "書き出し";
+                    ExportButton.Content = Strings.Get("ExportButton_Export");
                     CancelEditButton.IsEnabled = true;
                     UpdateApproximateCopyAvailability();
                     OutputContainerComboBox.IsEnabled = true;
@@ -3972,10 +4081,10 @@ public sealed partial class MainWindow : Window
             {
                 var confirmClose = new ContentDialog
                 {
-                    Title = "書き出しを中止しますか？",
-                    Content = "書き出し中です。終了すると、書き出しを中止します。",
-                    PrimaryButtonText = "中止して終了",
-                    CloseButtonText = "キャンセル",
+                    Title = Strings.Get("Dialog_AbortExportTitle"),
+                    Content = Strings.Get("Dialog_CloseDuringExportContent"),
+                    PrimaryButtonText = Strings.Get("Dialog_AbortAndClose"),
+                    CloseButtonText = Strings.Get("Dialog_Cancel"),
                     DefaultButton = ContentDialogButton.Close,
                     XamlRoot = RootGrid.XamlRoot
                 };
@@ -4044,7 +4153,7 @@ public sealed partial class MainWindow : Window
         ExportProgressBar.IsIndeterminate = false;
         ExportProgressBar.Visibility = Visibility.Collapsed;
         CancelExportButton.Visibility = Visibility.Collapsed;
-        ExportButton.Content = "書き出し";
+        ExportButton.Content = Strings.Get("ExportButton_Export");
         OutputContainerComboBox.IsEnabled = true;
         OutputFolderButton.IsEnabled = true;
         OutputNameBox.IsEnabled = true;
@@ -4055,27 +4164,47 @@ public sealed partial class MainWindow : Window
         var player = _player;
         if (player is null)
         {
-            ShowError("先に動画を開いてください。");
+            ShowError(Strings.Get("Error_OpenVideoFirst"));
             return;
         }
 
         // Capture the name inputs before the first await; playback continues underneath.
         var screenshotBaseName = BuildScreenshotName();
+        var picturesDirectory = GetPicturesFrameDirectory();
+        var preferredDirectory = GetPreferredFrameDirectory(picturesDirectory);
         string? temporary = null;
         try
         {
-            var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "FrameDock");
-            Directory.CreateDirectory(directory);
-            temporary = Path.Combine(directory, $".FrameDock-{Guid.NewGuid():N}.png");
-            await player.SaveScreenshotAsync(temporary);
+            string directory;
+            try
+            {
+                directory = preferredDirectory;
+                Directory.CreateDirectory(directory);
+                temporary = Path.Combine(directory, $".FrameDock-{Guid.NewGuid():N}.png");
+                await player.SaveScreenshotAsync(temporary);
+            }
+            catch (Exception preferredFailure) when (!string.Equals(preferredDirectory, picturesDirectory, StringComparison.OrdinalIgnoreCase))
+            {
+                // A read-only disc or a removed drive must not lose the frame.
+                App.WriteErrorLog(preferredFailure);
+                directory = picturesDirectory;
+                Directory.CreateDirectory(directory);
+                temporary = Path.Combine(directory, $".FrameDock-{Guid.NewGuid():N}.png");
+                await player.SaveScreenshotAsync(temporary);
+            }
+
             var destination = MoveScreenshotToAvailablePath(temporary, directory, screenshotBaseName);
             temporary = null;
-            ShowNotice($"フレーム画像を保存しました: {destination}", InfoBarSeverity.Success);
+            var usedFallback = !string.Equals(directory, preferredDirectory, StringComparison.OrdinalIgnoreCase);
+            ShowNotice(
+                Strings.Format(usedFallback ? "Notice_FrameSavedFallback" : "Notice_FrameSaved", destination),
+                usedFallback ? InfoBarSeverity.Warning : InfoBarSeverity.Success,
+                revealPath: destination);
         }
         catch (Exception ex)
         {
             App.WriteErrorLog(ex);
-            ShowError("フレーム画像を保存できませんでした。保存先（ピクチャ\\FrameDock）の空き容量とアクセス権を確認してください。");
+            ShowError(Strings.Get("Error_FrameSaveFailed"));
         }
         finally
         {
@@ -4091,6 +4220,21 @@ public sealed partial class MainWindow : Window
                 // The user has already received the save result or error; ignore temp cleanup failures.
             }
         }
+    }
+
+    private static string GetPicturesFrameDirectory() =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), PlayerSettings.DefaultFrameSaveSubfolder);
+
+    private string GetPreferredFrameDirectory(string picturesDirectory)
+    {
+        var videoFolder = _loadedPath is null ? null : Path.GetDirectoryName(_loadedPath);
+        return _settings.FrameSaveLocation switch
+        {
+            FrameSaveLocation.CustomFolder when !string.IsNullOrWhiteSpace(_settings.FrameSaveFolder) => _settings.FrameSaveFolder,
+            FrameSaveLocation.VideoFolder when !string.IsNullOrEmpty(videoFolder) => videoFolder,
+            FrameSaveLocation.VideoSubfolder when !string.IsNullOrEmpty(videoFolder) => Path.Combine(videoFolder, _settings.FrameSaveSubfolder),
+            _ => picturesDirectory
+        };
     }
 
     private string BuildScreenshotName()
@@ -4123,7 +4267,7 @@ public sealed partial class MainWindow : Window
         var player = _player;
         if (player is null)
         {
-            ShowError("先に動画を開いてください。");
+            ShowError(Strings.Get("Error_OpenVideoFirst"));
             return;
         }
 
@@ -4142,7 +4286,7 @@ public sealed partial class MainWindow : Window
             var file = await StorageFile.GetFileFromPathAsync(path);
             await SetClipboardImageWithRetryAsync(file, () => clipboardDataSet = true);
             clipboardFlushed = true;
-            ShowNotice("表示中のフレームを画像としてコピーしました。", InfoBarSeverity.Success);
+            ShowNotice(Strings.Get("Notice_FrameCopied"), InfoBarSeverity.Success);
         }
         catch (Exception ex)
         {
@@ -4154,8 +4298,8 @@ public sealed partial class MainWindow : Window
                 busy = true;
             }
             ShowError(busy
-                ? "画像をコピーできませんでした。クリップボードを使用中のアプリを閉じてから、もう一度お試しください。"
-                : "画像をコピーできませんでした。");
+                ? Strings.Get("Error_CopyFrameBusy")
+                : Strings.Get("Error_CopyFrameFailed"));
         }
         finally
         {
@@ -4190,7 +4334,7 @@ public sealed partial class MainWindow : Window
                     return;
                 }
 
-                lastBusyError = new COMException("クリップボードは他のアプリで使用中です。", ClipboardCannotOpenHResult);
+                lastBusyError = new COMException(Strings.Get("Log_ClipboardBusy"), ClipboardCannotOpenHResult);
             }
             catch (COMException ex) when (ex.HResult == ClipboardCannotOpenHResult)
             {
@@ -4203,7 +4347,7 @@ public sealed partial class MainWindow : Window
             }
         }
 
-        throw new IOException("Windowsのクリップボードを使用中です。しばらくしてからもう一度お試しください。", lastBusyError);
+        throw new IOException(Strings.Get("Log_ClipboardBusyRetry"), lastBusyError);
     }
 
     private static void CleanupStaleClipboardFrames()
@@ -4293,15 +4437,15 @@ public sealed partial class MainWindow : Window
         NotificationBar.Severity = severity;
         NotificationBar.Title = severity switch
         {
-            InfoBarSeverity.Error => "エラー",
-            InfoBarSeverity.Warning => "確認",
-            InfoBarSeverity.Success => "完了",
+            InfoBarSeverity.Error => Strings.Get("NotifyTitle_Error"),
+            InfoBarSeverity.Warning => Strings.Get("NotifyTitle_Warning"),
+            InfoBarSeverity.Success => Strings.Get("NotifyTitle_Success"),
             _ => "FrameDock"
         };
         NotificationBar.Message = message;
         NotificationBar.ActionButton = revealPath is null ? null : CreateRevealButton(revealPath);
         NotificationBar.IsOpen = true;
-        if ((severity is InfoBarSeverity.Success or InfoBarSeverity.Informational) && _noticeTimer is not null)
+        if ((severity is InfoBarSeverity.Success or InfoBarSeverity.Informational || revealPath is not null) && _noticeTimer is not null)
         {
             // Leave time to reach the folder button on an export notice.
             _noticeTimer.Interval = TimeSpan.FromSeconds(revealPath is null ? 6 : 12);
@@ -4311,7 +4455,7 @@ public sealed partial class MainWindow : Window
 
     private Button CreateRevealButton(string path)
     {
-        var button = new Button { Content = "フォルダーを開く" };
+        var button = new Button { Content = Strings.Get("RevealButton_OpenFolder") };
         button.Click += (_, _) =>
         {
             try
@@ -4322,7 +4466,7 @@ public sealed partial class MainWindow : Window
             catch (Exception ex)
             {
                 App.WriteErrorLog(ex);
-                ShowError("フォルダーを開けませんでした。");
+                ShowError(Strings.Get("Error_OpenFolderFailed"));
             }
         };
         return button;

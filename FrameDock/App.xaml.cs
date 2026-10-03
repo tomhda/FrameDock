@@ -1,4 +1,7 @@
+using System.Globalization;
+using FrameDock.Player;
 using Microsoft.UI.Xaml;
+using Microsoft.Windows.Globalization;
 
 namespace FrameDock;
 
@@ -12,8 +15,55 @@ public partial class App : Application
 
     public App()
     {
+        ApplyLanguageOverride();
         InitializeComponent();
         UnhandledException += (_, args) => WriteErrorLog(args.Exception);
+    }
+
+    // Decides the UI language before any window exists: FRAMEDOCK_LANGUAGE
+    // first, then the settings file. An explicit language also drives
+    // CurrentUICulture so Core picks the same messages. Without either, the
+    // UI follows Windows (falling back to en-US) and Core is aligned with
+    // whichever of Japanese or English the UI actually resolved to.
+    // Number and time formatting keep using InvariantCulture; CurrentCulture
+    // is never changed here.
+    private static void ApplyLanguageOverride()
+    {
+        var requested = NormalizeLanguage(Environment.GetEnvironmentVariable("FRAMEDOCK_LANGUAGE"));
+        if (requested is null)
+        {
+            var saved = PlayerSettings.ReadLanguageOnly();
+            requested = string.IsNullOrEmpty(saved) ? null : saved;
+        }
+
+        if (requested is not null)
+        {
+            ApplicationLanguages.PrimaryLanguageOverride = requested;
+            var culture = new CultureInfo(requested);
+            CultureInfo.DefaultThreadCurrentUICulture = culture;
+            CultureInfo.CurrentUICulture = culture;
+            return;
+        }
+
+        var isJapanese = CultureInfo.CurrentUICulture.Name.StartsWith("ja", StringComparison.OrdinalIgnoreCase);
+        var fallback = new CultureInfo(isJapanese ? "ja-JP" : "en-US");
+        CultureInfo.DefaultThreadCurrentUICulture = fallback;
+        CultureInfo.CurrentUICulture = fallback;
+    }
+
+    private static string? NormalizeLanguage(string? value)
+    {
+        if (string.Equals(value, "ja-JP", StringComparison.OrdinalIgnoreCase))
+        {
+            return "ja-JP";
+        }
+
+        if (string.Equals(value, "en-US", StringComparison.OrdinalIgnoreCase))
+        {
+            return "en-US";
+        }
+
+        return null;
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)

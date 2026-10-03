@@ -1,0 +1,684 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="Accessibility_Mute" xml:space="preserve">
+    <value>ミュート</value>
+  </data>
+  <data name="Accessibility_Pause" xml:space="preserve">
+    <value>一時停止</value>
+  </data>
+  <data name="Accessibility_Play" xml:space="preserve">
+    <value>再生</value>
+  </data>
+  <data name="Accessibility_SkipBack" xml:space="preserve">
+    <value>{0}秒戻る</value>
+  </data>
+  <data name="Accessibility_SkipForward" xml:space="preserve">
+    <value>{0}秒進む</value>
+  </data>
+  <data name="Accessibility_Unmute" xml:space="preserve">
+    <value>ミュートを解除</value>
+  </data>
+  <data name="AlwaysVisibleModeItem.Text" xml:space="preserve">
+    <value>常時表示（動画領域を確保）</value>
+  </data>
+  <data name="ApproximateCopyCheckBox.Content" xml:space="preserve">
+    <value>高速切り出し（画質維持）</value>
+  </data>
+  <data name="ApproximateCopyCheckBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>高速切り出し（画質維持）。境界が前後する場合があり、クロップ・回転・ズーム・速度変更とは併用できません</value>
+  </data>
+  <data name="ApproximateCopyHost.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>再圧縮せずに保存します。切り出し境界は前後する場合があります。クロップ・回転・ズーム・速度変更とは併用できません。</value>
+  </data>
+  <data name="BackButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>設定した秒数だけ戻る</value>
+  </data>
+  <data name="BackButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>設定した秒数だけ戻る (←)</value>
+  </data>
+  <data name="CancelEditButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>編集内容をリセット</value>
+  </data>
+  <data name="CancelEditButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>範囲・クロップ・回転・ズーム・速度・書き出し設定を最初の状態に戻す</value>
+  </data>
+  <data name="CancelEditLabel.Text" xml:space="preserve">
+    <value>リセット</value>
+  </data>
+  <data name="CancelExportButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>書き出しをキャンセル</value>
+  </data>
+  <data name="CancelExportButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>書き出しをキャンセル</value>
+  </data>
+  <data name="CloseEditButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>編集を閉じる</value>
+  </data>
+  <data name="CloseEditButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>編集を閉じる（編集内容は残ります）</value>
+  </data>
+  <data name="ContextMenu_CopyFrame" xml:space="preserve">
+    <value>表示中のフレームをコピー</value>
+  </data>
+  <data name="CopyFrameMenuItem.Text" xml:space="preserve">
+    <value>フレームをコピー</value>
+  </data>
+  <data name="CopyFrameMenuItem.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>表示中のフレームをコピー</value>
+  </data>
+  <data name="CropButton_Crop" xml:space="preserve">
+    <value>クロップ</value>
+  </data>
+  <data name="CropButton_Done" xml:space="preserve">
+    <value>完了</value>
+  </data>
+  <data name="CropDisabledByRotation" xml:space="preserve">
+    <value>クロップを編集するには、回転を 0° に戻してください</value>
+  </data>
+  <data name="CropInfoText.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>出力サイズ</value>
+  </data>
+  <data name="CropModeButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>クロップ範囲を調整</value>
+  </data>
+  <data name="CropModeButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>四隅と四辺の8つのハンドルで範囲を調整</value>
+  </data>
+  <data name="CropModeButtonText.Text" xml:space="preserve">
+    <value>クロップ</value>
+  </data>
+  <data name="CropMode_NameActive" xml:space="preserve">
+    <value>クロップ編集を完了</value>
+  </data>
+  <data name="CropMode_NameInactive" xml:space="preserve">
+    <value>クロップ範囲を調整</value>
+  </data>
+  <data name="CropMode_TooltipActive" xml:space="preserve">
+    <value>8つのハンドルをドラッグして範囲を調整。もう一度押すと確定</value>
+  </data>
+  <data name="CropMode_TooltipInactive" xml:space="preserve">
+    <value>四隅と四辺の8つのハンドルで範囲を調整</value>
+  </data>
+  <data name="CropResetButton.Content" xml:space="preserve">
+    <value>解除</value>
+  </data>
+  <data name="CropResetButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>クロップを解除</value>
+  </data>
+  <data name="CropResetButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>クロップを解除して画面全体に戻す</value>
+  </data>
+  <data name="Crop_OutputSize" xml:space="preserve">
+    <value>出力 {0} × {1} px</value>
+  </data>
+  <data name="DeleteSegmentButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>この区間を削除</value>
+  </data>
+  <data name="DeleteSegmentButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>この区間を削除 (Delete)</value>
+  </data>
+  <data name="DeleteSegment_NameDelete" xml:space="preserve">
+    <value>この区間を削除</value>
+  </data>
+  <data name="DeleteSegment_NameRestore" xml:space="preserve">
+    <value>この区間を元に戻す</value>
+  </data>
+  <data name="DeleteSegment_TooltipDelete" xml:space="preserve">
+    <value>この区間を削除 (Delete)</value>
+  </data>
+  <data name="DeleteSegment_TooltipRestore" xml:space="preserve">
+    <value>この区間を元に戻す (Delete)</value>
+  </data>
+  <data name="Dialog_AbortAndClose" xml:space="preserve">
+    <value>中止して終了</value>
+  </data>
+  <data name="Dialog_AbortAndOpen" xml:space="preserve">
+    <value>中止して開く</value>
+  </data>
+  <data name="Dialog_AbortExportTitle" xml:space="preserve">
+    <value>書き出しを中止しますか？</value>
+  </data>
+  <data name="Dialog_Cancel" xml:space="preserve">
+    <value>キャンセル</value>
+  </data>
+  <data name="Dialog_CloseDuringExportContent" xml:space="preserve">
+    <value>書き出し中です。終了すると、書き出しを中止します。</value>
+  </data>
+  <data name="Dialog_OpenDuringExportContent" xml:space="preserve">
+    <value>書き出し中です。別の動画を開くと、書き出しを中止します。</value>
+  </data>
+  <data name="DisplayModeMenuItem.Text" xml:space="preserve">
+    <value>表示モード</value>
+  </data>
+  <data name="DisplayMode_Always" xml:space="preserve">
+    <value>表示モード: 常時表示</value>
+  </data>
+  <data name="DisplayMode_Fullscreen" xml:space="preserve">
+    <value>表示モード: 全画面表示</value>
+  </data>
+  <data name="DisplayMode_Maximized" xml:space="preserve">
+    <value>表示モード: 最大化（タスクバー表示）</value>
+  </data>
+  <data name="DisplayMode_Plain" xml:space="preserve">
+    <value>表示モード</value>
+  </data>
+  <data name="EditMenuItem.Text" xml:space="preserve">
+    <value>編集…</value>
+  </data>
+  <data name="EditMenuItem.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>トリム、クロップ、書き出しを編集</value>
+  </data>
+  <data name="EditPlayButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>再生または一時停止</value>
+  </data>
+  <data name="EditPlayButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>再生または一時停止 (Space)</value>
+  </data>
+  <data name="EditRangeText.Text" xml:space="preserve">
+    <value>開始と終了を確認してください</value>
+  </data>
+  <data name="EditRange_Confirm" xml:space="preserve">
+    <value>開始と終了を確認してください</value>
+  </data>
+  <data name="EditRange_Invalid" xml:space="preserve">
+    <value>開始は 0 以上、終了は開始より後にしてください</value>
+  </data>
+  <data name="EditRange_Multi" xml:space="preserve">
+    <value>{0} 区間・合計 {1}</value>
+  </data>
+  <data name="EditRange_Single" xml:space="preserve">
+    <value>{0} 〜 {1}（長さ {2}）</value>
+  </data>
+  <data name="EditorTitle.Text" xml:space="preserve">
+    <value>編集</value>
+  </data>
+  <data name="EditSpeedButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>書き出しの速度</value>
+  </data>
+  <data name="EditSpeedButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>プレビューと書き出しの速度</value>
+  </data>
+  <data name="EditSpeed_Name" xml:space="preserve">
+    <value>書き出しの速度 {0}</value>
+  </data>
+  <data name="EditSpeed_Tooltip" xml:space="preserve">
+    <value>プレビューと書き出しの速度: {0}</value>
+  </data>
+  <data name="EmptyOpenButton.Content" xml:space="preserve">
+    <value>ファイルを開く</value>
+  </data>
+  <data name="EmptyStateHint.Text" xml:space="preserve">
+    <value>動画を開くか、ここにドロップ</value>
+  </data>
+  <data name="Error_CopyFrameBusy" xml:space="preserve">
+    <value>画像をコピーできませんでした。クリップボードを使用中のアプリを閉じてから、もう一度お試しください。</value>
+  </data>
+  <data name="Error_CopyFrameFailed" xml:space="preserve">
+    <value>画像をコピーできませんでした。</value>
+  </data>
+  <data name="Error_CropImpossible" xml:space="preserve">
+    <value>この動画の表示サイズではクロップできません。</value>
+  </data>
+  <data name="Error_DropOpenFailed" xml:space="preserve">
+    <value>ドロップしたファイルを開けませんでした。</value>
+  </data>
+  <data name="Error_ExportFailedGeneric" xml:space="preserve">
+    <value>動画を書き出せませんでした。保存先の空き容量とアクセス権を確認してください。</value>
+  </data>
+  <data name="Error_FileExists" xml:space="preserve">
+    <value>同じ名前のファイルが保存先にあります。別の名前を指定してください。</value>
+  </data>
+  <data name="Error_FileNameInvalid" xml:space="preserve">
+    <value>出力ファイル名には、ファイル名として使える文字を入力してください。</value>
+  </data>
+  <data name="Error_FileNotFound" xml:space="preserve">
+    <value>ファイルが見つかりません: {0}</value>
+  </data>
+  <data name="Error_FilePickerFailed" xml:space="preserve">
+    <value>ファイルを選ぶ画面を開けませんでした。動画をウィンドウにドロップして開くこともできます。</value>
+  </data>
+  <data name="Error_FolderPickerFailed" xml:space="preserve">
+    <value>保存先フォルダーを選ぶ画面を開けませんでした。</value>
+  </data>
+  <data name="Error_FrameSaveFailed" xml:space="preserve">
+    <value>フレーム画像を保存できませんでした。保存先の空き容量とアクセス権を確認してください。</value>
+  </data>
+  <data name="Error_HdrExportNotSupported" xml:space="preserve">
+    <value>HDR 動画は通常の書き出しに対応していません。「高速切り出し（画質維持）」を選ぶと元の色のまま保存できます。</value>
+  </data>
+  <data name="Error_InspectFallback" xml:space="preserve">
+    <value>動画の情報を読み取れませんでした。再生はできますが、編集と書き出しは使用できません。</value>
+  </data>
+  <data name="Error_InspectTimeout" xml:space="preserve">
+    <value>動画の情報を 30 秒以内に読み取れませんでした。ネットワーク上やクラウド上のファイルは、ローカルにコピーしてから開いてください。</value>
+  </data>
+  <data name="Error_MuteFailed" xml:space="preserve">
+    <value>ミュートを切り替えられませんでした。</value>
+  </data>
+  <data name="Error_NoEditableVideo" xml:space="preserve">
+    <value>編集できる動画を開いてください。</value>
+  </data>
+  <data name="Error_OpenFileAccess" xml:space="preserve">
+    <value>ファイルを開けませんでした。ファイルの場所とアクセス権を確認してください。</value>
+  </data>
+  <data name="Error_OpenFileFailed" xml:space="preserve">
+    <value>動画を開けませんでした。ファイルの場所を確認してください。</value>
+  </data>
+  <data name="Error_OpenFolderFailed" xml:space="preserve">
+    <value>フォルダーを開けませんでした。</value>
+  </data>
+  <data name="Error_OpenVideoFirst" xml:space="preserve">
+    <value>先に動画を開いてください。</value>
+  </data>
+  <data name="Error_PlaybackFailed" xml:space="preserve">
+    <value>この動画を再生できませんでした。ファイルが破損しているか、対応していない形式の可能性があります。</value>
+  </data>
+  <data name="Error_PrepareRenderFailed" xml:space="preserve">
+    <value>動画の表示を準備できませんでした。アプリを再起動してください。</value>
+  </data>
+  <data name="Error_PreviewFailed" xml:space="preserve">
+    <value>編集プレビューを更新できませんでした。ズームやクロップを元に戻して再度お試しください。</value>
+  </data>
+  <data name="Error_RenderSizeFailed" xml:space="preserve">
+    <value>動画表示のサイズを更新できませんでした。</value>
+  </data>
+  <data name="Error_SeekFailed" xml:space="preserve">
+    <value>再生位置を移動できませんでした。</value>
+  </data>
+  <data name="Error_SettingsOpenFailed" xml:space="preserve">
+    <value>設定を開けませんでした。</value>
+  </data>
+  <data name="Error_SettingsSaveFailed" xml:space="preserve">
+    <value>設定を保存できませんでした。</value>
+  </data>
+  <data name="Error_SkipRange" xml:space="preserve">
+    <value>移動する秒数は 1〜600 の範囲で指定してください。</value>
+  </data>
+  <data name="Error_SpeedFailed" xml:space="preserve">
+    <value>再生速度を変更できませんでした。</value>
+  </data>
+  <data name="Error_StepFrameFailed" xml:space="preserve">
+    <value>フレームを移動できませんでした。</value>
+  </data>
+  <data name="Error_StreamCopyCropConflict" xml:space="preserve">
+    <value>クロップと「高速切り出し（画質維持）」は併用できません。クロップを解除するか、通常の書き出しを選んでください。</value>
+  </data>
+  <data name="Error_StreamCopyTransformConflict" xml:space="preserve">
+    <value>回転、ズーム、速度を変更した動画は「高速切り出し（画質維持）」では書き出せません。</value>
+  </data>
+  <data name="Error_TimeRangeInvalid" xml:space="preserve">
+    <value>開始時刻と終了時刻を確認してください。</value>
+  </data>
+  <data name="Error_TogglePlayFailed" xml:space="preserve">
+    <value>再生を切り替えられませんでした。</value>
+  </data>
+  <data name="Error_VolumeFailed" xml:space="preserve">
+    <value>音量を変更できませんでした。</value>
+  </data>
+  <data name="ExportButton.Content" xml:space="preserve">
+    <value>書き出し</value>
+  </data>
+  <data name="ExportButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>動画を書き出す</value>
+  </data>
+  <data name="ExportButton_Export" xml:space="preserve">
+    <value>書き出し</value>
+  </data>
+  <data name="ExportButton_Exporting" xml:space="preserve">
+    <value>書き出し中…</value>
+  </data>
+  <data name="ForwardButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>設定した秒数だけ進む</value>
+  </data>
+  <data name="ForwardButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>設定した秒数だけ進む (→)</value>
+  </data>
+  <data name="FullscreenButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>全画面表示</value>
+  </data>
+  <data name="FullscreenButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>全画面表示 (F)</value>
+  </data>
+  <data name="FullscreenModeItem.Text" xml:space="preserve">
+    <value>全画面表示</value>
+  </data>
+  <data name="Fullscreen_Enter" xml:space="preserve">
+    <value>全画面表示 (F)</value>
+  </data>
+  <data name="Fullscreen_Exit" xml:space="preserve">
+    <value>全画面を終了 (Esc)</value>
+  </data>
+  <data name="HdrNoteText.Text" xml:space="preserve">
+    <value>HDR は「高速切り出し（画質維持）」のみ対応</value>
+  </data>
+  <data name="Log_ClipboardBusy" xml:space="preserve">
+    <value>クリップボードは他のアプリで使用中です。</value>
+  </data>
+  <data name="Log_ClipboardBusyRetry" xml:space="preserve">
+    <value>Windowsのクリップボードを使用中です。しばらくしてからもう一度お試しください。</value>
+  </data>
+  <data name="MarkTrimEndButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>再生位置を終了点にする</value>
+  </data>
+  <data name="MarkTrimEndButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>再生位置を終了点にする (O)</value>
+  </data>
+  <data name="MarkTrimStartButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>再生位置を開始点にする</value>
+  </data>
+  <data name="MarkTrimStartButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>再生位置を開始点にする (I)</value>
+  </data>
+  <data name="MaximizedOverlayModeItem.Text" xml:space="preserve">
+    <value>最大化（タスクバー表示）</value>
+  </data>
+  <data name="MergeSegmentButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>前の区間と結合</value>
+  </data>
+  <data name="MergeSegmentButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>前の区間と結合</value>
+  </data>
+  <data name="MuteButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>ミュート</value>
+  </data>
+  <data name="MuteButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>ミュートの切り替え</value>
+  </data>
+  <data name="NextFrameButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>次のフレーム</value>
+  </data>
+  <data name="NextFrameButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>一時停止して次のフレームへ (.)</value>
+  </data>
+  <data name="Notice_CropNeedsZeroRotation" xml:space="preserve">
+    <value>クロップ範囲を編集するには、回転を 0° に戻してください。</value>
+  </data>
+  <data name="Notice_ExportCancelled" xml:space="preserve">
+    <value>書き出しをキャンセルしました。</value>
+  </data>
+  <data name="Notice_ExportDone" xml:space="preserve">
+    <value>書き出しました: {0}</value>
+  </data>
+  <data name="Notice_ExportDoneApproxSuffix" xml:space="preserve">
+    <value> (キーフレーム位置に合わせたため、境界は指定時刻と異なります)</value>
+  </data>
+  <data name="Notice_FrameCopied" xml:space="preserve">
+    <value>表示中のフレームを画像としてコピーしました。</value>
+  </data>
+  <data name="Notice_FrameSaved" xml:space="preserve">
+    <value>フレーム画像を保存しました: {0}</value>
+  </data>
+  <data name="NotificationBar.Title" xml:space="preserve">
+    <value>エラー</value>
+  </data>
+  <data name="NotifyTitle_Error" xml:space="preserve">
+    <value>エラー</value>
+  </data>
+  <data name="NotifyTitle_Success" xml:space="preserve">
+    <value>完了</value>
+  </data>
+  <data name="NotifyTitle_Warning" xml:space="preserve">
+    <value>確認</value>
+  </data>
+  <data name="OpenButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>動画を開く</value>
+  </data>
+  <data name="OpenButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>動画を開く (Ctrl+O)</value>
+  </data>
+  <data name="OutputContainerComboBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>出力形式</value>
+  </data>
+  <data name="OutputContainerComboBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>出力形式</value>
+  </data>
+  <data name="OutputFolderButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>保存先フォルダーを選択</value>
+  </data>
+  <data name="OutputFolderButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>保存先フォルダーを選択</value>
+  </data>
+  <data name="OutputFolderLabel.Text" xml:space="preserve">
+    <value>保存先</value>
+  </data>
+  <data name="OutputFolderText.Text" xml:space="preserve">
+    <value>元動画と同じフォルダー</value>
+  </data>
+  <data name="OutputFolderText.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>元動画と同じフォルダー</value>
+  </data>
+  <data name="OutputFolder_Default" xml:space="preserve">
+    <value>元動画と同じフォルダー</value>
+  </data>
+  <data name="OutputNameBox.PlaceholderText" xml:space="preserve">
+    <value>ファイル名</value>
+  </data>
+  <data name="OutputNameBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>出力ファイル名（拡張子を除く）</value>
+  </data>
+  <data name="OutputNameLabel.Text" xml:space="preserve">
+    <value>ファイル名</value>
+  </data>
+  <data name="OverflowButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>編集とその他の操作</value>
+  </data>
+  <data name="OverflowButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>編集とその他の操作</value>
+  </data>
+  <data name="PlaybackSpeed_Menu" xml:space="preserve">
+    <value>再生速度: {0}×</value>
+  </data>
+  <data name="PlayButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>再生または一時停止</value>
+  </data>
+  <data name="PlayButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>再生または一時停止 (Space)</value>
+  </data>
+  <data name="PreviousFrameButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>前のフレーム</value>
+  </data>
+  <data name="PreviousFrameButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>一時停止して前のフレームへ (,)</value>
+  </data>
+  <data name="RangeGroupLabel.Text" xml:space="preserve">
+    <value>範囲</value>
+  </data>
+  <data name="RevealButton_OpenFolder" xml:space="preserve">
+    <value>フォルダーを開く</value>
+  </data>
+  <data name="RotateButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>回転</value>
+  </data>
+  <data name="RotateButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>時計回りに 90 度ずつ回転</value>
+  </data>
+  <data name="Rotate_Name" xml:space="preserve">
+    <value>時計回りに回転: {0} 度</value>
+  </data>
+  <data name="Rotate_Tooltip" xml:space="preserve">
+    <value>時計回りに 90 度ずつ回転（現在 {0}°）</value>
+  </data>
+  <data name="SaveFrameButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>フレーム画像を保存</value>
+  </data>
+  <data name="SaveFrameButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>現在のフレームを画像として保存 (Ctrl+S)</value>
+  </data>
+  <data name="ScreenGroupLabel.Text" xml:space="preserve">
+    <value>画面</value>
+  </data>
+  <data name="SegmentGroupLabel.Text" xml:space="preserve">
+    <value>区間</value>
+  </data>
+  <data name="Segment_DeletedSuffix" xml:space="preserve">
+    <value>（削除済み）</value>
+  </data>
+  <data name="SettingsMenuItem.Text" xml:space="preserve">
+    <value>設定…</value>
+  </data>
+  <data name="SettingsMenuItem.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>設定</value>
+  </data>
+  <data name="Settings_LanguageEnglish" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Settings_LanguageHeader" xml:space="preserve">
+    <value>表示言語</value>
+  </data>
+  <data name="Settings_LanguageJapanese" xml:space="preserve">
+    <value>日本語</value>
+  </data>
+  <data name="Settings_LanguageRestartNote" xml:space="preserve">
+    <value>表示言語は次回の起動時に切り替わります。</value>
+  </data>
+  <data name="Settings_LanguageSystem" xml:space="preserve">
+    <value>システムの言語</value>
+  </data>
+  <data name="Settings_Save" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="Settings_SkipHeader" xml:space="preserve">
+    <value>左右に移動する秒数</value>
+  </data>
+  <data name="Settings_Title" xml:space="preserve">
+    <value>設定</value>
+  </data>
+  <data name="SpeedGroupLabel.Text" xml:space="preserve">
+    <value>速度</value>
+  </data>
+  <data name="SpeedMenuItem.Text" xml:space="preserve">
+    <value>再生速度</value>
+  </data>
+  <data name="SpeedMenuItem.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>再生速度</value>
+  </data>
+  <data name="SplitButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>再生位置で分割</value>
+  </data>
+  <data name="SplitButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>再生位置で分割 (S)</value>
+  </data>
+  <data name="TimelineSlider.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>再生位置</value>
+  </data>
+  <data name="TimelineSlider.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>再生位置</value>
+  </data>
+  <data name="TimeText.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>再生時間</value>
+  </data>
+  <data name="TrimEndBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>終了時刻</value>
+  </data>
+  <data name="TrimEndBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>切り出しの終了時刻。0:12.5 の形式、または秒数で入力できます</value>
+  </data>
+  <data name="TrimEndHandle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>切り出し終了位置</value>
+  </data>
+  <data name="TrimEndLabel.Text" xml:space="preserve">
+    <value>終了</value>
+  </data>
+  <data name="TrimEndReadout.Text" xml:space="preserve">
+    <value>終了 00:00</value>
+  </data>
+  <data name="TrimPlayheadKnob.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>現在位置をドラッグ</value>
+  </data>
+  <data name="TrimPlayheadLine.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>現在の再生位置</value>
+  </data>
+  <data name="TrimPlayheadReadout.Text" xml:space="preserve">
+    <value>再生位置 00:00</value>
+  </data>
+  <data name="TrimReadout_End" xml:space="preserve">
+    <value>終了 {0}</value>
+  </data>
+  <data name="TrimReadout_Position" xml:space="preserve">
+    <value>再生位置 {0}</value>
+  </data>
+  <data name="TrimReadout_Start" xml:space="preserve">
+    <value>開始 {0}</value>
+  </data>
+  <data name="TrimStartBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>開始時刻</value>
+  </data>
+  <data name="TrimStartBox.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>切り出しの開始時刻。0:12.5 の形式、または秒数で入力できます</value>
+  </data>
+  <data name="TrimStartHandle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>切り出し開始位置</value>
+  </data>
+  <data name="TrimStartLabel.Text" xml:space="preserve">
+    <value>開始</value>
+  </data>
+  <data name="TrimStartReadout.Text" xml:space="preserve">
+    <value>開始 00:00</value>
+  </data>
+  <data name="TrimTimelineCanvas.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>トリミング範囲と再生位置</value>
+  </data>
+  <data name="VolumeSlider.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>音量</value>
+  </data>
+  <data name="VolumeSlider.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>音量</value>
+  </data>
+  <data name="ZoomButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>ズーム</value>
+  </data>
+  <data name="ZoomButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>拡大する倍率。拡大中は映像をドラッグして位置を調整</value>
+  </data>
+  <data name="ZoomFlyoutHint.Text" xml:space="preserve">
+    <value>拡大中は映像をドラッグして位置を調整できます</value>
+  </data>
+  <data name="ZoomFlyoutTitle.Text" xml:space="preserve">
+    <value>ズーム</value>
+  </data>
+  <data name="ZoomResetButton.Content" xml:space="preserve">
+    <value>リセット</value>
+  </data>
+  <data name="ZoomResetButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>ズームをリセット</value>
+  </data>
+  <data name="ZoomResetButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>1× に戻して中央に合わせる</value>
+  </data>
+  <data name="ZoomSlider.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>ズーム倍率</value>
+  </data>
+  <data name="Notice_FrameSavedFallback" xml:space="preserve">
+    <value>指定の保存先に保存できなかったため、ピクチャ\FrameDock に保存しました: {0}</value>
+  </data>
+  <data name="Settings_FrameSaveHeader" xml:space="preserve">
+    <value>フレーム画像の保存先</value>
+  </data>
+  <data name="Settings_FrameSavePictures" xml:space="preserve">
+    <value>ピクチャ\FrameDock</value>
+  </data>
+  <data name="Settings_FrameSaveCustom" xml:space="preserve">
+    <value>指定したフォルダー</value>
+  </data>
+  <data name="Settings_FrameSaveVideoFolder" xml:space="preserve">
+    <value>動画と同じフォルダー</value>
+  </data>
+  <data name="Settings_FrameSaveVideoSubfolder" xml:space="preserve">
+    <value>動画と同じ場所のサブフォルダー</value>
+  </data>
+  <data name="Settings_FrameSaveChoose" xml:space="preserve">
+    <value>フォルダーを選択…</value>
+  </data>
+  <data name="Settings_FrameSaveFolderNone" xml:space="preserve">
+    <value>未選択</value>
+  </data>
+  <data name="Settings_FrameSaveSubfolderHeader" xml:space="preserve">
+    <value>サブフォルダー名</value>
+  </data>
+  <data name="Error_FrameSaveFolderRequired" xml:space="preserve">
+    <value>フレーム画像の保存先フォルダーを選択してください。</value>
+  </data>
+  <data name="Error_FrameSaveSubfolderInvalid" xml:space="preserve">
+    <value>サブフォルダー名には、フォルダー名として使える文字を入力してください。</value>
+  </data>
+</root>
