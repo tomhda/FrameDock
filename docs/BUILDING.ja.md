@@ -43,6 +43,18 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-installer.ps1
 
 セットアップはユーザーごとに `%LOCALAPPDATA%\Programs\FrameDock` へインストールし、スタートメニューの起動項目とアンインストーラーを作成します。デスクトップアイコンと一般的な動画形式の「プログラムから開く」登録は任意です。Windows の既定アプリは変更しません。セットアップはコード署名をしていません。
 
+## リリースに添付するソース一式
+
+FFmpeg は GPLv3、libmpv は LGPL で配布されているため、リリースには同梱バイナリのソースを一緒に公開します。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-source-bundle.ps1
+```
+
+同梱バイナリと同じコミットの FFmpeg、x264、mpv のソースアーカイブを取得し、SHA-256 を確認して `artifacts\sources` に書き出します。`SOURCES.md`、FFmpeg ビルドの `README.txt`、`SHA256SUMS.txt` も同じ場所に入ります。このフォルダーのファイルをすべて、セットアップ EXE と一緒にリリースへ添付します。内容の説明は [SOURCES.md](SOURCES.md) にあります。
+
+固定している FFmpeg または mpv のビルドを変更したときは、`tools\build-source-bundle.ps1` と `docs\SOURCES.md` のコミットとハッシュも更新します。
+
 ## テスト
 
 Core ライブラリのビルドと、FFmpeg を使わない幾何チェック:

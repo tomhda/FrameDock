@@ -1,24 +1,39 @@
-# FrameDock 実装方針と残作業
+# FrameDock 実装方針
 
-## 実装方針
+## 構成
 
-FrameDock は .NET 8 と WinUI 3 で動く Windows x64 の動画プレイヤーです。ローカル動画を開き、再生、フレーム移動、音量・速度調整、スクリーンショット保存を行い、同じウィンドウで範囲指定とクロップを書き出します。
+FrameDock は .NET 8 と WinUI 3 で動く Windows x64 の動画プレイヤーです。ローカル動画を開き、再生、フレーム移動、音量・速度調整、フレーム画像の保存を行い、同じウィンドウで範囲指定、クロップ、回転、ズーム、速度変更、分割をして書き出します。
 
-映像は libmpv の D3D11 composition 出力を WinUI の `SwapChainPanel` に接続して表示します。操作 UI とクロップ選択オーバーレイは WinUI の通常のコントロールとして同じ画面に重ねます。映像専用の子 HWND に表示する旧案は使いません。
+- `FrameDock`: 画面（WinUI 3、非パッケージ）。再生は libmpv、画面の文言は `Strings\<言語>\Resources.resw`。
+- `FrameDock.Core`: メディア情報の取得と書き出し。同梱の `ffprobe` / `ffmpeg` を別プロセスで呼び出す。利用者向けメッセージは `Resources\Messages*.resx`。
+- `FrameDock.Core.Tests`: テストフレームワークを使わない検査ハーネス。
+- `tools`: 依存物の取得と検証、Release の発行、インストーラーとソース一式の作成、文言の検査。
 
-メディア情報は同梱 `ffprobe` で取得し、MP4 の書き出しは同梱 `ffmpeg` に任せます。正確な再エンコードが標準で、H.264 は CPU の `libx264` を使います。クロップなしの高速コピーも選べますが、キーフレーム位置による近似トリムとして扱います。
+## 方針
 
-クロップ座標は右角回転を適用した正方ピクセルの表示面を基準にします。SAR による表示幅を反映し、奇数回転では縦横を入れ替えます。4:2:0 出力用の位置と矩形サイズは偶数ピクセルにそろえます。
+映像は libmpv の D3D11 composition 出力を WinUI の `SwapChainPanel` に接続して表示します。操作 UI、クロップ選択、ズーム位置の調整、通知は、WinUI の通常のコントロールとして同じ画面に重ねます。
 
-依存バイナリ、配布元、SHA-256、ライセンス文書を bootstrap で固定し、Release x64 の配置と起動手順を PowerShell スクリプトで再現します。配布物には FFmpeg の GPLv3 文書、mpv の LGPLv2.1 以降文書、Windows App SDK のライセンスを含めます。
+起動と通常の再生を重くしないことを前提にします。編集用の処理（サムネイルの生成、区間の管理、プレビューの切り替え）は、編集パネルを開いているときだけ動かします。
 
-## 確認済み
+メディア情報は同梱 `ffprobe` で取得し、書き出しは同梱 `ffmpeg` に任せます。既定は CPU の `libx264` による再エンコードです。編集をしていない単一区間は、再エンコードなしの高速切り出しも選べますが、キーフレーム位置による近似の切り出しとして扱います。
 
-- Release を clean して再発行し、WinUI の XAML/PRI resource、同梱 DLL、FFmpeg、ライセンス文書を検証した。`tools/run.ps1` からの起動でメインウィンドウが表示されることも確認した。
-- Core の FFmpeg/ffprobe 統合ハーネス 18 項目が通り、回転/SAR のクロップ、正確な H.264/H.265 出力、MP4/MKV/MOV、速度変更、開始時刻が 0 でない入力の後半の切り出し、近似ストリームコピー、HDR 方針、キャンセルと元ファイル保護を確認した。
+クロップ座標は、回転を適用した正方ピクセルの表示面を基準にします。SAR による表示幅を反映し、90 度・270 度の回転では縦横を入れ替えます。4:2:0 出力用に、位置と大きさを偶数ピクセルにそろえます。ズームは出力サイズを変えず、プレビューと書き出しで同じ計算（`MediaGeometry.ComputeZoomSampleRect`）を使います。
 
-## 残作業と確認
+分割した区間は、それぞれクロップ、回転、ズーム、速度を持ちます。書き出しでは、残した区間を順につなげて 1 つのファイルにし、最初の区間のサイズを出力サイズにします。
 
-- Release 画面で動画再生、フレーム保存、クロップ操作、正確な書き出し、高速コピーを手動で一通り確認する。
-- PNG フレーム生成後のクリップボードコピー修正を含め、画像コピー操作を再確認する。
-- ユーザー向けの使い方と制限は [`README.md`](README.md)（日本語版は [`README.ja.md`](README.ja.md)）、ビルド・テスト手順は [`docs/BUILDING.ja.md`](docs/BUILDING.ja.md) と [`EXPORT-NOTES.md`](EXPORT-NOTES.md)、依存物の詳細は [`THIRD-PARTY-LICENSES.md`](THIRD-PARTY-LICENSES.md) に記載する。
+表示言語は日本語と英語です。既定では Windows の表示言語に従います。言語を追加するときは、`Resources.resw` と `Messages.<言語>.resx` を足し、`tools\check-strings.ps1` でキーとプレースホルダーの一致を確認します。
+
+依存バイナリ、配布元、SHA-256、ライセンス文書を bootstrap で固定し、Release の配置とインストーラーの作成を PowerShell スクリプトで再現します。配布物には FFmpeg の GPLv3 文書、mpv の LGPLv2.1 以降の文書、Windows App SDK のライセンスを含めます。リリースには、同梱バイナリのソース一式（`tools\build-source-bundle.ps1`）を添付します。FrameDock 自体のライセンスは GPLv3 です。
+
+## 確認している内容
+
+- Core の検査ハーネス 29 項目（同梱 FFmpeg を使う統合検査を含む）。回転と SAR を含むクロップ、ズーム、H.264 / H.265 の出力、MP4 / MKV / MOV、速度変更、開始時刻が 0 でない入力、複数区間の書き出し、高速切り出し、HDR の扱い、キャンセルと元ファイルの保護、日英のメッセージ。
+- `tools\check-strings.ps1` による日英の文言の一致。
+- Release の発行とインストーラーの作成、インストールした版の起動と再生。
+
+## 文書
+
+- 使い方と制限: [`README.md`](README.md)（日本語版は [`README.ja.md`](README.ja.md)）
+- ビルド、テスト、インストーラー、ソース一式: [`docs/BUILDING.md`](docs/BUILDING.md)（日本語版は [`docs/BUILDING.ja.md`](docs/BUILDING.ja.md)）
+- 書き出しライブラリの仕様: [`EXPORT-NOTES.md`](EXPORT-NOTES.md)
+- 同梱物とライセンス: [`THIRD-PARTY-LICENSES.md`](THIRD-PARTY-LICENSES.md)、ソースの入手: [`docs/SOURCES.md`](docs/SOURCES.md)

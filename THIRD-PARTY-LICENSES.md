@@ -11,7 +11,7 @@ FrameDock bundles the following executable dependencies. The Release script copi
 - License text: [GNU GPL version 3](https://www.gnu.org/licenses/gpl-3.0.txt), copied from the pinned archive as `vendor/ffmpeg/LICENSE.txt` and into the Release notices.
 - Source: [FFmpeg source commit `946fcce07b`](https://github.com/FFmpeg/FFmpeg/commit/946fcce07b), [Gyan's official Windows build page](https://www.gyan.dev/ffmpeg/builds/), and the [GyanD/codexffmpeg build/release repository](https://github.com/GyanD/codexffmpeg). The pinned archive's `README.txt` records its release version, build configuration, enabled external libraries, and source commit. That build README is included in `ThirdPartyNotices`.
 
-This FFmpeg binary is GPLv3. FrameDock itself is licensed under GPLv3 (see [`LICENSE`](LICENSE)).
+This FFmpeg binary is GPLv3. FrameDock itself is licensed under GPLv3 (see [`LICENSE`](LICENSE)). Each FrameDock release is published together with a source bundle built by `tools/build-source-bundle.ps1`; [`docs/SOURCES.md`](docs/SOURCES.md) describes what it contains.
 
 ## libmpv
 

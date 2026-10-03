@@ -46,6 +46,18 @@ The setup contains the Release app, the WinUI resources, libmpv, FFmpeg, and the
 
 `-SkipReleaseBuild` reuses an existing Release.
 
+## Source bundle for a release
+
+FFmpeg is distributed under GPLv3 and libmpv under LGPL, so every release is published together with the source of the bundled binaries.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-source-bundle.ps1
+```
+
+This downloads the FFmpeg, x264, and mpv source archives at the exact commits of the bundled binaries, checks their SHA-256 hashes, and writes them to `artifacts\sources` with `SOURCES.md`, the FFmpeg build's `README.txt`, and `SHA256SUMS.txt`. Attach every file in that folder to the release next to the setup executable. [SOURCES.md](SOURCES.md) describes the contents.
+
+When the pinned FFmpeg or mpv build changes, update the commits and hashes in `tools\build-source-bundle.ps1` and in `docs\SOURCES.md`.
+
 ## Tests
 
 Build the Core library and run the geometry checks, which do not need FFmpeg:
