@@ -66,8 +66,7 @@
                     PointerMoved="ZoomPanCanvas_PointerMoved"
                     PointerReleased="ZoomPanCanvas_PointerReleased"
                     PointerCanceled="ZoomPanCanvas_PointerCanceled"
-                    PointerCaptureLost="ZoomPanCanvas_PointerCaptureLost"
-                    ToolTipService.ToolTip="プレビューをドラッグしてズーム位置を調整" />
+                    PointerCaptureLost="ZoomPanCanvas_PointerCaptureLost" />
             <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14">
                 <Image Source="ms-appx:///Assets/FrameDock.png" Width="88" Height="88" HorizontalAlignment="Center" AutomationProperties.Name="FrameDock" />
                 <TextBlock Text="動画を開くか、ここにドロップ" Foreground="{ThemeResource TextFillColorPrimaryBrush}" FontSize="18" HorizontalAlignment="Center" />
@@ -75,16 +74,37 @@
             </StackPanel>
         </Grid>
 
-        <Border x:Name="EditorPanel" Grid.Row="1" Padding="12,18" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" VerticalAlignment="Top" Visibility="Collapsed">
-            <Grid ColumnDefinitions="*,360" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
-                <Grid Grid.Row="0" Grid.ColumnSpan="2" ColumnDefinitions="*,44,*">
+        <Border x:Name="EditorPanel" Grid.Row="1" Padding="12,10,12,12" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" VerticalAlignment="Top" Visibility="Collapsed">
+            <Grid ColumnDefinitions="*,376" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+                <Grid Grid.Row="0" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto,*">
                     <TextBlock Text="編集" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
-                    <Button x:Name="EditPlayButton" Grid.Column="1" Width="42" Height="42" Padding="0" Click="PlayButton_Click" ToolTipService.ToolTip="再生または一時停止" AutomationProperties.Name="再生または一時停止">
-                        <FontIcon x:Name="EditPlayIcon" Glyph="&#xE768;" FontSize="17" />
-                    </Button>
-                    <Button x:Name="CancelEditButton" Grid.Column="2" Width="36" Height="36" MinWidth="36" Padding="0" Click="CancelEditButton_Click" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{ThemeResource SystemFillColorCriticalBrush}" ToolTipService.ToolTip="編集内容を破棄して通常再生に戻る" AutomationProperties.Name="編集内容を破棄して通常再生に戻る">
-                        <FontIcon Glyph="&#xE74D;" FontSize="16" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
-                    </Button>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Button x:Name="MarkTrimStartButton" Width="40" Height="40" Padding="0" Click="MarkTrimStartButton_Click" ToolTipService.ToolTip="再生位置を開始点にする (I)" AutomationProperties.Name="再生位置を開始点にする">
+                            <Viewbox Width="23" Height="23"><Canvas Width="20" Height="20">
+                                <Path Data="M9,2.5 H4.5 V17.5 H9" Stroke="{ThemeResource AccentFillColorDefaultBrush}" StrokeThickness="2.4" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                <Rectangle Canvas.Left="12.6" Canvas.Top="5" Width="2.2" Height="12.5" RadiusX="1.1" RadiusY="1.1" Fill="#FFFFC000" />
+                                <Ellipse Canvas.Left="10.9" Canvas.Top="1.6" Width="5.6" Height="5.6" Fill="#FFFFC000" />
+                            </Canvas></Viewbox>
+                        </Button>
+                        <Button x:Name="EditPlayButton" Width="44" Height="40" Padding="0" Click="PlayButton_Click" ToolTipService.ToolTip="再生または一時停止 (Space)" AutomationProperties.Name="再生または一時停止">
+                            <FontIcon x:Name="EditPlayIcon" Glyph="&#xE768;" FontSize="17" />
+                        </Button>
+                        <Button x:Name="MarkTrimEndButton" Width="40" Height="40" Padding="0" Click="MarkTrimEndButton_Click" ToolTipService.ToolTip="再生位置を終了点にする (O)" AutomationProperties.Name="再生位置を終了点にする">
+                            <Viewbox Width="23" Height="23"><Canvas Width="20" Height="20">
+                                <Rectangle Canvas.Left="5.2" Canvas.Top="5" Width="2.2" Height="12.5" RadiusX="1.1" RadiusY="1.1" Fill="#FFFFC000" />
+                                <Ellipse Canvas.Left="3.5" Canvas.Top="1.6" Width="5.6" Height="5.6" Fill="#FFFFC000" />
+                                <Path Data="M11,2.5 H15.5 V17.5 H11" Stroke="{ThemeResource AccentFillColorDefaultBrush}" StrokeThickness="2.4" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                            </Canvas></Viewbox>
+                        </Button>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button x:Name="CancelEditButton" Height="32" Padding="10,0" Click="ResetEditButton_Click" ToolTipService.ToolTip="範囲・クロップ・回転・ズーム・速度・書き出し設定を最初の状態に戻す" AutomationProperties.Name="編集内容をリセット">
+                            <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE777;" FontSize="13" /><TextBlock Text="リセット" /></StackPanel>
+                        </Button>
+                        <Button x:Name="CloseEditButton" Width="36" Height="32" Padding="0" Click="EditButton_Click" ToolTipService.ToolTip="編集を閉じる（編集内容は残ります）" AutomationProperties.Name="編集を閉じる">
+                            <FontIcon Glyph="&#xE711;" FontSize="13" />
+                        </Button>
+                    </StackPanel>
                 </Grid>
 
                 <Grid Grid.Row="1" Grid.ColumnSpan="2" RowDefinitions="64,Auto">
@@ -114,99 +134,101 @@
                     </Grid>
                 </Grid>
 
-                <ScrollViewer Grid.Row="2" Grid.Column="0" Height="78" HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Auto" VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled">
-                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal" Spacing="3" VerticalAlignment="Bottom">
-                            <NumberBox x:Name="TrimStartBox" Width="86" Header="開始 (秒)" Minimum="0" Value="0" SmallChange="0.1" SpinButtonPlacementMode="Compact" ToolTipService.ToolTip="切り出し開始時刻（秒）" />
-                            <Button Width="30" Height="32" Click="MarkTrimStartButton_Click" VerticalAlignment="Bottom" ToolTipService.ToolTip="現在位置を開始に設定" AutomationProperties.Name="現在の再生位置を開始に設定"><TextBlock Text="[" FontSize="18" FontWeight="SemiBold" FontFamily="Segoe UI" /></Button>
+                <ScrollViewer Grid.Row="2" Grid.Column="0" HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Auto" VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled" VerticalAlignment="Top">
+                    <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,2,0,12">
+                        <StackPanel Spacing="5">
+                            <TextBlock Text="範囲" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="開始" VerticalAlignment="Center" />
+                                <NumberBox x:Name="TrimStartBox" Width="110" Height="36" Minimum="0" Value="0" SmallChange="0.1" LargeChange="1" SpinButtonPlacementMode="Compact" ToolTipService.ToolTip="切り出しの開始時刻。0:12.5 の形式、または秒数で入力できます" AutomationProperties.Name="開始時刻" />
+                                <TextBlock Text="終了" VerticalAlignment="Center" Margin="4,0,0,0" />
+                                <NumberBox x:Name="TrimEndBox" Width="110" Height="36" Minimum="0" Value="0" SmallChange="0.1" LargeChange="1" SpinButtonPlacementMode="Compact" ToolTipService.ToolTip="切り出しの終了時刻。0:12.5 の形式、または秒数で入力できます" AutomationProperties.Name="終了時刻" />
+                            </StackPanel>
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="3" VerticalAlignment="Bottom">
-                            <NumberBox x:Name="TrimEndBox" Width="86" Header="終了 (秒)" Minimum="0" Value="0" SmallChange="0.1" SpinButtonPlacementMode="Compact" ToolTipService.ToolTip="切り出し終了時刻（秒）" />
-                            <Button Width="30" Height="32" Click="MarkTrimEndButton_Click" VerticalAlignment="Bottom" ToolTipService.ToolTip="現在位置を終了に設定" AutomationProperties.Name="現在の再生位置を終了に設定"><TextBlock Text="]" FontSize="18" FontWeight="SemiBold" FontFamily="Segoe UI" /></Button>
+                        <Rectangle Width="1" Fill="{ThemeResource ControlStrokeColorDefaultBrush}" Margin="0,2" />
+                        <StackPanel Spacing="5">
+                            <TextBlock Text="画面" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Button x:Name="CropModeButton" Height="36" Padding="10,0" Click="CropModeButton_Click" ToolTipService.ToolTip="四隅と四辺の8つのハンドルで範囲を調整" AutomationProperties.Name="クロップ範囲を調整" IsEnabled="False">
+                                    <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE7A8;" FontSize="15" /><TextBlock x:Name="CropModeButtonText" Text="クロップ" /></StackPanel>
+                                </Button>
+                                <Button x:Name="CropResetButton" Height="36" Padding="10,0" Content="解除" Click="CropResetButton_Click" IsEnabled="False" ToolTipService.ToolTip="クロップを解除して画面全体に戻す" AutomationProperties.Name="クロップを解除" />
+                                <Button x:Name="RotateButton" MinWidth="64" Height="36" Padding="10,0" Click="RotateButton_Click" ToolTipService.ToolTip="時計回りに 90 度ずつ回転" AutomationProperties.Name="回転">
+                                    <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE7AD;" FontSize="15" /><TextBlock x:Name="RotateButtonText" Text="0°" /></StackPanel>
+                                </Button>
+                                <DropDownButton x:Name="ZoomButton" MinWidth="64" Height="36" Padding="10,0" ToolTipService.ToolTip="拡大する倍率。拡大中は映像をドラッグして位置を調整" AutomationProperties.Name="ズーム">
+                                    <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE71E;" FontSize="15" /><TextBlock x:Name="ZoomFactorText" Text="1×" /></StackPanel>
+                                    <DropDownButton.Flyout>
+                                        <Flyout>
+                                            <StackPanel Width="248" Spacing="8">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <TextBlock Text="ズーム" VerticalAlignment="Center" />
+                                                    <TextBlock x:Name="ZoomFlyoutReadout" Grid.Column="1" Text="1×" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                                </Grid>
+                                                <Slider x:Name="ZoomSlider" Minimum="1" Maximum="4" Value="1" StepFrequency="0.1" SmallChange="0.1" LargeChange="0.5" AutomationProperties.Name="ズーム倍率" />
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                    <TextBlock Text="拡大中は映像をドラッグして位置を調整できます" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                                    <Button x:Name="ZoomResetButton" Grid.Column="1" Height="32" Padding="10,0" Content="リセット" Click="ZoomResetButton_Click" ToolTipService.ToolTip="1× に戻して中央に合わせる" AutomationProperties.Name="ズームをリセット" />
+                                                </Grid>
+                                            </StackPanel>
+                                        </Flyout>
+                                    </DropDownButton.Flyout>
+                                </DropDownButton>
+                            </StackPanel>
                         </StackPanel>
-                        <Rectangle Width="1" Height="30" Fill="{ThemeResource ControlStrokeColorDefaultBrush}" VerticalAlignment="Center" Margin="2,0" />
-                        <Button x:Name="CropModeButton" Width="36" Height="36" Padding="0" Click="CropModeButton_Click" ToolTipService.ToolTip="8つのハンドルでクロップ範囲を調整" AutomationProperties.Name="クロップ範囲を調整" IsEnabled="False">
-                            <StackPanel Orientation="Horizontal"><FontIcon Glyph="&#xE7A7;" /><TextBlock x:Name="CropModeButtonText" Text="クロップ" Visibility="Collapsed" /></StackPanel>
-                        </Button>
-                        <Button x:Name="CropResetButton" Width="32" Height="36" Padding="0" Click="CropResetButton_Click" IsEnabled="False" ToolTipService.ToolTip="クロップを解除" AutomationProperties.Name="クロップを解除">
-                            <FontIcon Glyph="&#xE777;" />
-                        </Button>
-                        <Button x:Name="RotateButton" MinWidth="60" Height="36" Click="RotateButton_Click" ToolTipService.ToolTip="プレビューと書き出しを時計回りに 90 度回転" AutomationProperties.Name="回転">
-                            <StackPanel Orientation="Horizontal" Spacing="4"><FontIcon Glyph="&#xE7AD;" /><TextBlock x:Name="RotateButtonText" Text="0°" /></StackPanel>
-                        </Button>
-                        <Button x:Name="ZoomButton" MinWidth="60" Height="36" ToolTipService.ToolTip="拡大してプレビューをドラッグすると位置を調整。書き出しにも反映" AutomationProperties.Name="編集ズーム">
-                            <StackPanel Orientation="Horizontal" Spacing="4"><FontIcon Glyph="&#xE71E;" /><TextBlock x:Name="ZoomFactorText" Text="1×" /></StackPanel>
-                            <Button.Flyout>
-                                <Flyout>
-                                    <Border Padding="12">
-                                        <StackPanel Width="248" Spacing="8">
-                                            <Grid ColumnDefinitions="*,Auto">
-                                                <TextBlock Text="ズーム" VerticalAlignment="Center" />
-                                                <TextBlock x:Name="ZoomFlyoutReadout" Grid.Column="1" Text="1×" VerticalAlignment="Center" FontWeight="SemiBold" />
-                                            </Grid>
-                                            <Slider x:Name="ZoomSlider" Minimum="1" Maximum="4" Value="1" StepFrequency="0.1" SmallChange="0.1" LargeChange="0.5" AutomationProperties.Name="ズーム倍率" />
-                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                                <TextBlock Text="プレビューをドラッグして位置調整" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                                <Button x:Name="ZoomResetButton" Grid.Column="1" Width="32" Height="32" Padding="0" Click="ZoomResetButton_Click" ToolTipService.ToolTip="1×・中央に戻す" AutomationProperties.Name="ズームを1倍・中央に戻す">
-                                                    <FontIcon Glyph="&#xE777;" FontSize="14" />
-                                                </Button>
-                                            </Grid>
-                                        </StackPanel>
-                                    </Border>
-                                </Flyout>
-                            </Button.Flyout>
-                        </Button>
-                        <Button x:Name="EditSpeedButton" MinWidth="58" Height="36" ToolTipService.ToolTip="プレビューと書き出しの再生速度" AutomationProperties.Name="編集速度">
-                            <StackPanel Orientation="Horizontal" Spacing="4"><FontIcon Glyph="&#xE768;" /><TextBlock x:Name="EditSpeedText" Text="1×" /></StackPanel>
-                            <Button.Flyout>
-                                <MenuFlyout>
-                                    <ToggleMenuFlyoutItem Text="0.5×" Tag="0.5" Click="EditSpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
-                                    <ToggleMenuFlyoutItem Text="0.75×" Tag="0.75" Click="EditSpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
-                                    <ToggleMenuFlyoutItem Text="1×" Tag="1" Click="EditSpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
-                                    <ToggleMenuFlyoutItem Text="1.25×" Tag="1.25" Click="EditSpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
-                                    <ToggleMenuFlyoutItem Text="1.5×" Tag="1.5" Click="EditSpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
-                                    <ToggleMenuFlyoutItem Text="2×" Tag="2" Click="EditSpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
-                                    <ToggleMenuFlyoutItem Text="4×" Tag="4" Click="EditSpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
-                                </MenuFlyout>
-                            </Button.Flyout>
-                        </Button>
-                        <TextBlock x:Name="CropInfoText" Text="クロップなし" FontSize="11" VerticalAlignment="Center" MaxWidth="140" TextTrimming="CharacterEllipsis" AutomationProperties.Name="クロップサイズ" />
-                        <TextBlock x:Name="HdrNoteText" Text="HDR は「高速切り出し（画質維持）」のみ対応" Visibility="Collapsed" Foreground="{ThemeResource SystemFillColorCautionBrush}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="160" />
+                        <Rectangle Width="1" Fill="{ThemeResource ControlStrokeColorDefaultBrush}" Margin="0,2" />
+                        <StackPanel Spacing="5">
+                            <TextBlock Text="速度" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <DropDownButton x:Name="EditSpeedButton" MinWidth="72" Height="36" Padding="10,0" ToolTipService.ToolTip="プレビューと書き出しの速度" AutomationProperties.Name="書き出しの速度">
+                                <TextBlock x:Name="EditSpeedText" Text="1×" />
+                                <DropDownButton.Flyout>
+                                    <MenuFlyout>
+                                        <ToggleMenuFlyoutItem Text="0.5×" Tag="0.5" Click="EditSpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                        <ToggleMenuFlyoutItem Text="0.75×" Tag="0.75" Click="EditSpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                        <ToggleMenuFlyoutItem Text="1×" Tag="1" Click="EditSpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                        <ToggleMenuFlyoutItem Text="1.25×" Tag="1.25" Click="EditSpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                        <ToggleMenuFlyoutItem Text="1.5×" Tag="1.5" Click="EditSpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                        <ToggleMenuFlyoutItem Text="2×" Tag="2" Click="EditSpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                        <ToggleMenuFlyoutItem Text="4×" Tag="4" Click="EditSpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                    </MenuFlyout>
+                                </DropDownButton.Flyout>
+                            </DropDownButton>
+                        </StackPanel>
+                        <TextBlock x:Name="HdrNoteText" Text="HDR は「高速切り出し（画質維持）」のみ対応" Visibility="Collapsed" Foreground="{ThemeResource SystemFillColorCautionBrush}" VerticalAlignment="Bottom" Margin="0,0,0,8" TextWrapping="Wrap" MaxWidth="170" />
                     </StackPanel>
                 </ScrollViewer>
 
-                <Border Grid.Row="2" Grid.Column="1" Padding="10,4" CornerRadius="8" Background="{ThemeResource LayerFillColorDefaultBrush}">
-                    <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="4">
-                        <TextBox x:Name="OutputNameBox" Height="32" PlaceholderText="ファイル名" AutomationProperties.Name="出力ファイル名（拡張子を除く）" />
-                        <Grid Grid.Row="1" ColumnDefinitions="Auto,104,36,*" ColumnSpacing="8">
-                            <TextBlock Text="形式" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <ComboBox x:Name="OutputContainerComboBox" Grid.Column="1" Height="34" SelectedIndex="0" ToolTipService.ToolTip="出力形式" AutomationProperties.Name="出力形式">
+                <Border Grid.Row="2" Grid.Column="1" Padding="10,8" CornerRadius="8" Background="{ThemeResource LayerFillColorDefaultBrush}" VerticalAlignment="Top">
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="Auto,*" RowSpacing="6" ColumnSpacing="10">
+                        <TextBlock Text="ファイル名" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Grid Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                            <TextBox x:Name="OutputNameBox" Height="32" PlaceholderText="ファイル名" AutomationProperties.Name="出力ファイル名（拡張子を除く）" />
+                            <ComboBox x:Name="OutputContainerComboBox" Grid.Column="1" Width="88" Height="32" SelectedIndex="0" ToolTipService.ToolTip="出力形式" AutomationProperties.Name="出力形式">
                                 <ComboBoxItem Content="MP4" Tag="Mp4" />
                                 <ComboBoxItem Content="MKV" Tag="Mkv" />
                                 <ComboBoxItem Content="MOV" Tag="Mov" />
                             </ComboBox>
-                            <Button x:Name="ExportOptionsButton" Grid.Column="2" Width="36" Height="34" Padding="0" ToolTipService.ToolTip="書き出しの詳細" AutomationProperties.Name="書き出しの詳細">
-                                <FontIcon Glyph="&#xE712;" />
-                                <Button.Flyout>
-                                    <MenuFlyout>
-                                        <ToggleMenuFlyoutItem x:Name="ApproximateCopyMenuItem" Text="高速切り出し（画質維持）" IsEnabled="False" ToolTipService.ToolTip="再圧縮せずに保存します。切り出し境界は前後する場合があります。クロップ・回転・ズーム・速度変更とは併用できません。" Style="{StaticResource ToggleMenuFlyoutItemStyle}" AutomationProperties.Name="高速切り出し（画質維持）。境界が前後する場合があり、クロップ・回転・ズーム・速度変更とは併用できません" />
-                                    </MenuFlyout>
-                                </Button.Flyout>
-                            </Button>
-                            <Button x:Name="ExportButton" Grid.Column="3" Height="34" Padding="8,0" Content="書き出し" Style="{StaticResource AccentButtonStyle}" Click="ExportButton_Click" IsEnabled="False" AutomationProperties.Name="動画を書き出す" />
                         </Grid>
-                        <Grid Grid.Row="2" ColumnDefinitions="32,*" ColumnSpacing="6">
-                            <Button x:Name="OutputFolderButton" Width="30" Height="28" Padding="0" Click="OutputFolderButton_Click" ToolTipService.ToolTip="保存先フォルダーを選択" AutomationProperties.Name="保存先フォルダーを選択">
+                        <TextBlock Grid.Row="1" Text="保存先" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                            <Button x:Name="OutputFolderButton" Width="32" Height="28" Padding="0" Click="OutputFolderButton_Click" ToolTipService.ToolTip="保存先フォルダーを選択" AutomationProperties.Name="保存先フォルダーを選択">
                                 <FontIcon Glyph="&#xE8B7;" FontSize="14" />
                             </Button>
-                            <TextBlock x:Name="OutputFolderText" Grid.Column="1" Text="元動画と同じフォルダー" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="元動画と同じフォルダー" />
+                            <TextBlock x:Name="OutputFolderText" Grid.Column="1" Text="元動画と同じフォルダー" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="元動画と同じフォルダー" />
                         </Grid>
-                        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Grid x:Name="ApproximateCopyHost" Background="Transparent" VerticalAlignment="Center" ToolTipService.ToolTip="再圧縮せずに保存します。切り出し境界は前後する場合があります。クロップ・回転・ズーム・速度変更とは併用できません。">
+                                <CheckBox x:Name="ApproximateCopyCheckBox" MinWidth="0" Content="高速切り出し（画質維持）" IsEnabled="False" AutomationProperties.Name="高速切り出し（画質維持）。境界が前後する場合があり、クロップ・回転・ズーム・速度変更とは併用できません" />
+                            </Grid>
+                            <Button x:Name="ExportButton" Grid.Column="1" MinWidth="108" Height="34" Padding="14,0" Content="書き出し" Style="{StaticResource AccentButtonStyle}" Click="ExportButton_Click" IsEnabled="False" AutomationProperties.Name="動画を書き出す" />
+                        </Grid>
+                        <Grid Grid.Row="3" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                             <StackPanel VerticalAlignment="Center" Spacing="2">
                                 <TextBlock x:Name="EditRangeText" Text="開始と終了を確認してください" FontSize="11" Height="14" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 <ProgressBar x:Name="ExportProgressBar" Height="4" Minimum="0" Maximum="1" Value="0" Visibility="Collapsed" />
                             </StackPanel>
-                            <Button x:Name="CancelExportButton" Grid.Column="1" Width="28" Height="24" Padding="0" Click="CancelExportButton_Click" Foreground="{ThemeResource SystemFillColorCriticalBrush}" Visibility="Collapsed" ToolTipService.ToolTip="書き出しをキャンセル" AutomationProperties.Name="書き出しをキャンセル">
+                            <TextBlock x:Name="CropInfoText" Grid.Column="1" Text="" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" AutomationProperties.Name="出力サイズ" />
+                            <Button x:Name="CancelExportButton" Grid.Column="2" Width="28" Height="24" Padding="0" Click="CancelExportButton_Click" Foreground="{ThemeResource SystemFillColorCriticalBrush}" Visibility="Collapsed" ToolTipService.ToolTip="書き出しをキャンセル" AutomationProperties.Name="書き出しをキャンセル">
                                 <FontIcon Glyph="&#xE711;" FontSize="12" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
                             </Button>
                         </Grid>

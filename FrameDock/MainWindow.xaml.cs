@@ -113,6 +113,8 @@ public sealed partial class MainWindow : Window
             App.WriteErrorLog(ex);
             throw;
         }
+        TrimStartBox.NumberFormatter = new TrimTimeFormatter();
+        TrimEndBox.NumberFormatter = new TrimTimeFormatter();
         TrimStartBox.ValueChanged += TrimBox_ValueChanged;
         TrimEndBox.ValueChanged += TrimBox_ValueChanged;
         ZoomSlider.ValueChanged += ZoomSlider_ValueChanged;
@@ -655,7 +657,7 @@ public sealed partial class MainWindow : Window
             _editorZoomFactor = 1;
             _editorZoomFocusX = 0.5;
             _editorZoomFocusY = 0.5;
-            ApproximateCopyMenuItem.IsChecked = false;
+            ApproximateCopyCheckBox.IsChecked = false;
             _editSpeed = 1;
             UpdateEditSpeedControl(_editSpeed);
             UpdateZoomControls();
@@ -670,7 +672,7 @@ public sealed partial class MainWindow : Window
             OutputFolderText.Text = "元動画と同じフォルダー";
             ToolTipService.SetToolTip(OutputFolderText, "元動画と同じフォルダー");
             OutputNameBox.Text = $"{Path.GetFileNameWithoutExtension(fullPath)}-clip";
-            CropInfoText.Text = "クロップなし";
+            CropInfoText.Text = string.Empty;
             CropResetButton.IsEnabled = false;
             CropModeButton.IsEnabled = false;
             TrimStartBox.Value = 0;
@@ -772,6 +774,11 @@ public sealed partial class MainWindow : Window
                 UpdateCropInfo();
                 ValidateEditRange();
                 UpdateApproximateCopyAvailability();
+                if (Environment.GetEnvironmentVariable("FRAMEDOCK_OPEN_EDITOR") == "1" && EditorPanel.Visibility != Visibility.Visible)
+                {
+                    // UI automation hook: open the editor without pointer input.
+                    EditButton_Click(this, new RoutedEventArgs());
+                }
             }
             catch (ExportException ex)
             {
@@ -1538,7 +1545,7 @@ public sealed partial class MainWindow : Window
         var label = $"{speed.ToString("0.##", CultureInfo.InvariantCulture)}×";
         EditSpeedText.Text = label;
         ToolTipService.SetToolTip(EditSpeedButton, $"プレビューと書き出しの速度: {label}");
-        EditSpeedButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, $"編集速度 {label}");
+        EditSpeedButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, $"書き出しの速度 {label}");
         if (EditSpeedButton.Flyout is MenuFlyout flyout)
         {
             foreach (var item in flyout.Items.OfType<ToggleMenuFlyoutItem>())
@@ -1567,11 +1574,15 @@ public sealed partial class MainWindow : Window
         }
 
         var maximum = GetMaximumEditorZoom();
-        _editorZoomFactor = Math.Clamp(_editorZoomFactor, 1, maximum);
+        if (_cropDragOrigin is null)
+        {
+            // A crop drag can pass through a tiny rectangle; clamp only once it settles.
+            _editorZoomFactor = Math.Clamp(_editorZoomFactor, 1, maximum);
+        }
         _isUpdatingZoomControls = true;
         try
         {
-            ZoomSlider.Maximum = maximum;
+            ZoomSlider.Maximum = Math.Max(maximum, _editorZoomFactor);
             ZoomSlider.Value = _editorZoomFactor;
             var label = $"{_editorZoomFactor.ToString("0.#", CultureInfo.InvariantCulture)}×";
             ZoomFactorText.Text = label;
@@ -2131,6 +2142,14 @@ public sealed partial class MainWindow : Window
                 SeekRelative(_settings.SkipSeconds);
                 e.Handled = true;
                 break;
+            case Windows.System.VirtualKey.I when EditorPanel.Visibility == Visibility.Visible && !_isExporting:
+                MarkTrimStartButton_Click(this, new RoutedEventArgs());
+                e.Handled = true;
+                break;
+            case Windows.System.VirtualKey.O when EditorPanel.Visibility == Visibility.Visible && !_isExporting:
+                MarkTrimEndButton_Click(this, new RoutedEventArgs());
+                e.Handled = true;
+                break;
             case Windows.System.VirtualKey.F:
                 FullscreenButton_Click(this, new RoutedEventArgs());
                 e.Handled = true;
@@ -2221,7 +2240,7 @@ public sealed partial class MainWindow : Window
         UpdateCropOverlay();
     }
 
-    private void CancelEditButton_Click(object sender, RoutedEventArgs e)
+    private void ResetEditButton_Click(object sender, RoutedEventArgs e)
     {
         if (_isExporting || _mediaInfo is null)
         {
@@ -2241,7 +2260,7 @@ public sealed partial class MainWindow : Window
         _isTrimTimelineDragging = false;
         TrimStartBox.Value = 0;
         TrimEndBox.Value = _mediaInfo?.DurationSeconds ?? 0;
-        ApproximateCopyMenuItem.IsChecked = false;
+        ApproximateCopyCheckBox.IsChecked = false;
         OutputContainerComboBox.SelectedIndex = 0;
         _outputDirectory = _loadedPath is null ? null : Path.GetDirectoryName(_loadedPath);
         OutputFolderText.Text = "元動画と同じフォルダー";
@@ -2255,13 +2274,9 @@ public sealed partial class MainWindow : Window
         UpdateApproximateCopyAvailability();
         ValidateEditRange();
         UpdateCropOverlay();
-        EditorPanel.Visibility = Visibility.Collapsed;
-        SetEditorLayout(false);
         ApplyEditorPreview();
         UpdateZoomControls();
-        CancelThumbnailGeneration();
-        ShowControls();
-        ScheduleControlsHide();
+        _ = LoadTrimThumbnailsAsync();
     }
 
     private void VideoRegion_RightTapped(object sender, RightTappedRoutedEventArgs e)
@@ -2325,7 +2340,7 @@ public sealed partial class MainWindow : Window
         ExportButton.IsEnabled = valid && !_isExporting;
         if (valid)
         {
-            EditRangeText.Text = $"{FormatTime(start)} から {FormatTime(end)} まで";
+            EditRangeText.Text = $"{FormatTime(start)} 〜 {FormatTime(end)}（長さ {FormatTime(end - start)}）";
         }
         else
         {
@@ -2439,6 +2454,7 @@ public sealed partial class MainWindow : Window
         }
 
         UpdateRotationControl();
+        UpdateCropInfo();
         UpdateCropOverlay();
         UpdateApproximateCopyAvailability();
         ValidateEditRange();
@@ -2449,7 +2465,7 @@ public sealed partial class MainWindow : Window
     {
         RotateButtonText.Text = $"{_additionalRotationDegreesClockwise}°";
         RotateButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, $"時計回りに回転: {_additionalRotationDegreesClockwise} 度");
-        ToolTipService.SetToolTip(RotateButton, $"プレビューと書き出しを時計回りに回転（現在 {_additionalRotationDegreesClockwise}°）");
+        ToolTipService.SetToolTip(RotateButton, $"時計回りに 90 度ずつ回転（現在 {_additionalRotationDegreesClockwise}°）");
         CropModeButton.IsEnabled = _mediaInfo is not null && _additionalRotationDegreesClockwise == 0;
         ToolTipService.SetToolTip(CropModeButton, _additionalRotationDegreesClockwise == 0
             ? "四隅と四辺の8つのハンドルで範囲を調整"
@@ -2460,13 +2476,12 @@ public sealed partial class MainWindow : Window
     {
         var hasTransforms = _crop.HasValue || _additionalRotationDegreesClockwise != 0 ||
             Math.Abs(_editSpeed - 1) > 0.001 || _editorZoomFactor > 1.001;
-        if (hasTransforms && ApproximateCopyMenuItem.IsChecked)
+        if (hasTransforms && ApproximateCopyCheckBox.IsChecked == true)
         {
-            ApproximateCopyMenuItem.IsChecked = false;
+            ApproximateCopyCheckBox.IsChecked = false;
         }
 
-        ApproximateCopyMenuItem.IsEnabled = _mediaInfo is not null && !hasTransforms && !_isExporting;
-        ExportOptionsButton.IsEnabled = !_isExporting;
+        ApproximateCopyCheckBox.IsEnabled = _mediaInfo is not null && !hasTransforms && !_isExporting;
         CancelEditButton.IsEnabled = !_isExporting;
         UpdateZoomControls();
     }
@@ -2820,16 +2835,23 @@ public sealed partial class MainWindow : Window
     private void UpdateCropInfo()
     {
         CropResetButton.IsEnabled = _crop.HasValue;
-        if (_crop is not { } crop)
+        if (_mediaInfo is not { } media)
         {
-            CropInfoText.Text = _mediaInfo is null
-                ? "クロップなし"
-                : $"クロップなし · 表示 {_mediaInfo.DisplayWidth} × {_mediaInfo.DisplayHeight} px";
+            CropInfoText.Text = string.Empty;
             return;
         }
 
-        var aspect = (double)crop.Width / crop.Height;
-        CropInfoText.Text = $"{crop.Width} × {crop.Height} px · {aspect.ToString("0.##", CultureInfo.InvariantCulture)}:1";
+        // Mirrors the export size: crop, then the extra rotation, rounded up to even pixels.
+        var width = _crop?.Width ?? media.DisplayWidth;
+        var height = _crop?.Height ?? media.DisplayHeight;
+        if (_additionalRotationDegreesClockwise is 90 or 270)
+        {
+            (width, height) = (height, width);
+        }
+
+        width += width & 1;
+        height += height & 1;
+        CropInfoText.Text = $"出力 {width} × {height} px";
     }
 
     private async void OutputFolderButton_Click(object sender, RoutedEventArgs e)
@@ -2884,7 +2906,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var mode = ApproximateCopyMenuItem.IsChecked ? ExportMode.StreamCopyApproximate : ExportMode.AccurateReencode;
+        var mode = ApproximateCopyCheckBox.IsChecked == true ? ExportMode.StreamCopyApproximate : ExportMode.AccurateReencode;
         if (mode == ExportMode.AccurateReencode && _mediaInfo.IsHdr)
         {
             ShowError("HDR 動画は通常の書き出しに対応していません。「高速切り出し（画質維持）」を選ぶと元の色のまま保存できます。");
@@ -2953,7 +2975,7 @@ public sealed partial class MainWindow : Window
         CancelExportButton.Visibility = Visibility.Visible;
         ExportButton.Content = "書き出し中…";
         OutputContainerComboBox.IsEnabled = false;
-        ExportOptionsButton.IsEnabled = false;
+        ApproximateCopyCheckBox.IsEnabled = false;
         OutputFolderButton.IsEnabled = false;
         OutputNameBox.IsEnabled = false;
         ValidateEditRange();
@@ -3029,7 +3051,6 @@ public sealed partial class MainWindow : Window
                     CancelEditButton.IsEnabled = true;
                     UpdateApproximateCopyAvailability();
                     OutputContainerComboBox.IsEnabled = true;
-                    ExportOptionsButton.IsEnabled = true;
                     OutputFolderButton.IsEnabled = true;
                     OutputNameBox.IsEnabled = true;
                     ValidateEditRange();
@@ -3135,7 +3156,6 @@ public sealed partial class MainWindow : Window
         CancelExportButton.Visibility = Visibility.Collapsed;
         ExportButton.Content = "書き出し";
         OutputContainerComboBox.IsEnabled = true;
-        ExportOptionsButton.IsEnabled = true;
         OutputFolderButton.IsEnabled = true;
         OutputNameBox.IsEnabled = true;
     }
@@ -3415,4 +3435,60 @@ public sealed class TimelineThumbToolTipConverter : IValueConverter
 
     public object ConvertBack(object value, Type targetType, object parameter, string language) =>
         throw new NotSupportedException();
+}
+
+/// <summary>
+/// Shows trim times as m:ss.ss (h:mm:ss.ss from one hour) and accepts either
+/// that form or plain seconds when typed.
+/// </summary>
+public sealed class TrimTimeFormatter : Windows.Globalization.NumberFormatting.INumberFormatter2, Windows.Globalization.NumberFormatting.INumberParser
+{
+    public string FormatDouble(double value)
+    {
+        if (!double.IsFinite(value) || value < 0)
+        {
+            value = 0;
+        }
+
+        var hundredths = (long)Math.Round(value * 100, MidpointRounding.AwayFromZero);
+        var hours = hundredths / 360000;
+        var minutes = hundredths / 6000 % 60;
+        var seconds = hundredths % 6000 / 100d;
+        var secondsText = seconds.ToString("00.00", CultureInfo.InvariantCulture);
+        return hours > 0
+            ? string.Create(CultureInfo.InvariantCulture, $"{hours}:{minutes:00}:{secondsText}")
+            : string.Create(CultureInfo.InvariantCulture, $"{minutes}:{secondsText}");
+    }
+
+    public string FormatInt(long value) => FormatDouble(value);
+
+    public string FormatUInt(ulong value) => FormatDouble(value);
+
+    public double? ParseDouble(string text)
+    {
+        var parts = (text ?? string.Empty).Trim().Replace('：', ':').Split(':');
+        if (parts.Length is < 1 or > 3)
+        {
+            return null;
+        }
+
+        double total = 0;
+        for (var i = 0; i < parts.Length; i++)
+        {
+            var isLast = i == parts.Length - 1;
+            if (!double.TryParse(parts[i], isLast ? NumberStyles.AllowDecimalPoint : NumberStyles.None, CultureInfo.InvariantCulture, out var part) ||
+                (parts.Length > 1 && i > 0 && part >= 60))
+            {
+                return null;
+            }
+
+            total = total * 60 + part;
+        }
+
+        return double.IsFinite(total) ? total : null;
+    }
+
+    public long? ParseInt(string text) => ParseDouble(text) is { } value ? (long)value : null;
+
+    public ulong? ParseUInt(string text) => ParseDouble(text) is { } value ? (ulong)value : null;
 }
