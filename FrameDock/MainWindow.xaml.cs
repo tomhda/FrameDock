@@ -84,6 +84,15 @@ public sealed partial class MainWindow : Window
     // Viewing speed lives in _settings.Speed; the editor previews and exports
     // at its own speed so a habitual 1.5x viewing speed never leaks into output.
     private double _editSpeed = 1;
+    private const int MaxSegmentCount = 20;
+    private const double SegmentSplitEdgeTolerance = 0.1;
+    private const double SegmentMinLength = 0.05;
+    private readonly List<EditSegment> _segments = new();
+    private int _currentSegmentIndex = -1;
+    private bool _isSyncingSegments;
+    private readonly List<Microsoft.UI.Xaml.Shapes.Rectangle> _segmentSplitLines = new();
+    private readonly List<Border> _segmentDeletedOverlays = new();
+    private Border? _segmentSelectedBar;
     private bool _isRestoringSettings;
     private bool _isClosing;
     private bool _isExporting;
@@ -173,6 +182,12 @@ public sealed partial class MainWindow : Window
         {
             InlineNoticeText.Visibility = Visibility.Collapsed;
             InlineNoticeText.Text = string.Empty;
+            if (NotificationBar.Severity is InfoBarSeverity.Success or InfoBarSeverity.Informational)
+            {
+                // Errors stay until dismissed; routine notices clear themselves.
+                NotificationBar.IsOpen = false;
+            }
+
             ScheduleControlsHide();
         };
         _controlsHideTimer = DispatcherQueue.CreateTimer();
@@ -666,6 +681,8 @@ public sealed partial class MainWindow : Window
             _thumbnailBitmaps = Array.Empty<BitmapImage>();
             _thumbnailFrameCount = 0;
             _mediaInfo = null;
+            _segments.Clear();
+            _currentSegmentIndex = -1;
             _crop = null;
             _additionalRotationDegreesClockwise = 0;
             _editorZoomFactor = 1;
@@ -782,6 +799,7 @@ public sealed partial class MainWindow : Window
                 TrimEndBox.Maximum = inspected.DurationSeconds;
                 TrimStartBox.Value = 0;
                 TrimEndBox.Value = inspected.DurationSeconds;
+                ResetSegmentsToFullRange();
                 HdrNoteText.Visibility = inspected.IsHdr ? Visibility.Visible : Visibility.Collapsed;
                 UpdateZoomControls();
                 UpdateRotationControl();
@@ -841,6 +859,48 @@ public sealed partial class MainWindow : Window
 
             TimeText.Text = $"{FormatTime(position.Value)} / {FormatTime(duration.Value)}";
             UpdateTrimTimeline(position.Value);
+            if (EditorPanel.Visibility == Visibility.Visible && _mediaInfo is not null && _segments.Count > 0 && !_isExporting)
+            {
+                var selectedSegment = GetSelectedSegmentIndex(position.Value);
+                if (selectedSegment >= 0 && selectedSegment != _currentSegmentIndex)
+                {
+                    SwitchEditorSegment(selectedSegment);
+                }
+
+                if (_currentSegmentIndex >= 0 && _currentSegmentIndex < _segments.Count && _segments[_currentSegmentIndex].IsDeleted)
+                {
+                    var segmentIsPaused = _player.GetFlag("pause");
+                    if (!segmentIsPaused && !_isTrimTimelineDragging && !_isTimelineDragging)
+                    {
+                        var nextSegment = -1;
+                        for (var segmentIndex = _currentSegmentIndex + 1; segmentIndex < _segments.Count; segmentIndex++)
+                        {
+                            if (!_segments[segmentIndex].IsDeleted)
+                            {
+                                nextSegment = segmentIndex;
+                                break;
+                            }
+                        }
+
+                        try
+                        {
+                            if (nextSegment >= 0)
+                            {
+                                _player.SeekAbsolute(_segments[nextSegment].StartSeconds);
+                            }
+                            else
+                            {
+                                _player.SeekAbsolute(GetEditorRangeEnd());
+                                _player.SetPaused(true);
+                            }
+                        }
+                        catch (Exception seekException)
+                        {
+                            App.WriteErrorLog(seekException);
+                        }
+                    }
+                }
+            }
         }
 
         var isPaused = _player.GetFlag("pause");
@@ -1143,6 +1203,7 @@ public sealed partial class MainWindow : Window
         TrimStartReadout.Text = $"開始 {FormatTime(start)}";
         TrimPlayheadReadout.Text = $"再生位置 {FormatTime(position)}";
         TrimEndReadout.Text = $"終了 {FormatTime(end)}";
+        UpdateSegmentTimelineVisuals(trackWidth, duration, pad, trackY, trackHeight, position);
     }
 
     private void PositionThumbnailStrip(double width)
@@ -1196,7 +1257,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var rotation = _additionalRotationDegreesClockwise;
+        var rotation = 0;
         if (!force && string.Equals(_thumbnailSourcePath, sourcePath, StringComparison.OrdinalIgnoreCase) &&
             _thumbnailRotation == rotation && TrimThumbnailStrip.Children.Count > 0)
         {
@@ -1232,8 +1293,7 @@ public sealed partial class MainWindow : Window
 
             if (cancellation.IsCancellationRequested || _isClosing ||
                 EditorPanel.Visibility != Visibility.Visible ||
-                !string.Equals(_loadedPath, sourcePath, StringComparison.OrdinalIgnoreCase) ||
-                _additionalRotationDegreesClockwise != rotation)
+                !string.Equals(_loadedPath, sourcePath, StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
@@ -1252,8 +1312,7 @@ public sealed partial class MainWindow : Window
             }
 
             if (cancellation.IsCancellationRequested || _isClosing || EditorPanel.Visibility != Visibility.Visible ||
-                !string.Equals(_loadedPath, sourcePath, StringComparison.OrdinalIgnoreCase) ||
-                _additionalRotationDegreesClockwise != rotation)
+                !string.Equals(_loadedPath, sourcePath, StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
@@ -1520,6 +1579,7 @@ public sealed partial class MainWindow : Window
         }
 
         _editSpeed = speed;
+        SaveEditorFieldsToCurrentSegment();
         UpdateEditSpeedControl(speed);
         if (EditorPanel.Visibility == Visibility.Visible)
         {
@@ -1636,6 +1696,8 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        SaveEditorFieldsToCurrentSegment();
+        UpdateSegmentControls();
         UpdateZoomControls();
         UpdateApproximateCopyAvailability();
     }
@@ -1661,6 +1723,8 @@ public sealed partial class MainWindow : Window
             ApplyEditorPreview(showError: false);
         }
 
+        SaveEditorFieldsToCurrentSegment();
+        UpdateSegmentControls();
         UpdateZoomControls();
         UpdateApproximateCopyAvailability();
     }
@@ -1840,6 +1904,8 @@ public sealed partial class MainWindow : Window
         }
         else
         {
+            SaveEditorFieldsToCurrentSegment();
+            UpdateSegmentControls();
             UpdateZoomControls();
         }
 
@@ -2164,6 +2230,14 @@ public sealed partial class MainWindow : Window
                 MarkTrimEndButton_Click(this, new RoutedEventArgs());
                 e.Handled = true;
                 break;
+            case Windows.System.VirtualKey.S when EditorPanel.Visibility == Visibility.Visible && !_isExporting:
+                SplitButton_Click(this, new RoutedEventArgs());
+                e.Handled = true;
+                break;
+            case Windows.System.VirtualKey.Delete when EditorPanel.Visibility == Visibility.Visible && !_isExporting:
+                DeleteSegmentButton_Click(this, new RoutedEventArgs());
+                e.Handled = true;
+                break;
             case Windows.System.VirtualKey.F:
                 FullscreenButton_Click(this, new RoutedEventArgs());
                 e.Handled = true;
@@ -2222,17 +2296,32 @@ public sealed partial class MainWindow : Window
         if (showEditor)
         {
             ShowControls();
+            if (_segments.Count == 0)
+            {
+                ResetSegmentsToFullRange();
+            }
+
             ValidateEditRange();
+            var openPosition = _player?.GetNumber("time-pos") ?? GetEditorRangeStart();
+            var openSelected = GetSelectedSegmentIndex(openPosition);
+            if (openSelected >= 0 && openSelected != _currentSegmentIndex)
+            {
+                SwitchEditorSegment(openSelected);
+            }
+
             UpdateTrimTimeline();
             UpdateApproximateCopyAvailability();
+            UpdateSegmentControls();
             // Recompute the overlay visibility so a kept crop range shows its mask again.
             SetCropMode(false);
             _ = LoadTrimThumbnailsAsync();
         }
         else
         {
+            SaveEditorFieldsToCurrentSegment();
             SetCropMode(false);
             CancelThumbnailGeneration();
+            UpdateSegmentControls();
             ShowControls();
             ScheduleControlsHide();
         }
@@ -2283,6 +2372,7 @@ public sealed partial class MainWindow : Window
 
         _editSpeed = 1;
         UpdateEditSpeedControl(_editSpeed);
+        ResetSegmentsToFullRange();
         UpdateCropInfo();
         UpdateRotationControl();
         UpdateApproximateCopyAvailability();
@@ -2311,7 +2401,11 @@ public sealed partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private void TrimBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) => ValidateEditRange();
+    private void TrimBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+    {
+        SyncSegmentsToRange();
+        ValidateEditRange();
+    }
 
     private void MarkTrimStartButton_Click(object sender, RoutedEventArgs e)
     {
@@ -2338,8 +2432,653 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private double GetEditorRangeStart()
+    {
+        var duration = _mediaInfo?.DurationSeconds ?? 0;
+        var start = TrimStartBox.Value;
+        if (!double.IsFinite(start))
+        {
+            start = 0;
+        }
+
+        return Math.Clamp(start, 0, duration);
+    }
+
+    private double GetEditorRangeEnd()
+    {
+        var duration = _mediaInfo?.DurationSeconds ?? 0;
+        var end = TrimEndBox.Value;
+        if (!double.IsFinite(end))
+        {
+            end = duration;
+        }
+
+        return Math.Clamp(end, 0, duration);
+    }
+
+    private void ResetSegmentsToFullRange()
+    {
+        _segments.Clear();
+        var start = GetEditorRangeStart();
+        var end = GetEditorRangeEnd();
+        if (!(end > start))
+        {
+            _currentSegmentIndex = -1;
+            UpdateSegmentControls();
+            return;
+        }
+
+        _segments.Add(new EditSegment
+        {
+            StartSeconds = start,
+            EndSeconds = end,
+            Crop = _crop,
+            AdditionalRotationDegreesClockwise = _additionalRotationDegreesClockwise,
+            ZoomFactor = _editorZoomFactor,
+            ZoomFocusX = _editorZoomFocusX,
+            ZoomFocusY = _editorZoomFocusY,
+            Speed = _editSpeed,
+        });
+        _currentSegmentIndex = 0;
+        UpdateSegmentControls();
+    }
+
+    private void SaveEditorFieldsToCurrentSegment()
+    {
+        if (_currentSegmentIndex < 0 || _currentSegmentIndex >= _segments.Count)
+        {
+            return;
+        }
+
+        var segment = _segments[_currentSegmentIndex];
+        segment.Crop = _crop;
+        segment.AdditionalRotationDegreesClockwise = _additionalRotationDegreesClockwise;
+        segment.ZoomFactor = _editorZoomFactor;
+        segment.ZoomFocusX = _editorZoomFocusX;
+        segment.ZoomFocusY = _editorZoomFocusY;
+        segment.Speed = _editSpeed;
+    }
+
+    private int GetSelectedSegmentIndex(double position)
+    {
+        if (_segments.Count == 0)
+        {
+            return -1;
+        }
+
+        if (!double.IsFinite(position))
+        {
+            position = 0;
+        }
+
+        for (var i = 0; i < _segments.Count; i++)
+        {
+            if (position < _segments[i].EndSeconds)
+            {
+                return i;
+            }
+        }
+
+        return _segments.Count - 1;
+    }
+
+    private void SwitchEditorSegment(int newIndex)
+    {
+        if (newIndex < 0 || newIndex >= _segments.Count || newIndex == _currentSegmentIndex)
+        {
+            return;
+        }
+
+        EndZoomPan(null);
+        if (_isCropMode)
+        {
+            SetCropMode(false);
+            if (_crop is { } finished && _mediaInfo is { } finishedMedia)
+            {
+                var fullWidth = finishedMedia.DisplayWidth & ~1;
+                var fullHeight = finishedMedia.DisplayHeight & ~1;
+                if (finished.X == 0 && finished.Y == 0 && finished.Width == fullWidth && finished.Height == fullHeight)
+                {
+                    _crop = null;
+                }
+            }
+        }
+
+        SaveEditorFieldsToCurrentSegment();
+        _currentSegmentIndex = newIndex;
+        var segment = _segments[newIndex];
+        _crop = segment.Crop;
+        _additionalRotationDegreesClockwise = segment.AdditionalRotationDegreesClockwise;
+        _editorZoomFactor = segment.ZoomFactor;
+        _editorZoomFocusX = segment.ZoomFocusX;
+        _editorZoomFocusY = segment.ZoomFocusY;
+        _editSpeed = segment.Speed;
+        UpdateRotationControl();
+        UpdateZoomControls();
+        UpdateEditSpeedControl(_editSpeed);
+        UpdateCropInfo();
+        UpdateApproximateCopyAvailability();
+        UpdateCropOverlay();
+        ApplyEditorPreview();
+        UpdateSegmentControls();
+        ValidateEditRange();
+    }
+
+    private void SyncSegmentsToRange()
+    {
+        if (_isSyncingSegments || _isExporting)
+        {
+            return;
+        }
+
+        if (_mediaInfo is null || EditorPanel.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        var duration = _mediaInfo.DurationSeconds;
+        if (!double.IsFinite(duration) || duration <= 0)
+        {
+            return;
+        }
+
+        var start = GetEditorRangeStart();
+        var end = GetEditorRangeEnd();
+        if (!(end > start))
+        {
+            return;
+        }
+
+        _isSyncingSegments = true;
+        try
+        {
+            SaveEditorFieldsToCurrentSegment();
+            if (_segments.Count == 0)
+            {
+                _segments.Add(new EditSegment
+                {
+                    StartSeconds = start,
+                    EndSeconds = end,
+                    Crop = _crop,
+                    AdditionalRotationDegreesClockwise = _additionalRotationDegreesClockwise,
+                    ZoomFactor = _editorZoomFactor,
+                    ZoomFocusX = _editorZoomFocusX,
+                    ZoomFocusY = _editorZoomFocusY,
+                    Speed = _editSpeed,
+                });
+                _currentSegmentIndex = 0;
+                UpdateSegmentControls();
+                return;
+            }
+
+            var current = _currentSegmentIndex >= 0 && _currentSegmentIndex < _segments.Count
+                ? _segments[_currentSegmentIndex]
+                : null;
+            _segments.RemoveAll(segment => segment.EndSeconds <= start || segment.StartSeconds >= end);
+            if (_segments.Count == 0)
+            {
+                _segments.Add(new EditSegment
+                {
+                    StartSeconds = start,
+                    EndSeconds = end,
+                    Crop = _crop,
+                    AdditionalRotationDegreesClockwise = _additionalRotationDegreesClockwise,
+                    ZoomFactor = _editorZoomFactor,
+                    ZoomFocusX = _editorZoomFocusX,
+                    ZoomFocusY = _editorZoomFocusY,
+                    Speed = _editSpeed,
+                });
+                _currentSegmentIndex = 0;
+                UpdateSegmentControls();
+                return;
+            }
+
+            _segments.Sort((a, b) => a.StartSeconds.CompareTo(b.StartSeconds));
+            _segments[0].StartSeconds = start;
+            _segments[^1].EndSeconds = end;
+            for (var i = 0; i < _segments.Count;)
+            {
+                var length = _segments[i].EndSeconds - _segments[i].StartSeconds;
+                if (length < SegmentMinLength && _segments.Count > 1)
+                {
+                    var removed = _segments[i];
+                    _segments.RemoveAt(i);
+                    if (i < _segments.Count)
+                    {
+                        _segments[i].StartSeconds = removed.StartSeconds;
+                    }
+                    else
+                    {
+                        _segments[^1].EndSeconds = removed.EndSeconds;
+                    }
+
+                    continue;
+                }
+
+                i++;
+            }
+
+            if (_segments.TrueForAll(segment => segment.IsDeleted))
+            {
+                // The range moved off every kept segment; bring one back so there is something to export.
+                _segments[0].IsDeleted = false;
+            }
+
+            if (current is not null && _segments.Contains(current))
+            {
+                _currentSegmentIndex = _segments.IndexOf(current);
+            }
+            else
+            {
+                if (_isCropMode)
+                {
+                    SetCropMode(false);
+                }
+
+                var position = _player?.GetNumber("time-pos") ?? start;
+                if (!double.IsFinite(position))
+                {
+                    position = start;
+                }
+
+                _currentSegmentIndex = GetSelectedSegmentIndex(Math.Clamp(position, start, end));
+                var segment = _segments[_currentSegmentIndex];
+                _crop = segment.Crop;
+                _additionalRotationDegreesClockwise = segment.AdditionalRotationDegreesClockwise;
+                _editorZoomFactor = segment.ZoomFactor;
+                _editorZoomFocusX = segment.ZoomFocusX;
+                _editorZoomFocusY = segment.ZoomFocusY;
+                _editSpeed = segment.Speed;
+                UpdateRotationControl();
+                UpdateZoomControls();
+                UpdateEditSpeedControl(_editSpeed);
+                UpdateCropInfo();
+                UpdateApproximateCopyAvailability();
+                UpdateCropOverlay();
+                ApplyEditorPreview();
+            }
+
+            UpdateSegmentControls();
+        }
+        finally
+        {
+            _isSyncingSegments = false;
+        }
+    }
+
+    private void UpdateSegmentControls()
+    {
+        var showGroup = EditorPanel.Visibility == Visibility.Visible && _segments.Count >= 2;
+        SegmentGroup.Visibility = showGroup ? Visibility.Visible : Visibility.Collapsed;
+        SegmentSeparator.Visibility = showGroup ? Visibility.Visible : Visibility.Collapsed;
+        if (showGroup && _currentSegmentIndex >= 0 && _currentSegmentIndex < _segments.Count)
+        {
+            var readout = $"{_currentSegmentIndex + 1} / {_segments.Count}";
+            if (_segments[_currentSegmentIndex].IsDeleted)
+            {
+                readout += "（削除済み）";
+            }
+
+            SegmentReadoutText.Text = readout;
+        }
+
+        if (EditorPanel.Visibility != Visibility.Visible || _mediaInfo is null || _isExporting ||
+            _currentSegmentIndex < 0 || _currentSegmentIndex >= _segments.Count)
+        {
+            SplitButton.IsEnabled = false;
+            DeleteSegmentButton.IsEnabled = false;
+            MergeSegmentButton.IsEnabled = false;
+            return;
+        }
+
+        var current = _segments[_currentSegmentIndex];
+        var remainingCount = 0;
+        foreach (var segment in _segments)
+        {
+            if (!segment.IsDeleted)
+            {
+                remainingCount++;
+            }
+        }
+
+        MergeSegmentButton.IsEnabled = _segments.Count > 1 && _currentSegmentIndex > 0;
+        if (_segments.Count <= 1)
+        {
+            DeleteSegmentButton.IsEnabled = false;
+        }
+        else
+        {
+            DeleteSegmentButton.IsEnabled = current.IsDeleted || remainingCount > 1;
+        }
+
+        if (current.IsDeleted)
+        {
+            DeleteSegmentIcon.Glyph = "\uE7A7";
+            ToolTipService.SetToolTip(DeleteSegmentButton, "この区間を元に戻す (Delete)");
+            DeleteSegmentButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, "この区間を元に戻す");
+        }
+        else
+        {
+            DeleteSegmentIcon.Glyph = "\uE74D";
+            ToolTipService.SetToolTip(DeleteSegmentButton, "この区間を削除 (Delete)");
+            DeleteSegmentButton.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, "この区間を削除");
+        }
+
+        var canSplit = _segments.Count < MaxSegmentCount && !current.IsDeleted;
+        if (canSplit)
+        {
+            var splitPosition = _player?.GetNumber("time-pos");
+            if (!splitPosition.HasValue || !double.IsFinite(splitPosition.Value))
+            {
+                canSplit = false;
+            }
+            else
+            {
+                var distanceFromStart = splitPosition.Value - current.StartSeconds;
+                var distanceFromEnd = current.EndSeconds - splitPosition.Value;
+                canSplit = distanceFromStart >= SegmentSplitEdgeTolerance && distanceFromEnd >= SegmentSplitEdgeTolerance;
+            }
+        }
+
+        SplitButton.IsEnabled = canSplit;
+    }
+
+    private void EnsureSegmentTimelineElements()
+    {
+        if (_segmentSelectedBar is null)
+        {
+            // A white outline reads against both the thumbnails and the accent-colored range frame.
+            _segmentSelectedBar = new Border
+            {
+                BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF)),
+                BorderThickness = new Thickness(3),
+                CornerRadius = new CornerRadius(3),
+                IsHitTestVisible = false,
+                Visibility = Visibility.Collapsed,
+            };
+            TrimTimelineCanvas.Children.Add(_segmentSelectedBar);
+        }
+
+        while (_segmentSplitLines.Count < Math.Max(0, _segments.Count - 1))
+        {
+            var line = new Microsoft.UI.Xaml.Shapes.Rectangle
+            {
+                Width = 2,
+                Fill = new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF)),
+                Opacity = 0.9,
+                IsHitTestVisible = false,
+                Visibility = Visibility.Collapsed,
+            };
+            _segmentSplitLines.Add(line);
+            TrimTimelineCanvas.Children.Add(line);
+        }
+
+        while (_segmentDeletedOverlays.Count < _segments.Count)
+        {
+            var overlay = new Border
+            {
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0xAA, 0x00, 0x00, 0x00)),
+                IsHitTestVisible = false,
+                Visibility = Visibility.Collapsed,
+            };
+            _segmentDeletedOverlays.Add(overlay);
+            TrimTimelineCanvas.Children.Add(overlay);
+        }
+
+        Canvas.SetZIndex(TrimStartHandle, 10);
+        Canvas.SetZIndex(TrimEndHandle, 10);
+        Canvas.SetZIndex(TrimPlayheadLine, 11);
+        Canvas.SetZIndex(TrimPlayheadKnob, 11);
+        if (_segmentSelectedBar is not null)
+        {
+            Canvas.SetZIndex(_segmentSelectedBar, 4);
+        }
+
+        foreach (var line in _segmentSplitLines)
+        {
+            Canvas.SetZIndex(line, 3);
+        }
+
+        foreach (var overlay in _segmentDeletedOverlays)
+        {
+            Canvas.SetZIndex(overlay, 2);
+        }
+    }
+
+    private void HideSegmentTimelineElements()
+    {
+        if (_segmentSelectedBar is not null)
+        {
+            _segmentSelectedBar.Visibility = Visibility.Collapsed;
+        }
+
+        foreach (var line in _segmentSplitLines)
+        {
+            line.Visibility = Visibility.Collapsed;
+        }
+
+        foreach (var overlay in _segmentDeletedOverlays)
+        {
+            overlay.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void UpdateSegmentTimelineVisuals(double trackWidth, double duration, double pad, double trackY, double trackHeight, double position)
+    {
+        if (EditorPanel.Visibility != Visibility.Visible || _mediaInfo is null || _segments.Count == 0)
+        {
+            HideSegmentTimelineElements();
+            return;
+        }
+
+        EnsureSegmentTimelineElements();
+        var show = EditorPanel.Visibility == Visibility.Visible && _mediaInfo is not null && _segments.Count > 0;
+        for (var i = 0; i < _segmentSplitLines.Count; i++)
+        {
+            var line = _segmentSplitLines[i];
+            if (show && _segments.Count >= 2 && i < _segments.Count - 1)
+            {
+                var boundary = _segments[i].EndSeconds;
+                var x = pad + boundary / duration * trackWidth;
+                SetTimelineElement(line, x - 1, trackY, 2, trackHeight);
+                line.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                line.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        if (_segmentSelectedBar is not null)
+        {
+            if (show && _segments.Count >= 2 && _currentSegmentIndex >= 0 && _currentSegmentIndex < _segments.Count)
+            {
+                var selected = _segments[_currentSegmentIndex];
+                var x = pad + selected.StartSeconds / duration * trackWidth;
+                var width = Math.Max(0, (selected.EndSeconds - selected.StartSeconds) / duration * trackWidth);
+                SetTimelineElement(_segmentSelectedBar, x, trackY, width, trackHeight);
+                _segmentSelectedBar.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                _segmentSelectedBar.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        for (var i = 0; i < _segmentDeletedOverlays.Count; i++)
+        {
+            var overlay = _segmentDeletedOverlays[i];
+            if (show && i < _segments.Count && _segments[i].IsDeleted)
+            {
+                var segment = _segments[i];
+                var x = pad + segment.StartSeconds / duration * trackWidth;
+                var width = Math.Max(0, (segment.EndSeconds - segment.StartSeconds) / duration * trackWidth);
+                SetTimelineElement(overlay, x, trackY, width, trackHeight);
+                overlay.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                overlay.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        UpdateSegmentControls();
+    }
+
+    private void SplitButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (EditorPanel.Visibility != Visibility.Visible || _mediaInfo is null || _isExporting)
+        {
+            return;
+        }
+
+        if (_currentSegmentIndex < 0 || _currentSegmentIndex >= _segments.Count || _segments.Count >= MaxSegmentCount)
+        {
+            return;
+        }
+
+        if (_isCropMode)
+        {
+            CropModeButton_Click(this, new RoutedEventArgs());
+        }
+
+        var current = _segments[_currentSegmentIndex];
+        if (current.IsDeleted)
+        {
+            return;
+        }
+
+        var position = _player?.GetNumber("time-pos");
+        if (!position.HasValue || !double.IsFinite(position.Value))
+        {
+            return;
+        }
+
+        var rounded = Math.Round(Math.Clamp(position.Value, 0, _mediaInfo.DurationSeconds), 2, MidpointRounding.AwayFromZero);
+        if (!(rounded > current.StartSeconds && rounded < current.EndSeconds))
+        {
+            return;
+        }
+
+        if (!(rounded - current.StartSeconds >= SegmentSplitEdgeTolerance && current.EndSeconds - rounded >= SegmentSplitEdgeTolerance))
+        {
+            return;
+        }
+
+        SaveEditorFieldsToCurrentSegment();
+        var right = new EditSegment
+        {
+            StartSeconds = rounded,
+            EndSeconds = current.EndSeconds,
+            Crop = current.Crop,
+            AdditionalRotationDegreesClockwise = current.AdditionalRotationDegreesClockwise,
+            ZoomFactor = current.ZoomFactor,
+            ZoomFocusX = current.ZoomFocusX,
+            ZoomFocusY = current.ZoomFocusY,
+            Speed = current.Speed,
+            IsDeleted = false,
+        };
+        current.EndSeconds = rounded;
+        _segments.Insert(_currentSegmentIndex + 1, right);
+        _currentSegmentIndex++;
+        UpdateRotationControl();
+        UpdateZoomControls();
+        UpdateEditSpeedControl(_editSpeed);
+        UpdateCropInfo();
+        UpdateApproximateCopyAvailability();
+        UpdateCropOverlay();
+        ApplyEditorPreview();
+        UpdateSegmentControls();
+        ValidateEditRange();
+    }
+
+    private void DeleteSegmentButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (EditorPanel.Visibility != Visibility.Visible || _mediaInfo is null || _isExporting)
+        {
+            return;
+        }
+
+        if (_currentSegmentIndex < 0 || _currentSegmentIndex >= _segments.Count || _segments.Count <= 1)
+        {
+            return;
+        }
+
+        var current = _segments[_currentSegmentIndex];
+        if (!current.IsDeleted)
+        {
+            var remainingCount = 0;
+            foreach (var segment in _segments)
+            {
+                if (!segment.IsDeleted)
+                {
+                    remainingCount++;
+                }
+            }
+
+            if (remainingCount <= 1)
+            {
+                return;
+            }
+
+            SaveEditorFieldsToCurrentSegment();
+            current.IsDeleted = true;
+        }
+        else
+        {
+            current.IsDeleted = false;
+        }
+
+        UpdateCropInfo();
+        UpdateApproximateCopyAvailability();
+        UpdateSegmentControls();
+        ValidateEditRange();
+    }
+
+    private void MergeSegmentButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (EditorPanel.Visibility != Visibility.Visible || _mediaInfo is null || _isExporting)
+        {
+            return;
+        }
+
+        if (_currentSegmentIndex <= 0 || _currentSegmentIndex >= _segments.Count || _segments.Count <= 1)
+        {
+            return;
+        }
+
+        if (_isCropMode)
+        {
+            SetCropMode(false);
+        }
+
+        var removed = _segments[_currentSegmentIndex];
+        var previous = _segments[_currentSegmentIndex - 1];
+        previous.EndSeconds = removed.EndSeconds;
+        // Merging a kept segment into a deleted one must not delete the footage it carried.
+        previous.IsDeleted = previous.IsDeleted && removed.IsDeleted;
+        _segments.RemoveAt(_currentSegmentIndex);
+        _currentSegmentIndex--;
+        _crop = previous.Crop;
+        _additionalRotationDegreesClockwise = previous.AdditionalRotationDegreesClockwise;
+        _editorZoomFactor = previous.ZoomFactor;
+        _editorZoomFocusX = previous.ZoomFocusX;
+        _editorZoomFocusY = previous.ZoomFocusY;
+        _editSpeed = previous.Speed;
+        UpdateRotationControl();
+        UpdateZoomControls();
+        UpdateEditSpeedControl(_editSpeed);
+        UpdateCropInfo();
+        UpdateApproximateCopyAvailability();
+        UpdateCropOverlay();
+        ApplyEditorPreview();
+        UpdateSegmentControls();
+        ValidateEditRange();
+    }
+
     private void ValidateEditRange()
     {
+        SyncSegmentsToRange();
         if (_mediaInfo is null)
         {
             ExportButton.IsEnabled = false;
@@ -2354,7 +3093,25 @@ public sealed partial class MainWindow : Window
         ExportButton.IsEnabled = valid && !_isExporting;
         if (valid)
         {
-            EditRangeText.Text = $"{FormatTime(start)} 〜 {FormatTime(end)}（長さ {FormatTime(end - start)}）";
+            if (EditorPanel.Visibility == Visibility.Visible && _segments.Count >= 2)
+            {
+                var remainingCount = 0;
+                var totalOutputLength = 0d;
+                foreach (var segment in _segments)
+                {
+                    if (!segment.IsDeleted)
+                    {
+                        remainingCount++;
+                        totalOutputLength += (segment.EndSeconds - segment.StartSeconds) / segment.Speed;
+                    }
+                }
+
+                EditRangeText.Text = $"{remainingCount} 区間・合計 {FormatTime(totalOutputLength)}";
+            }
+            else
+            {
+                EditRangeText.Text = $"{FormatTime(start)} 〜 {FormatTime(end)}（長さ {FormatTime(end - start)}）";
+            }
         }
         else
         {
@@ -2409,6 +3166,8 @@ public sealed partial class MainWindow : Window
                 UpdateCropOverlay();
             }
         }
+        SaveEditorFieldsToCurrentSegment();
+        UpdateSegmentControls();
     }
 
     private void SetCropMode(bool enabled)
@@ -2449,11 +3208,13 @@ public sealed partial class MainWindow : Window
     {
         SetCropMode(false);
         _crop = null;
+        SaveEditorFieldsToCurrentSegment();
         UpdateCropInfo();
         UpdateApproximateCopyAvailability();
         UpdateZoomControls();
         UpdateCropOverlay();
         ApplyEditorPreview();
+        UpdateSegmentControls();
     }
 
     private void RotateButton_Click(object sender, RoutedEventArgs e)
@@ -2468,11 +3229,12 @@ public sealed partial class MainWindow : Window
         }
 
         UpdateRotationControl();
+        SaveEditorFieldsToCurrentSegment();
         UpdateCropInfo();
         UpdateCropOverlay();
         UpdateApproximateCopyAvailability();
+        UpdateSegmentControls();
         ValidateEditRange();
-        _ = LoadTrimThumbnailsAsync(force: true);
     }
 
     private void UpdateRotationControl()
@@ -2488,6 +3250,37 @@ public sealed partial class MainWindow : Window
 
     private void UpdateApproximateCopyAvailability()
     {
+        if (EditorPanel.Visibility == Visibility.Visible && _segments.Count > 0)
+        {
+            SaveEditorFieldsToCurrentSegment();
+            var remainingSegments = new List<EditSegment>();
+            foreach (var segment in _segments)
+            {
+                if (!segment.IsDeleted)
+                {
+                    remainingSegments.Add(segment);
+                }
+            }
+
+            var hasSegmentTransforms = remainingSegments.Count != 1;
+            if (!hasSegmentTransforms)
+            {
+                var only = remainingSegments[0];
+                hasSegmentTransforms = only.Crop.HasValue || only.AdditionalRotationDegreesClockwise != 0 ||
+                    Math.Abs(only.Speed - 1) > 0.001 || only.ZoomFactor > 1.001;
+            }
+
+            if (hasSegmentTransforms && ApproximateCopyCheckBox.IsChecked == true)
+            {
+                ApproximateCopyCheckBox.IsChecked = false;
+            }
+
+            ApproximateCopyCheckBox.IsEnabled = _mediaInfo is not null && !hasSegmentTransforms && !_isExporting;
+            CancelEditButton.IsEnabled = !_isExporting;
+            UpdateZoomControls();
+            return;
+        }
+
         var hasTransforms = _crop.HasValue || _additionalRotationDegreesClockwise != 0 ||
             Math.Abs(_editSpeed - 1) > 0.001 || _editorZoomFactor > 1.001;
         if (hasTransforms && ApproximateCopyCheckBox.IsChecked == true)
@@ -2563,6 +3356,7 @@ public sealed partial class MainWindow : Window
         {
             _crop = originalCrop;
         }
+        SaveEditorFieldsToCurrentSegment();
 
         _activeCropHandle = null;
         _cropDragOrigin = null;
@@ -2591,6 +3385,7 @@ public sealed partial class MainWindow : Window
         {
             _crop = originalCrop;
         }
+        SaveEditorFieldsToCurrentSegment();
 
         _activeCropHandle = null;
         _cropDragOrigin = null;
@@ -2757,9 +3552,11 @@ public sealed partial class MainWindow : Window
         {
             MediaGeometry.ValidateCrop(resized, _mediaInfo.DisplayWidth, _mediaInfo.DisplayHeight);
             _crop = resized;
+            SaveEditorFieldsToCurrentSegment();
             UpdateCropInfo();
             UpdateApproximateCopyAvailability();
             UpdateCropOverlay();
+            UpdateSegmentControls();
         }
         catch (ExportValidationException ex)
         {
@@ -2856,9 +3653,25 @@ public sealed partial class MainWindow : Window
         }
 
         // Mirrors the export size: crop, then the extra rotation, rounded up to even pixels.
-        var width = _crop?.Width ?? media.DisplayWidth;
-        var height = _crop?.Height ?? media.DisplayHeight;
-        if (_additionalRotationDegreesClockwise is 90 or 270)
+        // With segments, the first remaining segment defines the canvas, matching Core.
+        var effectiveCrop = _crop;
+        var effectiveRotation = _additionalRotationDegreesClockwise;
+        if (EditorPanel.Visibility == Visibility.Visible && _segments.Count > 0)
+        {
+            foreach (var segment in _segments)
+            {
+                if (!segment.IsDeleted)
+                {
+                    effectiveCrop = segment.Crop;
+                    effectiveRotation = segment.AdditionalRotationDegreesClockwise;
+                    break;
+                }
+            }
+        }
+
+        var width = effectiveCrop?.Width ?? media.DisplayWidth;
+        var height = effectiveCrop?.Height ?? media.DisplayHeight;
+        if (effectiveRotation is 90 or 270)
         {
             (width, height) = (height, width);
         }
@@ -2920,6 +3733,27 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        SaveEditorFieldsToCurrentSegment();
+        var remainingExportSegments = new List<EditSegment>();
+        var hasDeletedExportSegments = false;
+        foreach (var segment in _segments)
+        {
+            if (segment.IsDeleted)
+            {
+                hasDeletedExportSegments = true;
+            }
+            else
+            {
+                remainingExportSegments.Add(segment);
+            }
+        }
+
+        if (EditorPanel.Visibility == Visibility.Visible && _segments.Count > 0 && remainingExportSegments.Count == 0)
+        {
+            ShowError("開始時刻と終了時刻を確認してください。");
+            return;
+        }
+
         var mode = ApproximateCopyCheckBox.IsChecked == true ? ExportMode.StreamCopyApproximate : ExportMode.AccurateReencode;
         if (mode == ExportMode.AccurateReencode && _mediaInfo.IsHdr)
         {
@@ -2927,14 +3761,19 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        if (mode == ExportMode.StreamCopyApproximate && _crop is not null)
+        var copySegment = remainingExportSegments.Count > 0 ? remainingExportSegments[0] : null;
+        var copyCrop = copySegment is null ? _crop : copySegment.Crop;
+        var copyRotation = copySegment?.AdditionalRotationDegreesClockwise ?? _additionalRotationDegreesClockwise;
+        var copySpeed = copySegment?.Speed ?? _editSpeed;
+        var copyZoom = copySegment?.ZoomFactor ?? _editorZoomFactor;
+        if (mode == ExportMode.StreamCopyApproximate && copyCrop is not null)
         {
             ShowError("クロップと「高速切り出し（画質維持）」は併用できません。クロップを解除するか、通常の書き出しを選んでください。");
             return;
         }
 
         if (mode == ExportMode.StreamCopyApproximate &&
-            (_additionalRotationDegreesClockwise != 0 || Math.Abs(_editSpeed - 1) > 0.001 || _editorZoomFactor > 1.001))
+            (copyRotation != 0 || Math.Abs(copySpeed - 1) > 0.001 || copyZoom > 1.001))
         {
             ShowError("回転、ズーム、速度を変更した動画は「高速切り出し（画質維持）」では書き出せません。");
             return;
@@ -2965,19 +3804,56 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var request = new ExportRequest(
-            _loadedPath,
-            destination,
-            start,
-            end,
-            _crop,
-            mode,
-            AdditionalRotationDegreesClockwise: _additionalRotationDegreesClockwise,
-            PlaybackSpeed: _editSpeed,
-            OutputContainer: outputContainer,
-            ZoomFactor: _editorZoomFactor,
-            ZoomFocusX: _editorZoomFocusX,
-            ZoomFocusY: _editorZoomFocusY);
+        var useMultiSegmentExport = EditorPanel.Visibility == Visibility.Visible && (remainingExportSegments.Count != 1 || hasDeletedExportSegments);
+        ExportRequest request;
+        if (!useMultiSegmentExport)
+        {
+            request = new ExportRequest(
+                _loadedPath,
+                destination,
+                start,
+                end,
+                _crop,
+                mode,
+                AdditionalRotationDegreesClockwise: _additionalRotationDegreesClockwise,
+                PlaybackSpeed: _editSpeed,
+                OutputContainer: outputContainer,
+                ZoomFactor: _editorZoomFactor,
+                ZoomFocusX: _editorZoomFocusX,
+                ZoomFocusY: _editorZoomFocusY);
+        }
+        else
+        {
+            var exportSegments = new List<ExportSegment>();
+            foreach (var segment in remainingExportSegments)
+            {
+                exportSegments.Add(new ExportSegment(
+                    segment.StartSeconds,
+                    segment.EndSeconds,
+                    segment.Crop,
+                    segment.AdditionalRotationDegreesClockwise,
+                    segment.Speed,
+                    segment.ZoomFactor,
+                    segment.ZoomFocusX,
+                    segment.ZoomFocusY));
+            }
+
+            var firstRemaining = remainingExportSegments[0];
+            request = new ExportRequest(
+                _loadedPath,
+                destination,
+                start,
+                end,
+                firstRemaining.Crop,
+                mode,
+                AdditionalRotationDegreesClockwise: firstRemaining.AdditionalRotationDegreesClockwise,
+                PlaybackSpeed: firstRemaining.Speed,
+                OutputContainer: outputContainer,
+                ZoomFactor: firstRemaining.ZoomFactor,
+                ZoomFocusX: firstRemaining.ZoomFocusX,
+                ZoomFocusY: firstRemaining.ZoomFocusY,
+                Segments: exportSegments);
+        }
         var exportCancellation = new CancellationTokenSource();
         _exportCancellation = exportCancellation;
         var token = exportCancellation.Token;
@@ -3019,7 +3895,7 @@ public sealed partial class MainWindow : Window
                     successMessage += " (キーフレーム位置に合わせたため、境界は指定時刻と異なります)";
                 }
 
-                ShowNotice(successMessage, InfoBarSeverity.Success);
+                ShowNotice(successMessage, InfoBarSeverity.Success, revealPath: result.DestinationPath);
             }
         }
         catch (OperationCanceledException)
@@ -3369,12 +4245,25 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private sealed class EditSegment
+    {
+        public double StartSeconds;
+        public double EndSeconds;
+        public CropRect? Crop;
+        public int AdditionalRotationDegreesClockwise;
+        public double ZoomFactor = 1;
+        public double ZoomFocusX = 0.5;
+        public double ZoomFocusY = 0.5;
+        public double Speed = 1;
+        public bool IsDeleted;
+    }
+
     [DllImport("user32.dll")]
     private static extern short GetKeyState(int key);
 
     private void ShowError(string message) => ShowNotice(message, InfoBarSeverity.Error);
 
-    private void ShowNotice(string message, InfoBarSeverity severity)
+    private void ShowNotice(string message, InfoBarSeverity severity, string? revealPath = null)
     {
         if (_isClosing)
         {
@@ -3384,14 +4273,18 @@ public sealed partial class MainWindow : Window
         _noticeTimer?.Stop();
         ShowControls();
         if ((severity is InfoBarSeverity.Success or InfoBarSeverity.Informational) &&
-            EditorPanel.Visibility != Visibility.Visible)
+            EditorPanel.Visibility != Visibility.Visible && revealPath is null)
         {
             NotificationBar.IsOpen = false;
             InlineNoticeText.Text = message;
             ToolTipService.SetToolTip(InlineNoticeText, message);
             InlineNoticeText.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, message);
             InlineNoticeText.Visibility = Visibility.Visible;
-            _noticeTimer?.Start();
+            if (_noticeTimer is not null)
+            {
+                _noticeTimer.Interval = TimeSpan.FromSeconds(6);
+                _noticeTimer.Start();
+            }
             return;
         }
 
@@ -3406,7 +4299,33 @@ public sealed partial class MainWindow : Window
             _ => "FrameDock"
         };
         NotificationBar.Message = message;
+        NotificationBar.ActionButton = revealPath is null ? null : CreateRevealButton(revealPath);
         NotificationBar.IsOpen = true;
+        if ((severity is InfoBarSeverity.Success or InfoBarSeverity.Informational) && _noticeTimer is not null)
+        {
+            // Leave time to reach the folder button on an export notice.
+            _noticeTimer.Interval = TimeSpan.FromSeconds(revealPath is null ? 6 : 12);
+            _noticeTimer.Start();
+        }
+    }
+
+    private Button CreateRevealButton(string path)
+    {
+        var button = new Button { Content = "フォルダーを開く" };
+        button.Click += (_, _) =>
+        {
+            try
+            {
+                // /select opens the folder with the exported file highlighted.
+                Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = false });
+            }
+            catch (Exception ex)
+            {
+                App.WriteErrorLog(ex);
+                ShowError("フォルダーを開けませんでした。");
+            }
+        };
+        return button;
     }
 
     private void MainWindow_Closed(object sender, WindowEventArgs args)

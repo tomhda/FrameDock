@@ -96,7 +96,21 @@
                                 <Path Data="M11,2.5 H15.5 V17.5 H11" Stroke="{ThemeResource AccentFillColorDefaultBrush}" StrokeThickness="2.4" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
                             </Canvas></Viewbox>
                         </Button>
-                    </StackPanel>
+                        <Rectangle Width="1" Fill="{ThemeResource ControlStrokeColorDefaultBrush}" Margin="0,8" />
+                        <Button x:Name="SplitButton" Width="40" Height="40" Padding="0" Click="SplitButton_Click" IsEnabled="False" ToolTipService.ToolTip="再生位置で分割 (S)" AutomationProperties.Name="再生位置で分割">
+                            <FontIcon Glyph="&#xE8C6;" FontSize="16" />
+                        </Button>
+                        <Button x:Name="DeleteSegmentButton" Width="40" Height="40" Padding="0" Click="DeleteSegmentButton_Click" IsEnabled="False" ToolTipService.ToolTip="この区間を削除 (Delete)" AutomationProperties.Name="この区間を削除">
+                            <FontIcon x:Name="DeleteSegmentIcon" Glyph="&#xE74D;" FontSize="15" />
+                        </Button>
+                        <Button x:Name="MergeSegmentButton" Width="40" Height="40" Padding="0" Click="MergeSegmentButton_Click" IsEnabled="False" ToolTipService.ToolTip="前の区間と結合" AutomationProperties.Name="前の区間と結合">
+                            <Viewbox Width="22" Height="22"><Canvas Width="20" Height="20">
+                                <Path Data="M2,10 H7.5 M5.3,7.6 L7.7,10 L5.3,12.4" Stroke="{ThemeResource TextFillColorPrimaryBrush}" StrokeThickness="1.6" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                <Path Data="M18,10 H12.5 M14.7,7.6 L12.3,10 L14.7,12.4" Stroke="{ThemeResource TextFillColorPrimaryBrush}" StrokeThickness="1.6" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                <Path Data="M10,3 V17" Stroke="{ThemeResource TextFillColorPrimaryBrush}" StrokeThickness="1.6" StrokeDashArray="1.6,1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                            </Canvas></Viewbox>
+                        </Button>
+                                        </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" VerticalAlignment="Center">
                         <Button x:Name="CancelEditButton" Height="32" Padding="10,0" Click="ResetEditButton_Click" ToolTipService.ToolTip="範囲・クロップ・回転・ズーム・速度・書き出し設定を最初の状態に戻す" AutomationProperties.Name="編集内容をリセット">
                             <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE777;" FontSize="13" /><TextBlock Text="リセット" /></StackPanel>
@@ -136,6 +150,11 @@
 
                 <ScrollViewer Grid.Row="2" Grid.Column="0" HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Auto" VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled" VerticalAlignment="Top">
                     <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,2,0,12">
+                        <StackPanel x:Name="SegmentGroup" Spacing="5" Visibility="Collapsed">
+                            <TextBlock Text="区間" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <Grid Height="36"><TextBlock x:Name="SegmentReadoutText" Text="1 / 1" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" /></Grid>
+                        </StackPanel>
+                        <Rectangle x:Name="SegmentSeparator" Width="1" Fill="{ThemeResource ControlStrokeColorDefaultBrush}" Margin="0,2" Visibility="Collapsed" />
                         <StackPanel Spacing="5">
                             <TextBlock Text="範囲" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             <StackPanel Orientation="Horizontal" Spacing="6">
@@ -331,6 +350,6 @@
                 </Grid>
             </Grid>
         </Border>
-        <InfoBar x:Name="NotificationBar" Grid.Row="3" Margin="12,4,12,8" Visibility="Collapsed" IsOpen="False" IsClosable="True" Severity="Error" Title="エラー" />
+        <InfoBar x:Name="NotificationBar" Grid.Row="0" Canvas.ZIndex="20" Margin="12" MaxWidth="760" HorizontalAlignment="Center" VerticalAlignment="Top" Visibility="Collapsed" IsOpen="False" IsClosable="True" Severity="Error" Title="エラー" />
     </Grid>
 </Window>
