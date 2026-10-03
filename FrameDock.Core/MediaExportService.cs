@@ -847,6 +847,7 @@ internal static class ProcessExecution
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardOutput = true,
+            StandardOutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: false),
             RedirectStandardError = true,
             RedirectStandardInput = false
         };
