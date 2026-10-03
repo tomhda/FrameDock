@@ -2,23 +2,33 @@
 
 [日本語](README.ja.md)
 
-FrameDock is a video player for Windows, made to add what the built-in Media Player app lacks. It opens a video and plays it like any player, and in the same window you can step frame by frame, save frames, and trim, crop, rotate, zoom, change speed, split, and export.
+FrameDock is a video player for Windows, made to add what the built-in Media Player app lacks.
+
+It is designed to feel like the built-in app, so you can use it without learning anything new.
+
+Besides ordinary playback, it skips 10 seconds forward or back (the interval is adjustable), steps frame by frame, and saves frames.
+
+It also has simple editing features: you can trim, crop, rotate, zoom, change speed, and split without starting a separate video editor.
 
 ![Playback with the controls hidden](docs/images/playback.jpg)
 
 ## What it does
 
-- Plays local video files with libmpv, with frame-by-frame stepping and a configurable skip interval.
+- Plays local video files with libmpv.
+- Steps one frame at a time, and skips 10 seconds forward or back (the interval can be changed in Settings).
 - Saves the current frame as a PNG, or copies it to the clipboard.
-- Trims a range and exports it as MP4, MKV, or MOV (H.264 video and AAC audio).
-- Crops, rotates in 90° steps, zooms 1×–4×, and changes speed 0.5×–4× for the export, with a live preview.
-- Splits the range into segments. Each segment has its own crop, rotation, zoom, and speed, and segments can be deleted. The remaining segments are exported as one file.
+- Offers a normal window, a maximized window, and full screen, and keeps the play button and other bars from covering the video where it can.
+- Provides simple video editing without switching to another app.
+- Trims a range you choose.
+- Crops, rotates in 90° steps, zooms 1×–4×, and changes speed 0.5×–4× with a live preview, and saves the result as a separate video.
+- Splits a video into several cuts and edits each one separately.
 - Cuts without re-encoding ("Fast cut") when no other edit is applied.
+- Exports MP4, MKV, or MOV, with H.264 video and AAC audio.
 - Shows its interface in English or Japanese.
 
 ## Screenshots
 
-In the maximized and full-screen modes the controls stay out of the way and appear when you move the pointer to the bottom of the window.
+In the maximized window and in full screen the control bar is hidden, and it appears when you move the pointer to the bottom of the window.
 
 ![Playback with the controls shown](docs/images/playback-controls.jpg)
 
