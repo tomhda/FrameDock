@@ -2086,7 +2086,13 @@ public sealed partial class MainWindow : Window
         {
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                if (!double.IsFinite(skipBox.Value) || skipBox.Value < 1 || skipBox.Value > 600)
+                // NumberBox commits typed text only when it loses focus; pressing Enter
+                // on the dialog's default button can arrive before that.
+                var skipSeconds = double.TryParse(skipBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var typedSkip) ||
+                    double.TryParse(skipBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out typedSkip)
+                    ? typedSkip
+                    : skipBox.Value;
+                if (!double.IsFinite(skipSeconds) || skipSeconds < 1 || skipSeconds > 600)
                 {
                     ShowError(Strings.Get("Error_SkipRange"));
                     return;
@@ -2112,7 +2118,7 @@ public sealed partial class MainWindow : Window
                     _settings.FrameSaveSubfolder = frameSaveSubfolderBox.Text.Trim();
                 }
 
-                _settings.SkipSeconds = skipBox.Value;
+                _settings.SkipSeconds = skipSeconds;
                 UpdateSkipLabels();
                 var selectedLanguage = (languageBox.SelectedItem as ComboBoxItem)?.Tag as string ?? "";
                 var languageChanged = !string.Equals(_settings.Language, selectedLanguage, StringComparison.Ordinal);
