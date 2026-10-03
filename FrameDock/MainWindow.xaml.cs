@@ -1978,13 +1978,15 @@ public sealed partial class MainWindow : Window
             Maximum = 600,
             Value = _settings.SkipSeconds,
             SmallChange = 1,
-            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+            Width = 160,
+            HorizontalAlignment = HorizontalAlignment.Left
         };
         var languageLabel = new TextBlock
         {
             Text = Strings.Get("Settings_LanguageHeader")
         };
-        var languageBox = new ComboBox();
+        var languageBox = new ComboBox { MinWidth = 280 };
         languageBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_LanguageSystem"), Tag = "" });
         languageBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_LanguageJapanese"), Tag = "ja-JP" });
         languageBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_LanguageEnglish"), Tag = "en-US" });
@@ -2042,7 +2044,10 @@ public sealed partial class MainWindow : Window
         {
             Header = Strings.Get("Settings_FrameSaveSubfolderHeader"),
             Text = _settings.FrameSaveSubfolder,
-            MaxLength = 80
+            MaxLength = 80,
+            Width = 280,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(0, 4, 0, 0)
         };
         void UpdateFrameSaveFields()
         {
@@ -2053,14 +2058,19 @@ public sealed partial class MainWindow : Window
 
         frameSaveBox.SelectionChanged += (_, _) => UpdateFrameSaveFields();
         UpdateFrameSaveFields();
-        var settingsPanel = new StackPanel { Spacing = 12 };
+        // Each setting keeps its label close; settings are spaced apart from each other.
+        var frameSaveGroup = new StackPanel { Spacing = 8 };
+        frameSaveGroup.Children.Add(frameSaveLabel);
+        frameSaveGroup.Children.Add(frameSaveBox);
+        frameSaveGroup.Children.Add(frameSaveFolderRow);
+        frameSaveGroup.Children.Add(frameSaveSubfolderBox);
+        var languageGroup = new StackPanel { Spacing = 8 };
+        languageGroup.Children.Add(languageLabel);
+        languageGroup.Children.Add(languageBox);
+        var settingsPanel = new StackPanel { Spacing = 24, MinWidth = 360, Margin = new Thickness(0, 8, 0, 4) };
         settingsPanel.Children.Add(skipBox);
-        settingsPanel.Children.Add(frameSaveLabel);
-        settingsPanel.Children.Add(frameSaveBox);
-        settingsPanel.Children.Add(frameSaveFolderRow);
-        settingsPanel.Children.Add(frameSaveSubfolderBox);
-        settingsPanel.Children.Add(languageLabel);
-        settingsPanel.Children.Add(languageBox);
+        settingsPanel.Children.Add(frameSaveGroup);
+        settingsPanel.Children.Add(languageGroup);
         var dialog = new ContentDialog
         {
             Title = Strings.Get("Settings_Title"),
