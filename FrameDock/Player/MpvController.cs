@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
+using FrameDock.Core;
 
 namespace FrameDock.Player;
 
@@ -155,6 +156,40 @@ internal sealed class MpvController : IDisposable
         }
 
         SetProperty("video-rotate", normalized.ToString(CultureInfo.InvariantCulture));
+    }
+
+    public void SetVideoCrop(CropRect? codedCrop)
+    {
+        ThrowIfDisposed();
+        if (codedCrop is not { } crop)
+        {
+            SetProperty("video-crop", string.Empty);
+            return;
+        }
+
+        if (crop.X < 0 || crop.Y < 0 || crop.Width <= 0 || crop.Height <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(codedCrop));
+        }
+
+        SetProperty("video-crop", string.Create(CultureInfo.InvariantCulture, $"{crop.Width}x{crop.Height}+{crop.X}+{crop.Y}"));
+    }
+
+    public void SetVideoAspectOverride(double? aspectRatio)
+    {
+        ThrowIfDisposed();
+        if (aspectRatio is null)
+        {
+            SetProperty("video-aspect-override", "-1");
+            return;
+        }
+
+        if (!double.IsFinite(aspectRatio.Value) || aspectRatio.Value <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(aspectRatio), "The aspect ratio must be finite and positive.");
+        }
+
+        SetProperty("video-aspect-override", aspectRatio.Value.ToString("0.##########", CultureInfo.InvariantCulture));
     }
 
     public void SetMuted(bool muted)

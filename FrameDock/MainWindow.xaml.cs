@@ -72,6 +72,15 @@ public sealed partial class MainWindow : Window
     private PlayerDisplayMode _modeBeforeFullscreen = PlayerDisplayMode.MaximizedOverlay;
     private bool _isCropMode;
     private int _additionalRotationDegreesClockwise;
+    private double _editorZoomFactor = 1;
+    private double _editorZoomFocusX = 0.5;
+    private double _editorZoomFocusY = 0.5;
+    private bool _isUpdatingZoomControls;
+    private bool _isZoomPanning;
+    private Windows.Foundation.Point? _zoomPanPointerOrigin;
+    private Pointer? _zoomPanPointer;
+    private double _zoomPanFocusXOrigin;
+    private double _zoomPanFocusYOrigin;
     // Viewing speed lives in _settings.Speed; the editor previews and exports
     // at its own speed so a habitual 1.5x viewing speed never leaks into output.
     private double _editSpeed = 1;
@@ -106,6 +115,7 @@ public sealed partial class MainWindow : Window
         }
         TrimStartBox.ValueChanged += TrimBox_ValueChanged;
         TrimEndBox.ValueChanged += TrimBox_ValueChanged;
+        ZoomSlider.ValueChanged += ZoomSlider_ValueChanged;
         _initialPath = string.IsNullOrWhiteSpace(initialPath) ? null : initialPath;
         _settings = PlayerSettings.Load();
         _exportService = new MediaExportService(new ExportOptions(
@@ -642,9 +652,13 @@ public sealed partial class MainWindow : Window
             _mediaInfo = null;
             _crop = null;
             _additionalRotationDegreesClockwise = 0;
+            _editorZoomFactor = 1;
+            _editorZoomFocusX = 0.5;
+            _editorZoomFocusY = 0.5;
             ApproximateCopyMenuItem.IsChecked = false;
             _editSpeed = 1;
             UpdateEditSpeedControl(_editSpeed);
+            UpdateZoomControls();
             _outputDirectory = Path.GetDirectoryName(fullPath);
             SetCropMode(false);
             EditorPanel.Visibility = Visibility.Collapsed;
@@ -753,6 +767,7 @@ public sealed partial class MainWindow : Window
                 TrimStartBox.Value = 0;
                 TrimEndBox.Value = inspected.DurationSeconds;
                 HdrNoteText.Visibility = inspected.IsHdr ? Visibility.Visible : Visibility.Collapsed;
+                UpdateZoomControls();
                 UpdateRotationControl();
                 UpdateCropInfo();
                 ValidateEditRange();
@@ -1487,7 +1502,7 @@ public sealed partial class MainWindow : Window
         UpdateEditSpeedControl(speed);
         if (EditorPanel.Visibility == Visibility.Visible)
         {
-            ApplyPlayerSpeed(speed);
+            ApplyEditorPreview();
         }
 
         UpdateApproximateCopyAvailability();
@@ -1531,6 +1546,294 @@ public sealed partial class MainWindow : Window
                 item.IsChecked = double.TryParse(item.Tag?.ToString(), CultureInfo.InvariantCulture, out var itemSpeed) &&
                     Math.Abs(itemSpeed - speed) < 0.001;
             }
+        }
+    }
+
+    private CropRect GetEditorZoomViewport() => _mediaInfo is null
+        ? new CropRect(0, 0, 2, 2)
+        : _crop ?? new CropRect(0, 0, _mediaInfo.DisplayWidth, _mediaInfo.DisplayHeight);
+
+    private double GetMaximumEditorZoom()
+    {
+        var viewport = GetEditorZoomViewport();
+        return Math.Clamp(Math.Min(4d, Math.Min(viewport.Width, viewport.Height) / 2d), 1d, 4d);
+    }
+
+    private void UpdateZoomControls()
+    {
+        if (ZoomSlider is null)
+        {
+            return;
+        }
+
+        var maximum = GetMaximumEditorZoom();
+        _editorZoomFactor = Math.Clamp(_editorZoomFactor, 1, maximum);
+        _isUpdatingZoomControls = true;
+        try
+        {
+            ZoomSlider.Maximum = maximum;
+            ZoomSlider.Value = _editorZoomFactor;
+            var label = $"{_editorZoomFactor.ToString("0.#", CultureInfo.InvariantCulture)}×";
+            ZoomFactorText.Text = label;
+            ZoomFlyoutReadout.Text = label;
+            var canZoom = _mediaInfo is not null && EditorPanel.Visibility == Visibility.Visible && !_isCropMode && !_isExporting;
+            ZoomSlider.IsEnabled = canZoom && maximum > 1;
+            ZoomResetButton.IsEnabled = canZoom && (_editorZoomFactor > 1.001 || Math.Abs(_editorZoomFocusX - 0.5) > 0.001 || Math.Abs(_editorZoomFocusY - 0.5) > 0.001);
+            ZoomButton.IsEnabled = canZoom && maximum > 1;
+        }
+        finally
+        {
+            _isUpdatingZoomControls = false;
+        }
+
+        UpdateZoomPanOverlay();
+    }
+
+    private void ZoomSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+    {
+        if (_isUpdatingZoomControls || _mediaInfo is null || _isCropMode || _isExporting || EditorPanel.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        var previousZoom = _editorZoomFactor;
+        var previousFocusX = _editorZoomFocusX;
+        var previousFocusY = _editorZoomFocusY;
+        _editorZoomFactor = Math.Clamp(Math.Round(e.NewValue, 1, MidpointRounding.AwayFromZero), 1, GetMaximumEditorZoom());
+        ClampZoomFocusToSample();
+        if (!ApplyEditorPreview())
+        {
+            _editorZoomFactor = previousZoom;
+            _editorZoomFocusX = previousFocusX;
+            _editorZoomFocusY = previousFocusY;
+            UpdateZoomControls();
+            ApplyEditorPreview(showError: false);
+            return;
+        }
+
+        UpdateZoomControls();
+        UpdateApproximateCopyAvailability();
+    }
+
+    private void ZoomResetButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isExporting || _isCropMode)
+        {
+            return;
+        }
+
+        var previousZoom = _editorZoomFactor;
+        var previousFocusX = _editorZoomFocusX;
+        var previousFocusY = _editorZoomFocusY;
+        _editorZoomFactor = 1;
+        _editorZoomFocusX = 0.5;
+        _editorZoomFocusY = 0.5;
+        if (!ApplyEditorPreview())
+        {
+            _editorZoomFactor = previousZoom;
+            _editorZoomFocusX = previousFocusX;
+            _editorZoomFocusY = previousFocusY;
+            ApplyEditorPreview(showError: false);
+        }
+
+        UpdateZoomControls();
+        UpdateApproximateCopyAvailability();
+    }
+
+    private void ClampZoomFocusToSample()
+    {
+        if (_mediaInfo is null || _editorZoomFactor <= 1)
+        {
+            _editorZoomFocusX = 0.5;
+            _editorZoomFocusY = 0.5;
+            return;
+        }
+
+        var viewport = GetEditorZoomViewport();
+        var sample = MediaGeometry.ComputeZoomSampleRect(viewport, _editorZoomFactor, 0.5, 0.5);
+        var halfWidth = sample.Width / (2d * viewport.Width);
+        var halfHeight = sample.Height / (2d * viewport.Height);
+        _editorZoomFocusX = Math.Clamp(_editorZoomFocusX, halfWidth, 1 - halfWidth);
+        _editorZoomFocusY = Math.Clamp(_editorZoomFocusY, halfHeight, 1 - halfHeight);
+    }
+
+    private bool ApplyEditorPreview(bool showError = true)
+    {
+        if (_player is null)
+        {
+            UpdateZoomPanOverlay();
+            return true;
+        }
+
+        try
+        {
+            if (_mediaInfo is null || EditorPanel.Visibility != Visibility.Visible)
+            {
+                _player.SetVideoCrop(null);
+                _player.SetVideoAspectOverride(null);
+                _player.SetVideoRotation(0);
+                _player.SetSpeed(_settings.Speed);
+                UpdateZoomPanOverlay();
+                return true;
+            }
+
+            _player.SetSpeed(_editSpeed);
+            _player.SetVideoRotation(_isCropMode ? 0 : _additionalRotationDegreesClockwise);
+            if (_isCropMode)
+            {
+                _player.SetVideoCrop(null);
+                _player.SetVideoAspectOverride(null);
+            }
+            else if (_crop.HasValue || _editorZoomFactor > 1.001)
+            {
+                _editorZoomFactor = Math.Clamp(_editorZoomFactor, 1, GetMaximumEditorZoom());
+                ClampZoomFocusToSample();
+                var viewport = GetEditorZoomViewport();
+                var sample = MediaGeometry.ComputeZoomSampleRect(viewport, _editorZoomFactor, _editorZoomFocusX, _editorZoomFocusY);
+                var codedCrop = MediaGeometry.MapDisplayRectToCodedRect(_mediaInfo, sample);
+                var (aspectWidth, aspectHeight) = MediaGeometry.ComputeBaseViewportDimensions(_mediaInfo, _crop);
+                if (_mediaInfo.RotationDegreesClockwise is 90 or 270)
+                {
+                    (aspectWidth, aspectHeight) = (aspectHeight, aspectWidth);
+                }
+
+                var desiredPreMetadataAspect = aspectWidth / (double)aspectHeight;
+                var codedCropAspect = codedCrop.Width / (double)codedCrop.Height;
+                var codedSourceAspect = _mediaInfo.CodedWidth / (double)_mediaInfo.CodedHeight;
+                var sourceAspectOverride = desiredPreMetadataAspect / codedCropAspect * codedSourceAspect;
+                _player.SetVideoCrop(codedCrop);
+                _player.SetVideoAspectOverride(sourceAspectOverride);
+            }
+            else
+            {
+                _player.SetVideoCrop(null);
+                _player.SetVideoAspectOverride(null);
+            }
+
+            UpdateZoomPanOverlay();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            App.WriteErrorLog(ex);
+            if (showError)
+            {
+                ShowError("編集プレビューを更新できませんでした。ズームやクロップを元に戻して再度お試しください。");
+            }
+
+            return false;
+        }
+    }
+
+    private void UpdateZoomPanOverlay()
+    {
+        if (ZoomPanCanvas is null)
+        {
+            return;
+        }
+
+        var enabled = _mediaInfo is not null && EditorPanel.Visibility == Visibility.Visible && !_isCropMode && !_isExporting && _editorZoomFactor > 1.001;
+        ZoomPanCanvas.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+        ZoomPanCanvas.IsHitTestVisible = enabled;
+        if (!enabled && _isZoomPanning)
+        {
+            EndZoomPan(_zoomPanPointer);
+        }
+    }
+
+    private Windows.Foundation.Rect GetZoomPreviewContentBounds()
+    {
+        return GetVideoContentBounds(ZoomPanCanvas.ActualWidth, ZoomPanCanvas.ActualHeight);
+    }
+
+    private void ZoomPanCanvas_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (_mediaInfo is null || _isCropMode || _isExporting || _editorZoomFactor <= 1.001 || !e.GetCurrentPoint(ZoomPanCanvas).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        var point = e.GetCurrentPoint(ZoomPanCanvas).Position;
+        if (!GetZoomPreviewContentBounds().Contains(point))
+        {
+            return;
+        }
+
+        _isZoomPanning = true;
+        _zoomPanPointerOrigin = point;
+        _zoomPanPointer = e.Pointer;
+        _zoomPanFocusXOrigin = _editorZoomFocusX;
+        _zoomPanFocusYOrigin = _editorZoomFocusY;
+        ZoomPanCanvas.CapturePointer(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void ZoomPanCanvas_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isZoomPanning || _zoomPanPointerOrigin is not { } origin || _mediaInfo is null)
+        {
+            return;
+        }
+
+        if (!e.GetCurrentPoint(ZoomPanCanvas).Properties.IsLeftButtonPressed)
+        {
+            EndZoomPan(e.Pointer);
+            return;
+        }
+
+        var bounds = GetZoomPreviewContentBounds();
+        var (baseWidth, baseHeight) = MediaGeometry.ComputeBaseViewportDimensions(_mediaInfo, _crop);
+        var rotatedWidth = _additionalRotationDegreesClockwise is 90 or 270 ? baseHeight : baseWidth;
+        if (bounds.Width <= 0 || bounds.Height <= 0 || rotatedWidth <= 0)
+        {
+            return;
+        }
+
+        var scale = bounds.Width / rotatedWidth;
+        var point = e.GetCurrentPoint(ZoomPanCanvas).Position;
+        var deltaX = point.X - origin.X;
+        var deltaY = point.Y - origin.Y;
+        var zoomScale = scale * _editorZoomFactor;
+        var (focusDeltaX, focusDeltaY) = _additionalRotationDegreesClockwise switch
+        {
+            90 => (-deltaY / (zoomScale * baseWidth), deltaX / (zoomScale * baseHeight)),
+            180 => (deltaX / (zoomScale * baseWidth), deltaY / (zoomScale * baseHeight)),
+            270 => (deltaY / (zoomScale * baseWidth), -deltaX / (zoomScale * baseHeight)),
+            _ => (-deltaX / (zoomScale * baseWidth), -deltaY / (zoomScale * baseHeight))
+        };
+
+        var previousX = _editorZoomFocusX;
+        var previousY = _editorZoomFocusY;
+        _editorZoomFocusX = Math.Clamp(_zoomPanFocusXOrigin + focusDeltaX, 0, 1);
+        _editorZoomFocusY = Math.Clamp(_zoomPanFocusYOrigin + focusDeltaY, 0, 1);
+        ClampZoomFocusToSample();
+        if (!ApplyEditorPreview())
+        {
+            _editorZoomFocusX = previousX;
+            _editorZoomFocusY = previousY;
+            ApplyEditorPreview(showError: false);
+        }
+        else
+        {
+            UpdateZoomControls();
+        }
+
+        e.Handled = true;
+    }
+
+    private void ZoomPanCanvas_PointerReleased(object sender, PointerRoutedEventArgs e) => EndZoomPan(e.Pointer);
+    private void ZoomPanCanvas_PointerCanceled(object sender, PointerRoutedEventArgs e) => EndZoomPan(e.Pointer);
+    private void ZoomPanCanvas_PointerCaptureLost(object sender, PointerRoutedEventArgs e) => EndZoomPan(null);
+
+    private void EndZoomPan(Pointer? pointer)
+    {
+        var capturedPointer = pointer ?? _zoomPanPointer;
+        _isZoomPanning = false;
+        _zoomPanPointerOrigin = null;
+        _zoomPanPointer = null;
+        if (capturedPointer is not null)
+        {
+            ZoomPanCanvas.ReleasePointerCapture(capturedPointer);
         }
     }
 
@@ -1901,6 +2204,8 @@ public sealed partial class MainWindow : Window
             ScheduleControlsHide();
         }
 
+        ApplyEditorPreview();
+        UpdateZoomControls();
         UpdateCropOverlay();
     }
 
@@ -1930,6 +2235,9 @@ public sealed partial class MainWindow : Window
         _cropDragPointerOrigin = null;
         _cropDragHandleOrigin = null;
         _additionalRotationDegreesClockwise = 0;
+        _editorZoomFactor = 1;
+        _editorZoomFocusX = 0.5;
+        _editorZoomFocusY = 0.5;
         _isTrimTimelineDragging = false;
         TrimStartBox.Value = 0;
         TrimEndBox.Value = _mediaInfo?.DurationSeconds ?? 0;
@@ -1942,17 +2250,6 @@ public sealed partial class MainWindow : Window
 
         _editSpeed = 1;
         UpdateEditSpeedControl(_editSpeed);
-        try
-        {
-            _player?.SetVideoRotation(0);
-            _player?.SetSpeed(_settings.Speed);
-        }
-        catch (Exception ex)
-        {
-            App.WriteErrorLog(ex);
-            ShowError("プレビューの回転と速度を元に戻せませんでした。");
-        }
-
         UpdateCropInfo();
         UpdateRotationControl();
         UpdateApproximateCopyAvailability();
@@ -1960,6 +2257,8 @@ public sealed partial class MainWindow : Window
         UpdateCropOverlay();
         EditorPanel.Visibility = Visibility.Collapsed;
         SetEditorLayout(false);
+        ApplyEditorPreview();
+        UpdateZoomControls();
         CancelThumbnailGeneration();
         ShowControls();
         ScheduleControlsHide();
@@ -2076,6 +2375,8 @@ public sealed partial class MainWindow : Window
                 _crop = null;
                 UpdateCropInfo();
                 UpdateApproximateCopyAvailability();
+                UpdateZoomControls();
+                ApplyEditorPreview();
                 UpdateCropOverlay();
             }
         }
@@ -2097,9 +2398,7 @@ public sealed partial class MainWindow : Window
             ? "8つのハンドルをドラッグして範囲を調整。もう一度押すと確定"
             : "四隅と四辺の8つのハンドルで範囲を調整");
         CropOverlayCanvas.IsHitTestVisible = _isCropMode;
-        CropOverlayCanvas.Visibility = _isCropMode || (_crop.HasValue && EditorPanel.Visibility == Visibility.Visible)
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+        CropOverlayCanvas.Visibility = _isCropMode ? Visibility.Visible : Visibility.Collapsed;
         if (_isCropMode)
         {
             CropOverlayCanvas.SizeChanged += CropOverlayCanvas_SizeChanged;
@@ -2111,6 +2410,8 @@ public sealed partial class MainWindow : Window
         }
 
         UpdateCropOverlay();
+        ApplyEditorPreview();
+        UpdateZoomControls();
     }
 
     private void CropOverlayCanvas_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateCropOverlay();
@@ -2121,7 +2422,9 @@ public sealed partial class MainWindow : Window
         _crop = null;
         UpdateCropInfo();
         UpdateApproximateCopyAvailability();
+        UpdateZoomControls();
         UpdateCropOverlay();
+        ApplyEditorPreview();
     }
 
     private void RotateButton_Click(object sender, RoutedEventArgs e)
@@ -2129,24 +2432,10 @@ public sealed partial class MainWindow : Window
         var previous = _additionalRotationDegreesClockwise;
         _additionalRotationDegreesClockwise = (_additionalRotationDegreesClockwise + 90) % 360;
         SetCropMode(false);
-        try
-        {
-            _player?.SetVideoRotation(_additionalRotationDegreesClockwise);
-        }
-        catch (Exception ex)
+        if (!ApplyEditorPreview())
         {
             _additionalRotationDegreesClockwise = previous;
-            try
-            {
-                _player?.SetVideoRotation(previous);
-            }
-            catch
-            {
-                // Keep the original error visible; restoring the previous preview is best effort.
-            }
-
-            App.WriteErrorLog(ex);
-            ShowError("プレビューを回転できませんでした。");
+            ApplyEditorPreview(showError: false);
         }
 
         UpdateRotationControl();
@@ -2169,7 +2458,8 @@ public sealed partial class MainWindow : Window
 
     private void UpdateApproximateCopyAvailability()
     {
-        var hasTransforms = _crop.HasValue || _additionalRotationDegreesClockwise != 0 || Math.Abs(_editSpeed - 1) > 0.001;
+        var hasTransforms = _crop.HasValue || _additionalRotationDegreesClockwise != 0 ||
+            Math.Abs(_editSpeed - 1) > 0.001 || _editorZoomFactor > 1.001;
         if (hasTransforms && ApproximateCopyMenuItem.IsChecked)
         {
             ApproximateCopyMenuItem.IsChecked = false;
@@ -2178,6 +2468,7 @@ public sealed partial class MainWindow : Window
         ApproximateCopyMenuItem.IsEnabled = _mediaInfo is not null && !hasTransforms && !_isExporting;
         ExportOptionsButton.IsEnabled = !_isExporting;
         CancelEditButton.IsEnabled = !_isExporting;
+        UpdateZoomControls();
     }
 
     private void CropOverlayCanvas_PointerPressed(object sender, PointerRoutedEventArgs e)
@@ -2283,24 +2574,36 @@ public sealed partial class MainWindow : Window
 
     private Windows.Foundation.Rect GetVideoContentBounds()
     {
-        if (_mediaInfo is null || CropOverlayCanvas.ActualWidth <= 0 || CropOverlayCanvas.ActualHeight <= 0)
+        return GetVideoContentBounds(CropOverlayCanvas.ActualWidth, CropOverlayCanvas.ActualHeight);
+    }
+
+    private Windows.Foundation.Rect GetVideoContentBounds(double panelWidth, double panelHeight)
+    {
+        if (_mediaInfo is null || panelWidth <= 0 || panelHeight <= 0)
         {
-            return new Windows.Foundation.Rect(0, 0, CropOverlayCanvas.ActualWidth, CropOverlayCanvas.ActualHeight);
+            return new Windows.Foundation.Rect(0, 0, panelWidth, panelHeight);
         }
 
-        var (previewWidth, previewHeight) = GetPreviewDimensions();
+        var (previewWidth, previewHeight) = EditorPanel.Visibility == Visibility.Visible && !_isCropMode
+            ? MediaGeometry.ComputeBaseViewportDimensions(_mediaInfo, _crop)
+            : GetPreviewDimensions();
+        if (EditorPanel.Visibility == Visibility.Visible && !_isCropMode && _additionalRotationDegreesClockwise is 90 or 270)
+        {
+            (previewWidth, previewHeight) = (previewHeight, previewWidth);
+        }
+
         var contentAspect = (double)previewWidth / previewHeight;
-        var panelAspect = CropOverlayCanvas.ActualWidth / CropOverlayCanvas.ActualHeight;
+        var panelAspect = panelWidth / panelHeight;
         if (panelAspect > contentAspect)
         {
-            var width = CropOverlayCanvas.ActualHeight * contentAspect;
-            var left = (CropOverlayCanvas.ActualWidth - width) / 2;
-            return new Windows.Foundation.Rect(left, 0, width, CropOverlayCanvas.ActualHeight);
+            var width = panelHeight * contentAspect;
+            var left = (panelWidth - width) / 2;
+            return new Windows.Foundation.Rect(left, 0, width, panelHeight);
         }
 
-        var height = CropOverlayCanvas.ActualWidth / contentAspect;
-        var top = (CropOverlayCanvas.ActualHeight - height) / 2;
-        return new Windows.Foundation.Rect(0, top, CropOverlayCanvas.ActualWidth, height);
+        var height = panelWidth / contentAspect;
+        var top = (panelHeight - height) / 2;
+        return new Windows.Foundation.Rect(0, top, panelWidth, height);
     }
 
     private (int Width, int Height) GetPreviewDimensions()
@@ -2584,20 +2887,20 @@ public sealed partial class MainWindow : Window
         var mode = ApproximateCopyMenuItem.IsChecked ? ExportMode.StreamCopyApproximate : ExportMode.AccurateReencode;
         if (mode == ExportMode.AccurateReencode && _mediaInfo.IsHdr)
         {
-            ShowError("HDR 動画は通常の書き出しに対応していません。書き出しの詳細から「無変換で切り出し」を選ぶと元の色のまま保存できます。");
+            ShowError("HDR 動画は通常の書き出しに対応していません。「高速切り出し（画質維持）」を選ぶと元の色のまま保存できます。");
             return;
         }
 
         if (mode == ExportMode.StreamCopyApproximate && _crop is not null)
         {
-            ShowError("クロップと「無変換で切り出し」は併用できません。クロップを解除するか、通常の書き出しを選んでください。");
+            ShowError("クロップと「高速切り出し（画質維持）」は併用できません。クロップを解除するか、通常の書き出しを選んでください。");
             return;
         }
 
         if (mode == ExportMode.StreamCopyApproximate &&
-            (_additionalRotationDegreesClockwise != 0 || Math.Abs(_editSpeed - 1) > 0.001))
+            (_additionalRotationDegreesClockwise != 0 || Math.Abs(_editSpeed - 1) > 0.001 || _editorZoomFactor > 1.001))
         {
-            ShowError("回転や速度を変更した動画は「無変換で切り出し」では書き出せません。");
+            ShowError("回転、ズーム、速度を変更した動画は「高速切り出し（画質維持）」では書き出せません。");
             return;
         }
 
@@ -2635,7 +2938,10 @@ public sealed partial class MainWindow : Window
             mode,
             AdditionalRotationDegreesClockwise: _additionalRotationDegreesClockwise,
             PlaybackSpeed: _editSpeed,
-            OutputContainer: outputContainer);
+            OutputContainer: outputContainer,
+            ZoomFactor: _editorZoomFactor,
+            ZoomFocusX: _editorZoomFocusX,
+            ZoomFocusY: _editorZoomFocusY);
         var exportCancellation = new CancellationTokenSource();
         _exportCancellation = exportCancellation;
         var token = exportCancellation.Token;

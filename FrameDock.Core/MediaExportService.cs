@@ -95,7 +95,7 @@ public sealed class MediaExportService
         if (request.Mode == ExportMode.AccurateReencode && media.IsHdr)
         {
             throw new ExportValidationException(
-                "HDR 動画の通常の書き出しには対応していません。色が変わるのを防ぐため、書き出しを中止しました。「無変換で切り出し」を選ぶと元の色のまま保存できます。");
+                "HDR 動画の通常の書き出しには対応していません。色が変わるのを防ぐため、書き出しを中止しました。「高速切り出し（画質維持）」を選ぶと元の色のまま保存できます。");
         }
 
         var temporaryPath = CreateTemporaryPath(destinationDirectory, Path.GetFileNameWithoutExtension(destinationPath), outputExtension);
@@ -130,7 +130,7 @@ public sealed class MediaExportService
             {
                 throw new ExportException(
                     request.Mode == ExportMode.StreamCopyApproximate
-                        ? "無変換で切り出せませんでした。指定範囲にキーフレームがないか、選んだ出力形式に元の映像・音声を格納できません。「無変換で切り出し」を外して書き出してください。"
+                        ? "高速切り出しを実行できませんでした。指定範囲にキーフレームがないか、選んだ出力形式に元の映像・音声を格納できません。「高速切り出し（画質維持）」を解除して書き出してください。"
                         : "動画を書き出せませんでした。保存先の空き容量と FFmpeg の対応形式を確認してください。",
                     FormatDiagnostic("FFmpeg", processResult.StandardError));
             }
@@ -150,7 +150,7 @@ public sealed class MediaExportService
             catch (ExportException exception) when (request.Mode == ExportMode.StreamCopyApproximate)
             {
                 throw new ExportException(
-                    "指定範囲にキーフレームがないため、無変換で切り出せません。「無変換で切り出し」を外して書き出してください。",
+                    "指定範囲にキーフレームがないため、高速切り出しを実行できません。「高速切り出し（画質維持）」を解除して書き出してください。",
                     exception.Diagnostic ?? exception.UserMessage,
                     exception);
             }
@@ -475,11 +475,12 @@ public sealed class MediaExportService
 
         MediaGeometry.ValidateAdditionalRotation(request.AdditionalRotationDegreesClockwise);
         MediaGeometry.ValidatePlaybackSpeed(request.PlaybackSpeed);
+        MediaGeometry.ValidateZoom(request.ZoomFactor, request.ZoomFocusX, request.ZoomFocusY);
 
         if (request.Mode == ExportMode.StreamCopyApproximate &&
-            (request.Crop is not null || request.AdditionalRotationDegreesClockwise != 0 || request.PlaybackSpeed != 1.0))
+            (request.Crop is not null || request.AdditionalRotationDegreesClockwise != 0 || request.PlaybackSpeed != 1.0 || request.ZoomFactor > 1.0))
         {
-            throw new ExportValidationException("「無変換で切り出し」では、クロップ・回転・速度変更はできません。「無変換で切り出し」を外して書き出してください。");
+            throw new ExportValidationException("「高速切り出し（画質維持）」では、クロップ・ズーム・回転・速度変更はできません。「高速切り出し（画質維持）」を解除して書き出してください。");
         }
 
         if (request.Crop is { } crop)
@@ -556,7 +557,10 @@ public sealed class MediaExportService
                     media,
                     request.Crop,
                     request.AdditionalRotationDegreesClockwise,
-                    request.PlaybackSpeed),
+                    request.PlaybackSpeed,
+                    request.ZoomFactor,
+                    request.ZoomFocusX,
+                    request.ZoomFocusY),
                 "-c:v", _options.Encoder == VideoEncoder.H264 ? "libx264" : "libx265", "-preset", ExportPresetName(),
                 "-crf", _options.ConstantRateFactor.ToString(CultureInfo.InvariantCulture),
                 "-pix_fmt", "yuv420p"
@@ -640,12 +644,12 @@ public sealed class MediaExportService
                 output.IsHdr != source.IsHdr ||
                 (source.HasAudio && !string.Equals(output.AudioCodec, source.AudioCodec, StringComparison.OrdinalIgnoreCase)))
             {
-                throw new ExportException("無変換で切り出した動画の映像形式または表示情報が、元動画と一致しませんでした。");
+                throw new ExportException("高速切り出しで保存した動画の映像形式または表示情報が、元動画と一致しませんでした。");
             }
 
             if (output.DurationSeconds > source.DurationSeconds + 1)
             {
-                throw new ExportException("無変換で切り出した動画の長さが、元動画全体を超えています。");
+                throw new ExportException("高速切り出しで保存した動画の長さが、元動画全体を超えています。");
             }
         }
         else

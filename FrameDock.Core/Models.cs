@@ -67,7 +67,10 @@ public sealed record ExportRequest(
     ExportMode Mode = ExportMode.AccurateReencode,
     int AdditionalRotationDegreesClockwise = 0,
     double PlaybackSpeed = 1.0,
-    ExportContainer OutputContainer = ExportContainer.Mp4);
+    ExportContainer OutputContainer = ExportContainer.Mp4,
+    double ZoomFactor = 1.0,
+    double ZoomFocusX = 0.5,
+    double ZoomFocusY = 0.5);
 
 public enum ExportProgressPhase
 {

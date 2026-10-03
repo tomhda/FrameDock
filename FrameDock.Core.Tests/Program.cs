@@ -15,6 +15,7 @@ internal static class Program
     {
         Run("SAR and rotation produce oriented square-pixel dimensions", TestDisplayDimensions);
         Run("crop bounds and H.264 chroma alignment are enforced", TestCropValidation);
+        Run("zoom sample rectangles and display-to-coded mapping honor focus, SAR, and rotation", TestZoomGeometry);
         Run("rotation accepts only right angles", TestRotationValidation);
 
         var ffmpegPath = Environment.GetEnvironmentVariable("FRAMEDOCK_TEST_FFMPEG");
@@ -99,6 +100,64 @@ internal static class Program
                 $"crop-then-clockwise-rotate should keep the expected source quadrant, got RGB {rotatedCornerPixel.R},{rotatedCornerPixel.G},{rotatedCornerPixel.B}");
             Pass("additional rotation follows display-space crop and rotates actual SAR-corrected pixels clockwise");
 
+            var defaultZoomOutput = Path.Combine(testRoot, "zoom-default.mp4");
+            var explicitOneZoomOutput = Path.Combine(testRoot, "zoom-one.mp4");
+            await service.ExportAsync(new ExportRequest(source, defaultZoomOutput, 1, 3));
+            await service.ExportAsync(new ExportRequest(source, explicitOneZoomOutput, 1, 3, ZoomFactor: 1.0));
+            foreach (var (x, y) in new[] { (20, 20), (80, 180), (48, 106) })
+            {
+                Assert(await ReadFirstFramePixelAsync(ffmpegPath, defaultZoomOutput, x, y, testRoot) ==
+                       await ReadFirstFramePixelAsync(ffmpegPath, explicitOneZoomOutput, x, y, testRoot),
+                    "default zoom and explicit 1x zoom should preserve the same decoded pixels");
+            }
+            Pass("default zoom is pixel-identical to explicit 1x export");
+
+            var centerZoomOutput = Path.Combine(testRoot, "zoom-center.mp4");
+            var centerZoomResult = await service.ExportAsync(new ExportRequest(
+                source,
+                centerZoomOutput,
+                StartSeconds: 1,
+                EndSeconds: 3,
+                ZoomFactor: 2.0));
+            Assert(centerZoomResult.OutputMediaInfo.CodedWidth == 96 && centerZoomResult.OutputMediaInfo.CodedHeight == 214,
+                "zoom should preserve the base display canvas and only pad its odd height to the encoder's even dimension");
+            var centerZoomPixel = await ReadFirstFramePixelAsync(ffmpegPath, centerZoomOutput, 20, 20, testRoot);
+            Assert(centerZoomPixel.G > centerZoomPixel.R * 1.5 && centerZoomPixel.G > centerZoomPixel.B * 1.5,
+                $"center zoom should magnify the source's oriented top-left green quadrant, got RGB {centerZoomPixel.R},{centerZoomPixel.G},{centerZoomPixel.B}");
+
+            var offCenterZoomOutput = Path.Combine(testRoot, "zoom-off-center.mp4");
+            var offCenterZoomResult = await service.ExportAsync(new ExportRequest(
+                source,
+                offCenterZoomOutput,
+                StartSeconds: 1,
+                EndSeconds: 3,
+                ZoomFactor: 2.0,
+                ZoomFocusX: 1.0,
+                ZoomFocusY: 1.0));
+            Assert(offCenterZoomResult.OutputMediaInfo.CodedWidth == 96 && offCenterZoomResult.OutputMediaInfo.CodedHeight == 214,
+                "off-center zoom must preserve the same output canvas as centered zoom");
+            var offCenterZoomPixel = await ReadFirstFramePixelAsync(ffmpegPath, offCenterZoomOutput, 20, 180, testRoot);
+            Assert(offCenterZoomPixel.B > offCenterZoomPixel.R * 1.5 && offCenterZoomPixel.B > offCenterZoomPixel.G * 1.5,
+                $"bottom-right focus should magnify the oriented bottom-right blue quadrant, got RGB {offCenterZoomPixel.R},{offCenterZoomPixel.G},{offCenterZoomPixel.B}");
+
+            var zoomCropRotateOutput = Path.Combine(testRoot, "zoom-crop-rotate.mp4");
+            var zoomCropRotateResult = await service.ExportAsync(new ExportRequest(
+                source,
+                zoomCropRotateOutput,
+                StartSeconds: 1,
+                EndSeconds: 3,
+                Crop: new CropRect(0, 0, 48, 64),
+                AdditionalRotationDegreesClockwise: 90,
+                ZoomFactor: 2.0,
+                ZoomFocusX: 0.0,
+                ZoomFocusY: 0.0));
+            Assert(zoomCropRotateResult.OutputMediaInfo.CodedWidth == 64 && zoomCropRotateResult.OutputMediaInfo.CodedHeight == 48,
+                "zoom must scale back to the original crop viewport before additional rotation");
+            var zoomCropRotatePixel = await ReadFirstFramePixelAsync(ffmpegPath, zoomCropRotateOutput, 40, 24, testRoot);
+            Assert(zoomCropRotatePixel.G > zoomCropRotatePixel.R * 1.5 && zoomCropRotatePixel.G > zoomCropRotatePixel.B * 1.5,
+                "crop, zoom, and extra rotation should retain the oriented SAR-corrected green crop");
+            Pass("center/off-center zoom exports real pixels, keeps canvas size, and composes after SAR/rotation/crop");
+
             foreach (var (container, extension) in new[]
             {
                 (ExportContainer.Mp4, ".mp4"),
@@ -177,7 +236,12 @@ internal static class Program
             await AssertExportRejectedAsync(service, new ExportRequest(source, Path.Combine(testRoot, "invalid-speed-nan.mp4"), 1, 2, PlaybackSpeed: double.NaN), "non-finite playback speed");
             await AssertExportRejectedAsync(service, new ExportRequest(source, Path.Combine(testRoot, "invalid-speed-low.mp4"), 1, 2, PlaybackSpeed: 0.2), "playback speed below minimum");
             await AssertExportRejectedAsync(service, new ExportRequest(source, Path.Combine(testRoot, "invalid-speed-high.mp4"), 1, 2, PlaybackSpeed: 4.1), "playback speed above maximum");
-            Pass("time ranges, crop, rotation, and speed validation reject invalid values");
+            await AssertExportRejectedAsync(service, new ExportRequest(source, Path.Combine(testRoot, "invalid-zoom-nan.mp4"), 1, 2, ZoomFactor: double.NaN), "non-finite zoom factor");
+            await AssertExportRejectedAsync(service, new ExportRequest(source, Path.Combine(testRoot, "invalid-zoom-low.mp4"), 1, 2, ZoomFactor: 0.9), "zoom factor below minimum");
+            await AssertExportRejectedAsync(service, new ExportRequest(source, Path.Combine(testRoot, "invalid-zoom-high.mp4"), 1, 2, ZoomFactor: 4.1), "zoom factor above maximum");
+            await AssertExportRejectedAsync(service, new ExportRequest(source, Path.Combine(testRoot, "invalid-zoom-focus.mp4"), 1, 2, ZoomFocusX: double.NaN), "non-finite zoom focus");
+            await AssertExportRejectedAsync(service, new ExportRequest(source, Path.Combine(testRoot, "invalid-zoom-focus-range.mp4"), 1, 2, ZoomFocusY: 1.1), "zoom focus outside range");
+            Pass("time ranges, crop, rotation, speed, and zoom validation reject invalid values");
 
             var sourceAlias = source.ToUpperInvariant();
             await AssertExportRejectedAsync(service, new ExportRequest(source, sourceAlias, 0, 1), "case-insensitive source path alias");
@@ -217,7 +281,13 @@ internal static class Program
                 3,
                 Mode: ExportMode.StreamCopyApproximate,
                 PlaybackSpeed: 2), "stream-copy speed change");
-            Pass("stream-copy preserves display properties, reports approximate boundaries, and refuses transforms");
+            await AssertExportRejectedAsync(service, new ExportRequest(source,
+                Path.Combine(testRoot, "copy-zoom.mp4"),
+                1,
+                3,
+                Mode: ExportMode.StreamCopyApproximate,
+                ZoomFactor: 2), "stream-copy zoom");
+            Pass("stream-copy preserves display properties, reports approximate boundaries, and refuses transforms including zoom");
 
             var silentSource = Path.Combine(testRoot, "silent.mp4");
             await RunFfmpegAsync(ffmpegPath,
@@ -349,6 +419,60 @@ internal static class Program
         Expect<ExportValidationException>(() => MediaGeometry.ValidateCrop(new CropRect(0, 0, 0, 2), 96, 213));
         Expect<ExportValidationException>(() => MediaGeometry.ValidateCrop(new CropRect(2, 2, 49, 48), 96, 213));
         Expect<ExportValidationException>(() => MediaGeometry.ValidateCrop(new CropRect(int.MaxValue, 0, 2, 2), 96, 213));
+    }
+
+    private static void TestZoomGeometry()
+    {
+        var viewport = new CropRect(20, 10, 100, 80);
+        Assert(MediaGeometry.ComputeZoomSampleRect(viewport, 1.0, 0.5, 0.5) == viewport,
+            "1x zoom should return the unmodified display viewport");
+        Assert(MediaGeometry.ComputeZoomSampleRect(viewport, 2.0, 0.5, 0.5) == new CropRect(46, 30, 50, 40),
+            "center focus should select an even-aligned inner rectangle around the viewport center");
+        Assert(MediaGeometry.ComputeZoomSampleRect(viewport, 2.0, 0.0, 1.0) == new CropRect(20, 50, 50, 40),
+            "edge focus should clamp the sample to the requested lower-left viewport edge");
+        Assert(MediaGeometry.ComputeBaseViewportDimensions(CreateSyntheticMediaInfo(270)) == (96, 213),
+            "base viewport dimensions should use oriented display dimensions before extra rotation");
+        Assert(MediaGeometry.ComputeBaseViewportDimensions(CreateSyntheticMediaInfo(270), new CropRect(0, 0, 48, 64)) == (48, 64),
+            "explicit crop dimensions define the base viewport");
+        Assert(MediaGeometry.ComputeBaseViewportDimensions(CreateSyntheticMediaInfo(270), new CropRect(0, 0, 47, 63)) == (47, 63),
+            "preview aspect lookup should tolerate a transient crop that has not yet snapped to encoder chroma alignment");
+
+        var rotatedSarMedia = CreateSyntheticMediaInfo(270);
+        Assert(MediaGeometry.MapDisplayRectToCodedRect(rotatedSarMedia, new CropRect(0, 0, 48, 106)) == new CropRect(80, 0, 80, 48),
+            "display top-left on a counter-clockwise rotated anamorphic source should map to coded top-right");
+        Assert(MediaGeometry.MapDisplayRectToCodedRect(rotatedSarMedia, new CropRect(48, 106, 48, 106)) == new CropRect(0, 48, 81, 48),
+            "display bottom-right should map back through both rotation and SAR scale with covering edge rounding");
+        Assert(MediaGeometry.MapDisplayRectToCodedRect(CreateSyntheticMediaInfo(90), new CropRect(0, 0, 48, 106)) == new CropRect(0, 48, 80, 48),
+            "clockwise source rotation should be inverted when mapping display rectangles to coded coordinates");
+        Assert(MediaGeometry.MapDisplayRectToCodedRect(CreateSyntheticMediaInfo(0), new CropRect(0, 0, 106, 48)) == new CropRect(0, 0, 80, 48),
+            "unrotated SAR mapping should scale display edges back to coded pixel boundaries");
+        Assert(MediaGeometry.MapDisplayRectToCodedRect(CreateSyntheticMediaInfo(180), new CropRect(0, 0, 106, 48)) == new CropRect(80, 48, 80, 48),
+            "180 degree source rotation should invert both display axes before SAR mapping");
+
+        Expect<ExportValidationException>(() => MediaGeometry.ComputeZoomSampleRect(viewport, double.NaN, 0.5, 0.5));
+        Expect<ExportValidationException>(() => MediaGeometry.ComputeZoomSampleRect(viewport, 2.0, double.PositiveInfinity, 0.5));
+        Expect<ExportValidationException>(() => MediaGeometry.ComputeZoomSampleRect(viewport, 4.1, 0.5, 0.5));
+        Expect<ExportValidationException>(() => MediaGeometry.ComputeZoomSampleRect(new CropRect(0, 0, 6, 8), 4.0, 0.5, 0.5));
+        Expect<ExportValidationException>(() => MediaGeometry.MapDisplayRectToCodedRect(rotatedSarMedia, new CropRect(95, 212, 2, 2)));
+    }
+
+    private static MediaInfo CreateSyntheticMediaInfo(int rotation)
+    {
+        var dimensions = MediaGeometry.ComputeDisplayDimensions(160, 96, new AspectRatio(4, 3), rotation);
+        return new MediaInfo
+        {
+            SourcePath = "synthetic.mp4",
+            DurationSeconds = 8,
+            StartTimeSeconds = 0,
+            CodedWidth = 160,
+            CodedHeight = 96,
+            SampleAspectRatio = new AspectRatio(4, 3),
+            RotationDegreesClockwise = rotation,
+            DisplayWidth = dimensions.Width,
+            DisplayHeight = dimensions.Height,
+            HasAudio = false,
+            VideoCodec = "h264"
+        };
     }
 
     private static void TestRotationValidation()
