@@ -75,15 +75,15 @@
             </StackPanel>
         </Grid>
 
-        <Border x:Name="EditorPanel" Grid.Row="1" Padding="12,8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" VerticalAlignment="Top" Visibility="Collapsed">
-            <Grid ColumnDefinitions="*,360" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="4">
+        <Border x:Name="EditorPanel" Grid.Row="1" Padding="12,18" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" VerticalAlignment="Top" Visibility="Collapsed">
+            <Grid ColumnDefinitions="*,360" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
                 <Grid Grid.Row="0" Grid.ColumnSpan="2" ColumnDefinitions="*,44,*">
                     <TextBlock Text="編集" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
                     <Button x:Name="EditPlayButton" Grid.Column="1" Width="42" Height="42" Padding="0" Click="PlayButton_Click" ToolTipService.ToolTip="再生または一時停止" AutomationProperties.Name="再生または一時停止">
                         <FontIcon x:Name="EditPlayIcon" Glyph="&#xE768;" FontSize="17" />
                     </Button>
-                    <Button x:Name="CancelEditButton" Grid.Column="2" Width="32" Height="28" Padding="0" Click="CancelEditButton_Click" HorizontalAlignment="Right" ToolTipService.ToolTip="編集内容を破棄して通常再生に戻る" AutomationProperties.Name="編集内容を破棄して通常再生に戻る">
-                        <FontIcon Glyph="&#xE711;" FontSize="13" />
+                    <Button x:Name="CancelEditButton" Grid.Column="2" Width="36" Height="36" MinWidth="36" Padding="0" Click="CancelEditButton_Click" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{ThemeResource SystemFillColorCriticalBrush}" ToolTipService.ToolTip="編集内容を破棄して通常再生に戻る" AutomationProperties.Name="編集内容を破棄して通常再生に戻る">
+                        <FontIcon Glyph="&#xE74D;" FontSize="16" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
                     </Button>
                 </Grid>
 
@@ -193,7 +193,7 @@
                                     </MenuFlyout>
                                 </Button.Flyout>
                             </Button>
-                            <Button x:Name="ExportButton" Grid.Column="3" Height="34" Padding="8,0" Content="書き出し" Click="ExportButton_Click" IsEnabled="False" AutomationProperties.Name="動画を書き出す" />
+                            <Button x:Name="ExportButton" Grid.Column="3" Height="34" Padding="8,0" Content="書き出し" Style="{StaticResource AccentButtonStyle}" Click="ExportButton_Click" IsEnabled="False" AutomationProperties.Name="動画を書き出す" />
                         </Grid>
                         <Grid Grid.Row="2" ColumnDefinitions="32,*" ColumnSpacing="6">
                             <Button x:Name="OutputFolderButton" Width="30" Height="28" Padding="0" Click="OutputFolderButton_Click" ToolTipService.ToolTip="保存先フォルダーを選択" AutomationProperties.Name="保存先フォルダーを選択">
@@ -206,8 +206,8 @@
                                 <TextBlock x:Name="EditRangeText" Text="開始と終了を確認してください" FontSize="11" Height="14" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                 <ProgressBar x:Name="ExportProgressBar" Height="4" Minimum="0" Maximum="1" Value="0" Visibility="Collapsed" />
                             </StackPanel>
-                            <Button x:Name="CancelExportButton" Grid.Column="1" Width="28" Height="24" Padding="0" Click="CancelExportButton_Click" Visibility="Collapsed" ToolTipService.ToolTip="書き出しをキャンセル" AutomationProperties.Name="書き出しをキャンセル">
-                                <FontIcon Glyph="&#xE711;" FontSize="12" />
+                            <Button x:Name="CancelExportButton" Grid.Column="1" Width="28" Height="24" Padding="0" Click="CancelExportButton_Click" Foreground="{ThemeResource SystemFillColorCriticalBrush}" Visibility="Collapsed" ToolTipService.ToolTip="書き出しをキャンセル" AutomationProperties.Name="書き出しをキャンセル">
+                                <FontIcon Glyph="&#xE711;" FontSize="12" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
                             </Button>
                         </Grid>
                     </Grid>
