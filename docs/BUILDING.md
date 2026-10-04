@@ -1,4 +1,4 @@
-# Building FrameDock
+# Building SILframe
 
 [日本語](BUILDING.ja.md)
 
@@ -18,7 +18,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-release.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run.ps1
 ```
 
-`build-release.ps1` downloads the pinned dependency archives, verifies their SHA-256 hashes and those of the license texts, and stages them in `vendor\`. It then cleans the Release intermediates, publishes to `artifacts\release\win-x64`, and checks that the output contains the WinUI resources `App.xbf`, `MainWindow.xbf`, and `FrameDock.pri`. `libmpv-2.dll`, `Media\ffmpeg.exe`, and `Media\ffprobe.exe` are placed next to `FrameDock.exe`, and the licenses and build information go into `ThirdPartyNotices`.
+`build-release.ps1` downloads the pinned dependency archives, verifies their SHA-256 hashes and those of the license texts, and stages them in `vendor\`. It then cleans the Release intermediates, publishes to `artifacts\release\win-x64`, and checks that the output contains the WinUI resources `App.xbf`, `MainWindow.xbf`, and `SILframe.pri`. `libmpv-2.dll`, `Media\ffmpeg.exe`, and `Media\ffprobe.exe` are placed next to `SILframe.exe`, and the licenses and build information go into `ThirdPartyNotices`.
 
 Dependencies live in `vendor\`. Downloaded archives and temporary files live in `tools\.cache\`. Both are generated and managed by the bootstrap script.
 
@@ -29,7 +29,7 @@ To stage the dependencies somewhere else, or to use archives you already have, c
 
 ```powershell
 $bootstrapScript = Join-Path (Join-Path $PWD 'tools') 'bootstrap-dependencies.ps1'
-& $bootstrapScript -InstallRoot 'D:/FrameDock-stage' -CacheRoot 'D:/FrameDock-cache' -MpvArchivePath 'D:/archives/mpv-dev-lgpl-x86_64-20260925-git-35af06172b.7z' -FfmpegArchivePath 'D:/archives/ffmpeg-9.0.2-essentials_build.7z'
+& $bootstrapScript -InstallRoot 'D:/SILframe-stage' -CacheRoot 'D:/SILframe-cache' -MpvArchivePath 'D:/archives/mpv-dev-lgpl-x86_64-20260925-git-35af06172b.7z' -FfmpegArchivePath 'D:/archives/ffmpeg-9.0.2-essentials_build.7z'
 ```
 
 ## Build the installer
@@ -38,11 +38,11 @@ $bootstrapScript = Join-Path (Join-Path $PWD 'tools') 'bootstrap-dependencies.ps
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-installer.ps1
 ```
 
-This builds a Release and then one offline setup executable, `artifacts\installer\FrameDock-Setup-<version>-win-x64.exe`. The version comes from `Version` in `FrameDock\FrameDock.csproj`.
+This builds a Release and then one offline setup executable, `artifacts\installer\SILframe-Setup-<version>-win-x64.exe`. The version comes from `Version` in `SILframe\SILframe.csproj`.
 
-The first run downloads the pinned Inno Setup 7.1.0 from its official GitHub release, checks its SHA-256 and Authenticode signature, and extracts it into `tools\.cache\` only. Inno Setup is used at build time and is not installed with FrameDock. For commercial use, see the [Inno Setup license information](https://jrsoftware.org/isorder.php).
+The first run downloads the pinned Inno Setup 7.1.0 from its official GitHub release, checks its SHA-256 and Authenticode signature, and extracts it into `tools\.cache\` only. Inno Setup is used at build time and is not installed with SILframe. For commercial use, see the [Inno Setup license information](https://jrsoftware.org/isorder.php).
 
-The setup contains the Release app, the WinUI resources, libmpv, FFmpeg, and the license notices, so nothing is downloaded at install time. It installs per user into `%LOCALAPPDATA%\Programs\FrameDock` and creates a Start menu entry and an uninstaller. The desktop icon and the "Open with" registration for common video formats are optional tasks. Windows default apps are not changed. The setup is not code-signed.
+The setup contains the Release app, the WinUI resources, libmpv, FFmpeg, and the license notices, so nothing is downloaded at install time. It installs per user into `%LOCALAPPDATA%\Programs\SILframe` and creates a Start menu entry and an uninstaller. The desktop icon and the "Open with" registration for common video formats are optional tasks. Windows default apps are not changed. The setup is not code-signed.
 
 `-SkipReleaseBuild` reuses an existing Release.
 
@@ -65,23 +65,23 @@ When the pinned FFmpeg or mpv build changes, update the commits and hashes in `t
 Build the Core library and run the geometry checks, which do not need FFmpeg:
 
 ```powershell
-dotnet build .\FrameDock.Core\FrameDock.Core.csproj
-dotnet run --project .\FrameDock.Core.Tests\FrameDock.Core.Tests.csproj
+dotnet build .\SILframe.Core\SILframe.Core.csproj
+dotnet run --project .\SILframe.Core.Tests\SILframe.Core.Tests.csproj
 ```
 
 To also run the encode and ffprobe integration checks with the bundled FFmpeg, set these environment variables first:
 
 ```powershell
-$env:FRAMEDOCK_TEST_FFMPEG = (Resolve-Path .\vendor\ffmpeg\ffmpeg.exe).Path
-$env:FRAMEDOCK_TEST_FFPROBE = (Resolve-Path .\vendor\ffmpeg\ffprobe.exe).Path
-dotnet run --project .\FrameDock.Core.Tests\FrameDock.Core.Tests.csproj
+$env:SILFRAME_TEST_FFMPEG = (Resolve-Path .\vendor\ffmpeg\ffmpeg.exe).Path
+$env:SILFRAME_TEST_FFPROBE = (Resolve-Path .\vendor\ffmpeg\ffprobe.exe).Path
+dotnet run --project .\SILframe.Core.Tests\SILframe.Core.Tests.csproj
 ```
 
 Without both variables, the checks that need the external tools print `SKIP`. The test items and the coordinate and time contracts of Core are described in [EXPORT-NOTES.md](../EXPORT-NOTES.md).
 
 ## Interface text
 
-UI text is in `FrameDock\Strings\<language>\Resources.resw`, and the messages of the Core library are in `FrameDock.Core\Resources\Messages.resx` (English) and `Messages.<language>.resx`. After changing or adding text, check that every language has the same keys and the same number of placeholders:
+UI text is in `SILframe\Strings\<language>\Resources.resw`, and the messages of the Core library are in `SILframe.Core\Resources\Messages.resx` (English) and `Messages.<language>.resx`. After changing or adding text, check that every language has the same keys and the same number of placeholders:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\check-strings.ps1
@@ -91,7 +91,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\check-strings.ps1
 
 | Variable | Effect |
 |---|---|
-| `FRAMEDOCK_LANGUAGE` | `ja-JP` or `en-US`. Overrides the display language. |
-| `FRAMEDOCK_SETTINGS_PATH` | Path of a settings file to use instead of `%LOCALAPPDATA%\FrameDock\settings.json`. |
-| `FRAMEDOCK_OPEN_EDITOR` | `1` opens the editor as soon as a video has loaded. |
-| `FRAMEDOCK_MPV_LOG` | `1` writes the mpv log to `%TEMP%\FrameDock-mpv.log`. |
+| `SILFRAME_LANGUAGE` | `ja-JP` or `en-US`. Overrides the display language. |
+| `SILFRAME_SETTINGS_PATH` | Path of a settings file to use instead of `%LOCALAPPDATA%\SILframe\settings.json`. |
+| `SILFRAME_OPEN_EDITOR` | `1` opens the editor as soon as a video has loaded. |
+| `SILFRAME_MPV_LOG` | `1` writes the mpv log to `%TEMP%\SILframe-mpv.log`. |

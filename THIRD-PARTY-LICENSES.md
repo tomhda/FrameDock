@@ -1,6 +1,6 @@
 # Third-party software and notices
 
-FrameDock bundles the following executable dependencies. The Release script copies the notices and upstream license texts into `ThirdPartyNotices` beside the application.
+SILframe bundles the following executable dependencies. The Release script copies the notices and upstream license texts into `ThirdPartyNotices` beside the application.
 
 ## FFmpeg
 
@@ -11,7 +11,7 @@ FrameDock bundles the following executable dependencies. The Release script copi
 - License text: [GNU GPL version 3](https://www.gnu.org/licenses/gpl-3.0.txt), copied from the pinned archive as `vendor/ffmpeg/LICENSE.txt` and into the Release notices.
 - Source: [FFmpeg source commit `946fcce07b`](https://github.com/FFmpeg/FFmpeg/commit/946fcce07b), [Gyan's official Windows build page](https://www.gyan.dev/ffmpeg/builds/), and the [GyanD/codexffmpeg build/release repository](https://github.com/GyanD/codexffmpeg). The pinned archive's `README.txt` records its release version, build configuration, enabled external libraries, and source commit. That build README is included in `ThirdPartyNotices`.
 
-This FFmpeg binary is GPLv3. FrameDock itself is licensed under GPLv3 (see [`LICENSE`](LICENSE)). Each FrameDock release is published together with a source bundle built by `tools/build-source-bundle.ps1`; [`docs/SOURCES.md`](docs/SOURCES.md) describes what it contains.
+This FFmpeg binary is GPLv3. SILframe itself is licensed under GPLv3 (see [`LICENSE`](LICENSE)). Each SILframe release is published together with a source bundle built by `tools/build-source-bundle.ps1`; [`docs/SOURCES.md`](docs/SOURCES.md) describes what it contains.
 
 ## libmpv
 
@@ -24,7 +24,7 @@ This FFmpeg binary is GPLv3. FrameDock itself is licensed under GPLv3 (see [`LIC
 
 ## Microsoft Windows App SDK
 
-- NuGet package `Microsoft.WindowsAppSDK` version `2.5.1`, declared by `FrameDock/FrameDock.csproj` and included in the self-contained Release output.
+- NuGet package `Microsoft.WindowsAppSDK` version `2.5.1`, declared by `SILframe/SILframe.csproj` and included in the self-contained Release output.
 - Project: [Microsoft Windows App SDK](https://github.com/microsoft/windowsappsdk).
 - The package's `license.txt` is copied from the restored NuGet package into `ThirdPartyNotices/Microsoft-Windows-App-SDK-LICENSE.txt` by `tools/build-release.ps1`. Follow those Microsoft Software License Terms for the redistributable package files.
 

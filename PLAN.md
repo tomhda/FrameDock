@@ -1,12 +1,12 @@
-# FrameDock 実装方針
+# SILframe 実装方針
 
 ## 構成
 
-FrameDock は .NET 8 と WinUI 3 で動く Windows x64 の動画プレイヤーです。ローカル動画を開き、再生、フレーム移動、音量・速度調整、フレーム画像の保存を行い、同じウィンドウで範囲指定、クロップ、回転、ズーム、速度変更、分割をして書き出します。
+SILframe は .NET 8 と WinUI 3 で動く Windows x64 の動画プレイヤーです。ローカル動画を開き、再生、フレーム移動、音量・速度調整、フレーム画像の保存を行い、同じウィンドウで範囲指定、クロップ、回転、ズーム、速度変更、分割をして書き出します。
 
-- `FrameDock`: 画面（WinUI 3、非パッケージ）。再生は libmpv、画面の文言は `Strings\<言語>\Resources.resw`。
-- `FrameDock.Core`: メディア情報の取得と書き出し。同梱の `ffprobe` / `ffmpeg` を別プロセスで呼び出す。利用者向けメッセージは `Resources\Messages*.resx`。
-- `FrameDock.Core.Tests`: テストフレームワークを使わない検査ハーネス。
+- `SILframe`: 画面（WinUI 3、非パッケージ）。再生は libmpv、画面の文言は `Strings\<言語>\Resources.resw`。
+- `SILframe.Core`: メディア情報の取得と書き出し。同梱の `ffprobe` / `ffmpeg` を別プロセスで呼び出す。利用者向けメッセージは `Resources\Messages*.resx`。
+- `SILframe.Core.Tests`: テストフレームワークを使わない検査ハーネス。
 - `tools`: 依存物の取得と検証、Release の発行、インストーラーとソース一式の作成、文言の検査。
 
 ## 方針
@@ -23,7 +23,7 @@ FrameDock は .NET 8 と WinUI 3 で動く Windows x64 の動画プレイヤー�
 
 表示言語は日本語と英語です。既定では Windows の表示言語に従います。言語を追加するときは、`Resources.resw` と `Messages.<言語>.resx` を足し、`tools\check-strings.ps1` でキーとプレースホルダーの一致を確認します。
 
-依存バイナリ、配布元、SHA-256、ライセンス文書を bootstrap で固定し、Release の配置とインストーラーの作成を PowerShell スクリプトで再現します。配布物には FFmpeg の GPLv3 文書、mpv の LGPLv2.1 以降の文書、Windows App SDK のライセンスを含めます。リリースには、同梱バイナリのソース一式（`tools\build-source-bundle.ps1`）を添付します。FrameDock 自体のライセンスは GPLv3 です。
+依存バイナリ、配布元、SHA-256、ライセンス文書を bootstrap で固定し、Release の配置とインストーラーの作成を PowerShell スクリプトで再現します。配布物には FFmpeg の GPLv3 文書、mpv の LGPLv2.1 以降の文書、Windows App SDK のライセンスを含めます。リリースには、同梱バイナリのソース一式（`tools\build-source-bundle.ps1`）を添付します。SILframe 自体のライセンスは GPLv3 です。
 
 ## 確認している内容
 

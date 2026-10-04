@@ -4,9 +4,9 @@ using System.Resources;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using FrameDock.Core;
+using SILframe.Core;
 
-namespace FrameDock.Core.Tests;
+namespace SILframe.Core.Tests;
 
 internal static class Program
 {
@@ -23,12 +23,12 @@ internal static class Program
         Run("rotation accepts only right angles", TestRotationValidation);
         Run("localized messages follow CurrentUICulture and resx keys match", TestLocalization);
 
-        var ffmpegPath = Environment.GetEnvironmentVariable("FRAMEDOCK_TEST_FFMPEG");
-        var ffprobePath = Environment.GetEnvironmentVariable("FRAMEDOCK_TEST_FFPROBE");
+        var ffmpegPath = Environment.GetEnvironmentVariable("SILFRAME_TEST_FFMPEG");
+        var ffprobePath = Environment.GetEnvironmentVariable("SILFRAME_TEST_FFPROBE");
         if (string.IsNullOrWhiteSpace(ffmpegPath) || string.IsNullOrWhiteSpace(ffprobePath) ||
             !File.Exists(ffmpegPath) || !File.Exists(ffprobePath))
         {
-            Console.WriteLine("SKIP: FFmpeg integration checks require FRAMEDOCK_TEST_FFMPEG and FRAMEDOCK_TEST_FFPROBE to point to local executables.");
+            Console.WriteLine("SKIP: FFmpeg integration checks require SILFRAME_TEST_FFMPEG and SILFRAME_TEST_FFPROBE to point to local executables.");
             Console.WriteLine($"PASS: {_passed} unit checks; integration checks skipped.");
             return 0;
         }
@@ -49,7 +49,7 @@ internal static class Program
 
     private static async Task RunIntegrationAsync(string ffmpegPath, string ffprobePath)
     {
-        var testRoot = Path.Combine(Path.GetTempPath(), $"framedock-core-tests-{Guid.NewGuid():N}");
+        var testRoot = Path.Combine(Path.GetTempPath(), $"silframe-core-tests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(testRoot);
         try
         {
@@ -455,7 +455,7 @@ internal static class Program
             Assert(ReadValidationMessage(() => MediaGeometry.ValidateCrop(new CropRect(96, 0, 2, 2), 96, 213)) == "The crop area extends beyond the video.", "crop bounds message should be English");
             Assert(ReadValidationMessage(() => MediaGeometry.ValidateZoom(4.1, 0.5, 0.5)) == "The zoom level must be between 1× and 4×.", "zoom range message should be English");
             Assert(ReadValidationMessage(() => MediaGeometry.NormalizeRightAngleRotation(45)) == "This video's rotation isn't a multiple of 90 degrees, so the crop position can't be calculated.", "rotation message should be English");
-            var manager = new ResourceManager("FrameDock.Core.Messages", typeof(MediaInfo).Assembly);
+            var manager = new ResourceManager("SILframe.Core.Messages", typeof(MediaInfo).Assembly);
             using var neutralSet = manager.GetResourceSet(CultureInfo.InvariantCulture, true, true);
             using var japaneseSet = manager.GetResourceSet(japanese, true, true);
             Assert(neutralSet is not null && japaneseSet is not null, "both resx resource sets should load");

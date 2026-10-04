@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml.Controls;
 
-namespace FrameDock.Player;
+namespace SILframe.Player;
 
 internal static class SwapChainPanelInterop
 {

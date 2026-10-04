@@ -49,7 +49,7 @@ while ($currentPath) {
     $currentPath = $parentPath
 }
 
-$projectPath = Join-Path $repositoryRoot 'FrameDock\FrameDock.csproj'
+$projectPath = Join-Path $repositoryRoot 'SILframe\SILframe.csproj'
 $bootstrapPath = Join-Path $PSScriptRoot 'bootstrap-dependencies.ps1'
 [xml]$projectDocument = Get-Content -LiteralPath $projectPath -Raw
 $targetFrameworkValues = @($projectDocument.Project.PropertyGroup | ForEach-Object { [string]$_.TargetFramework } | Where-Object { $_ })
@@ -109,7 +109,7 @@ foreach ($requiredResource in @('App.xbf', 'MainWindow.xbf')) {
     }
     $xamlResources += Get-Item -LiteralPath $resourcePath
 }
-$priPath = Join-Path $binaryOutputRoot 'FrameDock.pri'
+$priPath = Join-Path $binaryOutputRoot 'SILframe.pri'
 if (-not (Test-Path -LiteralPath $priPath -PathType Leaf)) {
     throw "Release bin に必要な PRI resource がありません: $priPath"
 }
@@ -145,7 +145,7 @@ if (-not (Test-Path -LiteralPath $windowsAppSdkLicense -PathType Leaf)) {
 Copy-Item -LiteralPath $windowsAppSdkLicense -Destination (Join-Path $noticesPath 'Microsoft-Windows-App-SDK-LICENSE.txt') -Force
 
 $publishedFiles = @(
-    [pscustomobject]@{ Path = 'FrameDock.exe'; Sha256 = $null },
+    [pscustomobject]@{ Path = 'SILframe.exe'; Sha256 = $null },
     [pscustomobject]@{ Path = 'libmpv-2.dll'; Sha256 = '675f8a46972bbc1ff969e54ae155f613e2f73b0190b7ed2781319d80677aeb4e' },
     [pscustomobject]@{ Path = 'Media\ffmpeg.exe'; Sha256 = '3256173f3f8bffd7df12227c68adf68025edb1832273a9530688a7bb1ed8edec' },
     [pscustomobject]@{ Path = 'Media\ffprobe.exe'; Sha256 = 'f0d36ecbbdd3bcfac3efa078c96c7271c2e68b3810595552ac3b7f17e9a65c52' }
@@ -164,4 +164,4 @@ foreach ($published in $publishedFiles) {
 }
 
 Write-Host 'Release 出力と同梱ライセンス文書を確認しました。'
-Write-Host "実行ファイル: $(Join-Path $outputPath 'FrameDock.exe')"
+Write-Host "実行ファイル: $(Join-Path $outputPath 'SILframe.exe')"

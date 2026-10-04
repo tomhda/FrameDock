@@ -7,7 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\FrameDock\Player\MpvController.cs" Link="MpvController.cs" />
+    <Compile Include="..\SILframe\Player\MpvController.cs" Link="MpvController.cs" />
     <Content Include="..\vendor\mpv\libmpv-2.dll" Link="libmpv-2.dll" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

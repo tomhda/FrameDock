@@ -66,11 +66,11 @@ if (-not $SkipReleaseBuild) {
 }
 
 $requiredFiles = @(
-    'FrameDock.exe',
-    'FrameDock.dll',
-    'FrameDock.deps.json',
-    'FrameDock.runtimeconfig.json',
-    'FrameDock.pri',
+    'SILframe.exe',
+    'SILframe.dll',
+    'SILframe.deps.json',
+    'SILframe.runtimeconfig.json',
+    'SILframe.pri',
     'App.xbf',
     'MainWindow.xbf',
     'libmpv-2.dll',
@@ -103,9 +103,9 @@ foreach ($expected in $pinnedFiles) {
     }
 }
 
-$productVersion = (Get-Item -LiteralPath (Join-Path $releasePath 'FrameDock.exe')).VersionInfo.ProductVersion
+$productVersion = (Get-Item -LiteralPath (Join-Path $releasePath 'SILframe.exe')).VersionInfo.ProductVersion
 if ($productVersion -notmatch '^(\d+\.\d+\.\d+)(?:\.\d+)?(?:\+.*)?$') {
-    throw "FrameDock.exe からセットアップのバージョンを取得できません: $productVersion"
+    throw "SILframe.exe からセットアップのバージョンを取得できません: $productVersion"
 }
 $appVersion = $Matches[1]
 
@@ -163,26 +163,26 @@ if ($compilerSignature.Status -ne [System.Management.Automation.SignatureStatus]
 
 New-Item -ItemType Directory -Path $outputPath -Force | Out-Null
 Assert-NoReparsePath -Path $outputPath
-$installerScript = Join-Path $repositoryRoot 'installer\FrameDock.iss'
-$previousAppVersion = $env:FRAMEDOCK_APP_VERSION
-$previousPublishDir = $env:FRAMEDOCK_PUBLISH_DIR
+$installerScript = Join-Path $repositoryRoot 'installer\SILframe.iss'
+$previousAppVersion = $env:SILFRAME_APP_VERSION
+$previousPublishDir = $env:SILFRAME_PUBLISH_DIR
 try {
-    $env:FRAMEDOCK_APP_VERSION = $appVersion
-    $env:FRAMEDOCK_PUBLISH_DIR = $releasePath
-    Write-Host "FrameDock Setup を作成します (version $appVersion)。"
+    $env:SILFRAME_APP_VERSION = $appVersion
+    $env:SILFRAME_PUBLISH_DIR = $releasePath
+    Write-Host "SILframe Setup を作成します (version $appVersion)。"
     & $compilerPath --quiet-progress ("--output-dir=$outputPath") $installerScript
     if ($LASTEXITCODE -ne 0) {
         throw "Inno Setup compiler が失敗しました (exit=$LASTEXITCODE)"
     }
 }
 finally {
-    if ($null -eq $previousAppVersion) { Remove-Item Env:\FRAMEDOCK_APP_VERSION -ErrorAction SilentlyContinue }
-    else { $env:FRAMEDOCK_APP_VERSION = $previousAppVersion }
-    if ($null -eq $previousPublishDir) { Remove-Item Env:\FRAMEDOCK_PUBLISH_DIR -ErrorAction SilentlyContinue }
-    else { $env:FRAMEDOCK_PUBLISH_DIR = $previousPublishDir }
+    if ($null -eq $previousAppVersion) { Remove-Item Env:\SILFRAME_APP_VERSION -ErrorAction SilentlyContinue }
+    else { $env:SILFRAME_APP_VERSION = $previousAppVersion }
+    if ($null -eq $previousPublishDir) { Remove-Item Env:\SILFRAME_PUBLISH_DIR -ErrorAction SilentlyContinue }
+    else { $env:SILFRAME_PUBLISH_DIR = $previousPublishDir }
 }
 
-$installerPath = Join-Path $outputPath "FrameDock-Setup-$appVersion-win-x64.exe"
+$installerPath = Join-Path $outputPath "SILframe-Setup-$appVersion-win-x64.exe"
 if (-not (Test-Path -LiteralPath $installerPath -PathType Leaf)) {
     throw "Inno Setup がセットアップファイルを出力しませんでした: $installerPath"
 }

@@ -1,9 +1,9 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
-using FrameDock.Core;
-using FrameDock.Localization;
-using FrameDock.Player;
+using SILframe.Core;
+using SILframe.Localization;
+using SILframe.Player;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -20,7 +20,7 @@ using Windows.Storage.Pickers;
 using Windows.Storage.Streams;
 using WinRT.Interop;
 
-namespace FrameDock;
+namespace SILframe;
 
 public sealed partial class MainWindow : Window
 {
@@ -140,7 +140,7 @@ public sealed partial class MainWindow : Window
             Path.Combine(AppContext.BaseDirectory, "Media", "ffprobe.exe")));
         _windowHandle = WindowNative.GetWindowHandle(this);
         _appWindow = AppWindow.GetFromWindowId(Win32Interop.GetWindowIdFromWindow(_windowHandle));
-        _appWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "FrameDock.ico"));
+        _appWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "SILframe.ico"));
         _appWindow.Changed += AppWindow_Changed;
         _appWindow.Closing += AppWindow_Closing;
         CleanupStaleClipboardFrames();
@@ -548,7 +548,7 @@ public sealed partial class MainWindow : Window
     private async void OpenButton_Click(object sender, RoutedEventArgs e)
     {
         // async void: anything escaping here would terminate the app, e.g. the
-        // file picker throws when FrameDock runs elevated.
+        // file picker throws when SILframe runs elevated.
         try
         {
             var picker = new FileOpenPicker();
@@ -844,7 +844,7 @@ public sealed partial class MainWindow : Window
                 UpdateCropInfo();
                 ValidateEditRange();
                 UpdateApproximateCopyAvailability();
-                if (Environment.GetEnvironmentVariable("FRAMEDOCK_OPEN_EDITOR") == "1" && EditorPanel.Visibility != Visibility.Visible)
+                if (Environment.GetEnvironmentVariable("SILFRAME_OPEN_EDITOR") == "1" && EditorPanel.Visibility != Visibility.Visible)
                 {
                     // UI automation hook: open the editor without pointer input.
                     EditButton_Click(this, new RoutedEventArgs());
@@ -1441,7 +1441,7 @@ public sealed partial class MainWindow : Window
         }
 
         var outputPaths = Enumerable.Range(0, count)
-            .Select(_ => Path.Combine(Path.GetTempPath(), $"FrameDock-trim-{Guid.NewGuid():N}.png"))
+            .Select(_ => Path.Combine(Path.GetTempPath(), $"SILframe-trim-{Guid.NewGuid():N}.png"))
             .ToArray();
         var startInfo = new ProcessStartInfo
         {
@@ -4331,7 +4331,7 @@ public sealed partial class MainWindow : Window
             {
                 directory = preferredDirectory;
                 Directory.CreateDirectory(directory);
-                temporary = Path.Combine(directory, $".FrameDock-{Guid.NewGuid():N}.png");
+                temporary = Path.Combine(directory, $".SILframe-{Guid.NewGuid():N}.png");
                 await player.SaveScreenshotAsync(temporary);
             }
             catch (Exception preferredFailure) when (!string.Equals(preferredDirectory, picturesDirectory, StringComparison.OrdinalIgnoreCase))
@@ -4340,7 +4340,7 @@ public sealed partial class MainWindow : Window
                 App.WriteErrorLog(preferredFailure);
                 directory = picturesDirectory;
                 Directory.CreateDirectory(directory);
-                temporary = Path.Combine(directory, $".FrameDock-{Guid.NewGuid():N}.png");
+                temporary = Path.Combine(directory, $".SILframe-{Guid.NewGuid():N}.png");
                 await player.SaveScreenshotAsync(temporary);
             }
 
@@ -4391,7 +4391,7 @@ public sealed partial class MainWindow : Window
 
     private string BuildScreenshotName()
     {
-        var stem = _loadedPath is null ? "FrameDock" : Path.GetFileNameWithoutExtension(_loadedPath);
+        var stem = _loadedPath is null ? "SILframe" : Path.GetFileNameWithoutExtension(_loadedPath);
         var position = _player?.GetNumber("time-pos") ?? 0;
         return $"{stem}-{FormatTimeFileSafe(position)}";
     }
@@ -4430,7 +4430,7 @@ public sealed partial class MainWindow : Window
         {
             var folder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "FrameDock",
+                "SILframe",
                 "clipboard-frames");
             Directory.CreateDirectory(folder);
             path = Path.Combine(folder, $"frame-{Guid.NewGuid():N}.png");
@@ -4475,7 +4475,7 @@ public sealed partial class MainWindow : Window
             try
             {
                 // SetContentWithOptions reports a busy clipboard as false instead of throwing.
-                // Flush persists the data after FrameDock closes, so retry both operations together.
+                // Flush persists the data after SILframe closes, so retry both operations together.
                 var package = new DataPackage();
                 package.SetBitmap(RandomAccessStreamReference.CreateFromFile(file));
                 package.RequestedOperation = DataPackageOperation.Copy;
@@ -4508,7 +4508,7 @@ public sealed partial class MainWindow : Window
         {
             var folder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "FrameDock",
+                "SILframe",
                 "clipboard-frames");
             if (!Directory.Exists(folder))
             {
@@ -4568,7 +4568,7 @@ public sealed partial class MainWindow : Window
         }
         else
         {
-            text = "FrameDock";
+            text = "SILframe";
         }
 
         Title = text;
@@ -5732,7 +5732,7 @@ public sealed partial class MainWindow : Window
             InfoBarSeverity.Error => Strings.Get("NotifyTitle_Error"),
             InfoBarSeverity.Warning => Strings.Get("NotifyTitle_Warning"),
             InfoBarSeverity.Success => Strings.Get("NotifyTitle_Success"),
-            _ => "FrameDock"
+            _ => "SILframe"
         };
         NotificationBar.Message = message;
         NotificationBar.ActionButton = revealPath is null ? null : CreateRevealButton(revealPath);

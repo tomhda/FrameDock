@@ -1,8 +1,8 @@
 <Window
-    x:Class="FrameDock.MainWindow"
+    x:Class="SILframe.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="FrameDock">
+    Title="SILframe">
     <Grid x:Name="RootGrid" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" RowDefinitions="*,Auto,Auto,Auto" PreviewKeyDown="RootGrid_KeyDown" PointerEntered="RootGrid_PointerEntered" PointerMoved="RootGrid_PointerMoved" PointerExited="RootGrid_PointerExited" IsTabStop="True" AllowDrop="True" DragOver="RootGrid_DragOver" Drop="RootGrid_Drop">
         <Grid.Resources>
             <Style x:Key="TransportButtonStyle" TargetType="Button">
@@ -68,7 +68,7 @@
                     PointerCanceled="ZoomPanCanvas_PointerCanceled"
                     PointerCaptureLost="ZoomPanCanvas_PointerCaptureLost" />
             <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14">
-                <Image Source="ms-appx:///Assets/FrameDock.png" Width="88" Height="88" HorizontalAlignment="Center" AutomationProperties.Name="FrameDock" />
+                <Image Source="ms-appx:///Assets/SILframe.png" Width="88" Height="88" HorizontalAlignment="Center" AutomationProperties.Name="SILframe" />
                 <TextBlock x:Uid="EmptyStateHint" Foreground="{ThemeResource TextFillColorPrimaryBrush}" FontSize="18" HorizontalAlignment="Center" />
                 <Button x:Uid="EmptyOpenButton" Click="OpenButton_Click" HorizontalAlignment="Center" />
             </StackPanel>

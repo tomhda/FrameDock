@@ -244,7 +244,7 @@ New-Item -ItemType Directory -Path $script:CacheRoot -Force | Out-Null
 Assert-NoReparsePoints -Path $script:CacheRoot
 $script:TarPath = (Get-Command 'tar.exe' -ErrorAction Stop).Source
 
-$staging = Join-Path $script:CacheRoot 'extract-framedock-pinned-v1'
+$staging = Join-Path $script:CacheRoot 'extract-silframe-pinned-v1'
 New-Item -ItemType Directory -Path $staging -Force | Out-Null
 Assert-NoReparsePoints -Path $staging
 

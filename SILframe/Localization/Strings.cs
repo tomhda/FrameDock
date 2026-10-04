@@ -1,7 +1,7 @@
 using System.Globalization;
 using Microsoft.Windows.ApplicationModel.Resources;
 
-namespace FrameDock.Localization;
+namespace SILframe.Localization;
 
 // UI wording backed by Strings/<lang>/Resources.resw (PRI). The loader is
 // created once so normal launch and playback pay no per-string cost.

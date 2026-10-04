@@ -1,8 +1,8 @@
-using FrameDock.Player;
+using SILframe.Player;
 
 if (args.Length == 0)
 {
-    Console.Error.WriteLine("Usage: FrameDock.RuntimeSmoke.exe <video-file> [...]");
+    Console.Error.WriteLine("Usage: SILframe.RuntimeSmoke.exe <video-file> [...]");
     return 2;
 }
 

@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 
-namespace FrameDock.Core;
+namespace SILframe.Core;
 
 /// <summary>Inspects local media and safely exports trims/crops with FFmpeg.</summary>
 public sealed class MediaExportService

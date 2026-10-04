@@ -9,21 +9,21 @@
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>FrameDock</RootNamespace>
-    <AssemblyName>FrameDock</AssemblyName>
-    <Version>1.0.1</Version>
-    <ApplicationIcon>Assets\FrameDock.ico</ApplicationIcon>
+    <RootNamespace>SILframe</RootNamespace>
+    <AssemblyName>SILframe</AssemblyName>
+    <Version>1.0.2</Version>
+    <ApplicationIcon>Assets\SILframe.ico</ApplicationIcon>
     <DefaultLanguage>en-US</DefaultLanguage>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\FrameDock.Core\FrameDock.Core.csproj" />
+    <ProjectReference Include="..\SILframe.Core\SILframe.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Assets\FrameDock.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="Assets\FrameDock.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Assets\SILframe.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Assets\SILframe.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\vendor\mpv\libmpv-2.dll" Link="libmpv-2.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\vendor\ffmpeg\ffmpeg.exe" Link="Media\ffmpeg.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\vendor\ffmpeg\ffprobe.exe" Link="Media\ffprobe.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

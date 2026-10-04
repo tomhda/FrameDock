@@ -1,6 +1,6 @@
-# FrameDock export core
+# SILframe export core
 
-The `FrameDock.Core` library inspects local media with the injected `ffprobe.exe` and exports MP4, Matroska, or QuickTime MOV clips with the injected `ffmpeg.exe`. It does not locate, download, or install either binary; the app supplies paths to its pinned dependency bundle.
+The `SILframe.Core` library inspects local media with the injected `ffprobe.exe` and exports MP4, Matroska, or QuickTime MOV clips with the injected `ffmpeg.exe`. It does not locate, download, or install either binary; the app supplies paths to its pinned dependency bundle.
 
 ## UI contract
 
@@ -40,10 +40,10 @@ Construct `MediaExportService` with `new ExportOptions(ffmpegPath, ffprobePath)`
 From the repository root:
 
 ```powershell
-dotnet build .\FrameDock.Core\FrameDock.Core.csproj
-$env:FRAMEDOCK_TEST_FFMPEG = "$PWD\vendor\ffmpeg\ffmpeg.exe"
-$env:FRAMEDOCK_TEST_FFPROBE = "$PWD\vendor\ffmpeg\ffprobe.exe"
-dotnet run --project .\FrameDock.Core.Tests\FrameDock.Core.Tests.csproj
+dotnet build .\SILframe.Core\SILframe.Core.csproj
+$env:SILFRAME_TEST_FFMPEG = "$PWD\vendor\ffmpeg\ffmpeg.exe"
+$env:SILFRAME_TEST_FFPROBE = "$PWD\vendor\ffmpeg\ffprobe.exe"
+dotnet run --project .\SILframe.Core.Tests\SILframe.Core.Tests.csproj
 ```
 
 The test harness uses no test-framework NuGet packages. Without both environment variables it prints an explicit `SKIP` for executable integration checks while still running the geometry tests. With them set, it creates short local fixtures and checks ffprobe properties, SAR plus rotation using a colored-quadrant crop, Unicode and shell-special filename handling, accurate duration and crop bounds, no-audio input, HDR rejection/preservation, approximate stream-copy behavior, nonzero MPEG-TS `start_time`, case-insensitive source aliases, existing output preservation, active-process cancellation cleanup/source preservation, zoom sample geometry, multi-segment exports (per-segment edits, gaps, speeds, no-audio input, nonzero start times, validation, cancellation), and the localized messages (both languages have the same keys and placeholders).

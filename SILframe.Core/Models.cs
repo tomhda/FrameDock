@@ -1,4 +1,4 @@
-namespace FrameDock.Core;
+namespace SILframe.Core;
 
 /// <summary>A positive pixel/sample aspect ratio.</summary>
 public readonly record struct AspectRatio(int Numerator, int Denominator)

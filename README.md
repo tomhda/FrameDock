@@ -1,10 +1,10 @@
-# FrameDock
+# SILframe
 
 [日本語](README.ja.md)
 
-**[⬇ Download FrameDock 1.0.1](https://github.com/tomhda/FrameDock/releases/download/v1.0.1/FrameDock-Setup-1.0.1-win-x64.exe)** (installer for Windows x64, 147 MB). See [Install](#install) for the steps.
+**[⬇ Download SILframe 1.0.2](https://github.com/tomhda/SILframe/releases/download/v1.0.2/SILframe-Setup-1.0.2-win-x64.exe)** (installer for Windows x64, 147 MB). See [Install](#install) for the steps.
 
-FrameDock is a video player for Windows, made to add what the built-in Media Player app lacks.
+SILframe is a video player for Windows, made to add what the built-in Media Player app lacks.
 
 It is designed to feel like the built-in app, so you can use it without learning anything new.
 
@@ -55,13 +55,13 @@ The screenshots show [*Tears of Steel*](https://mango.blender.org/), (CC) Blende
 
 ## Install
 
-FrameDock runs on Windows 10 version 2004 (build 19041) or later and Windows 11, x64.
+SILframe runs on Windows 10 version 2004 (build 19041) or later and Windows 11, x64.
 
-1. Download [`FrameDock-Setup-1.0.1-win-x64.exe`](https://github.com/tomhda/FrameDock/releases/download/v1.0.1/FrameDock-Setup-1.0.1-win-x64.exe). Earlier versions and the source of the bundled binaries are on the [Releases](../../releases) page.
+1. Download [`SILframe-Setup-1.0.2-win-x64.exe`](https://github.com/tomhda/SILframe/releases/download/v1.0.2/SILframe-Setup-1.0.2-win-x64.exe). Earlier versions and the source of the bundled binaries are on the [Releases](../../releases) page.
 2. Run it. The setup is not code-signed, so Windows SmartScreen may show "Windows protected your PC". Select **More info**, then **Run anyway**.
-3. Follow the setup. It installs for the current user into `%LOCALAPPDATA%\Programs\FrameDock` and needs no administrator rights.
+3. Follow the setup. It installs for the current user into `%LOCALAPPDATA%\Programs\SILframe` and needs no administrator rights.
 
-The setup contains everything FrameDock needs and downloads nothing. A desktop icon and an "Open with" entry for common video formats are optional. FrameDock does not change your default apps. To remove it, use **Installed apps** in Windows Settings.
+The setup contains everything SILframe needs and downloads nothing. A desktop icon and an "Open with" entry for common video formats are optional. SILframe does not change your default apps. To remove it, use **Installed apps** in Windows Settings.
 
 ## Use
 
@@ -74,7 +74,7 @@ The setup contains everything FrameDock needs and downloads nothing. A desktop i
 - The repeat button on the control bar turns repeating the video on or off. A line under the button shows that repeat is on.
 - The audio and subtitles button on the control bar switches between the tracks in the video. It appears for a video that has two or more audio tracks, or subtitles. For other videos, "Edit and more" → **Subtitles** → **Open subtitle file…** loads subtitles from a separate file.
 - The settings choose whether repeat, playback speed, audio and subtitles, and copying a frame are shown on the control bar. Those that are turned off, and those that do not fit when the window is narrow, appear under "Edit and more".
-- "Edit and more" → **Adjust picture…** changes brightness, contrast, saturation, and hue. It applies to playback only, not to editing, exports, or saved frames, and returns to normal when FrameDock closes.
+- "Edit and more" → **Adjust picture…** changes brightness, contrast, saturation, and hue. It applies to playback only, not to editing, exports, or saved frames, and returns to normal when SILframe closes.
 - "Edit and more" → **Properties…** shows information about the file, the video, and the audio. The button at the end of each row copies that value, and **Copy all** copies everything as text.
 - The title bar shows the file name of the open video.
 
@@ -84,7 +84,7 @@ The setup contains everything FrameDock needs and downloads nothing. A desktop i
 - While the editor is open, the camera button next to the play button (Ctrl+S) saves the frame as you see it, with the crop, rotation, and zoom applied, at the same size as the export.
 - A notification shows the full path, with an **Open folder** button.
 - "Edit and more" → **Copy frame**, or a right-click on the video, copies the current frame to the clipboard. The settings can also put a copy button on the control bar.
-- **Settings** chooses where frames go: `Pictures\FrameDock` (the default), a folder you choose, the folder of the video, or a subfolder next to the video. If that location can't be written to, the frame is saved to `Pictures\FrameDock`.
+- **Settings** chooses where frames go: `Pictures\SILframe` (the default), a folder you choose, the folder of the video, or a subfolder next to the video. If that location can't be written to, the frame is saved to `Pictures\SILframe`.
 
 ### Edit and export
 
@@ -121,9 +121,9 @@ When the seek bar or the volume slider has focus, the arrow keys move that slide
 
 ### Settings
 
-"Edit and more" → **Settings…** sets the skip interval, the buttons on the control bar, where frames are saved, and the display language. By default FrameDock follows the Windows display language. A language change takes effect the next time FrameDock starts.
+"Edit and more" → **Settings…** sets the skip interval, the buttons on the control bar, where frames are saved, and the display language. By default SILframe follows the Windows display language. A language change takes effect the next time SILframe starts.
 
-Error details are written to `%LOCALAPPDATA%\FrameDock\error.log`.
+Error details are written to `%LOCALAPPDATA%\SILframe\error.log`.
 
 ## Limits
 
@@ -141,6 +141,6 @@ See [docs/BUILDING.md](docs/BUILDING.md) for building, testing, and creating the
 
 ## License
 
-FrameDock is licensed under the [GNU General Public License v3.0](LICENSE).
+SILframe is licensed under the [GNU General Public License v3.0](LICENSE).
 
 The installer bundles FFmpeg (a GPLv3 build), libmpv (LGPLv2.1 or later), and the Microsoft Windows App SDK. Their sources, versions, hashes, and license texts are listed in [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md), and the license texts are installed in the `ThirdPartyNotices` folder.

@@ -2,9 +2,9 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
-using FrameDock.Core;
+using SILframe.Core;
 
-namespace FrameDock.Player;
+namespace SILframe.Player;
 
 internal sealed class MpvController : IDisposable
 {
@@ -58,9 +58,9 @@ internal sealed class MpvController : IDisposable
                 options.Add(("hwdec", "auto-safe"));
             }
 
-            if (Environment.GetEnvironmentVariable("FRAMEDOCK_MPV_LOG") == "1")
+            if (Environment.GetEnvironmentVariable("SILFRAME_MPV_LOG") == "1")
             {
-                options.Add(("log-file", Path.Combine(Path.GetTempPath(), "FrameDock-mpv.log")));
+                options.Add(("log-file", Path.Combine(Path.GetTempPath(), "SILframe-mpv.log")));
             }
 
             foreach (var (name, value) in options)

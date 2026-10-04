@@ -3,7 +3,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>FrameDock.Core</RootNamespace>
-    <AssemblyName>FrameDock.Core</AssemblyName>
+    <RootNamespace>SILframe.Core</RootNamespace>
+    <AssemblyName>SILframe.Core</AssemblyName>
   </PropertyGroup>
 </Project>

@@ -4,8 +4,8 @@
 $ErrorActionPreference = 'Stop'
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$jaPath = Join-Path $repositoryRoot 'FrameDock\Strings\ja-JP\Resources.resw'
-$enPath = Join-Path $repositoryRoot 'FrameDock\Strings\en-US\Resources.resw'
+$jaPath = Join-Path $repositoryRoot 'SILframe\Strings\ja-JP\Resources.resw'
+$enPath = Join-Path $repositoryRoot 'SILframe\Strings\en-US\Resources.resw'
 $failures = @()
 
 function Get-ReswTable {
@@ -48,7 +48,7 @@ foreach ($key in $ja.Keys) {
     }
 }
 
-$codeFiles = Get-ChildItem -LiteralPath (Join-Path $repositoryRoot 'FrameDock') -Recurse -Include '*.cs' -File |
+$codeFiles = Get-ChildItem -LiteralPath (Join-Path $repositoryRoot 'SILframe') -Recurse -Include '*.cs' -File |
     Where-Object { ($_.FullName -notmatch '\\(bin|obj)\\') }
 $codePattern = 'Strings\.(Get|Format)\("([^"]+)"'
 foreach ($file in $codeFiles) {
@@ -64,7 +64,7 @@ foreach ($file in $codeFiles) {
     }
 }
 
-$xamlFiles = Get-ChildItem -LiteralPath (Join-Path $repositoryRoot 'FrameDock') -Filter '*.xaml' -File
+$xamlFiles = Get-ChildItem -LiteralPath (Join-Path $repositoryRoot 'SILframe') -Filter '*.xaml' -File
 foreach ($file in $xamlFiles) {
     $text = [System.IO.File]::ReadAllText($file.FullName)
     foreach ($match in [regex]::Matches($text, 'x:Uid="([^"]+)"')) {

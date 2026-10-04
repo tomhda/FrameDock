@@ -1,10 +1,10 @@
-# FrameDock
+# SILframe
 
 [English](README.md)
 
-**[⬇ FrameDock 1.0.1 をダウンロード](https://github.com/tomhda/FrameDock/releases/download/v1.0.1/FrameDock-Setup-1.0.1-win-x64.exe)**（Windows x64 用インストーラー、147 MB）。手順は [インストール](#インストール) にあります。
+**[⬇ SILframe 1.0.2 をダウンロード](https://github.com/tomhda/SILframe/releases/download/v1.0.2/SILframe-Setup-1.0.2-win-x64.exe)**（Windows x64 用インストーラー、147 MB）。手順は [インストール](#インストール) にあります。
 
-FrameDock は、Windows 標準の動画再生アプリ（メディア プレーヤー）に足りない機能を補う目的で作った動画プレイヤーです。
+SILframe は、Windows 標準の動画再生アプリ（メディア プレーヤー）に足りない機能を補う目的で作った動画プレイヤーです。
 
 なるべく Windows 標準アプリそのままの感覚で、学習無しで使えることを意識して作成しました。
 
@@ -57,9 +57,9 @@ FrameDock は、Windows 標準の動画再生アプリ（メディア プレー�
 
 Windows 10 バージョン 2004（ビルド 19041）以降、または Windows 11 の x64 で動作します。
 
-1. [`FrameDock-Setup-1.0.1-win-x64.exe`](https://github.com/tomhda/FrameDock/releases/download/v1.0.1/FrameDock-Setup-1.0.1-win-x64.exe) をダウンロードします。過去のバージョンと同梱バイナリのソースは [Releases](../../releases) にあります。
+1. [`SILframe-Setup-1.0.2-win-x64.exe`](https://github.com/tomhda/SILframe/releases/download/v1.0.2/SILframe-Setup-1.0.2-win-x64.exe) をダウンロードします。過去のバージョンと同梱バイナリのソースは [Releases](../../releases) にあります。
 2. 実行します。セットアップはコード署名をしていないため、Windows SmartScreen が「Windows によって PC が保護されました」と表示する場合があります。**詳細情報** を選び、**実行** を選びます。
-3. 画面に従って進めます。現在のユーザー用に `%LOCALAPPDATA%\Programs\FrameDock` へインストールし、管理者権限は不要です。
+3. 画面に従って進めます。現在のユーザー用に `%LOCALAPPDATA%\Programs\SILframe` へインストールし、管理者権限は不要です。
 
 セットアップには必要なものがすべて入っており、追加のダウンロードはありません。デスクトップアイコンと、一般的な動画形式への「プログラムから開く」の登録は任意です。Windows の既定のアプリは変更しません。削除するときは、Windows の設定の **インストールされているアプリ** から行います。
 
@@ -84,7 +84,7 @@ Windows 10 バージョン 2004（ビルド 19041）以降、または Windows 1
 - 編集パネルを開いているときは、再生ボタンの並びにあるカメラのボタン（Ctrl+S）で、クロップ、回転、ズームを反映した見えているままのフレームを、書き出しと同じサイズで保存します。
 - 保存すると通知にパスが表示され、**フォルダーを開く** で保存先を開けます。
 - 「その他の操作」→ **フレームをコピー**、または映像の右クリックで、表示中のフレームをクリップボードにコピーできます。設定で、コピーのボタンを操作バーに表示することもできます。
-- 保存先は **設定** で選びます。`ピクチャ\FrameDock`（既定）、指定したフォルダー、動画と同じフォルダー、動画と同じ場所のサブフォルダーのいずれかです。選んだ場所に書き込めない場合は `ピクチャ\FrameDock` に保存します。
+- 保存先は **設定** で選びます。`ピクチャ\SILframe`（既定）、指定したフォルダー、動画と同じフォルダー、動画と同じ場所のサブフォルダーのいずれかです。選んだ場所に書き込めない場合は `ピクチャ\SILframe` に保存します。
 
 ### 編集と書き出し
 
@@ -123,7 +123,7 @@ Windows 10 バージョン 2004（ビルド 19041）以降、または Windows 1
 
 「その他の操作」→ **設定…** で、スキップする秒数、操作バーに表示するボタン、フレーム画像の保存先、表示言語を設定します。表示言語は、既定では Windows の表示言語に従います。変更は次回の起動時に反映されます。
 
-エラーの詳細は `%LOCALAPPDATA%\FrameDock\error.log` に記録されます。
+エラーの詳細は `%LOCALAPPDATA%\SILframe\error.log` に記録されます。
 
 ## 制限
 
@@ -141,6 +141,6 @@ Windows 10 バージョン 2004（ビルド 19041）以降、または Windows 1
 
 ## ライセンス
 
-FrameDock のライセンスは [GNU General Public License v3.0](LICENSE) です。
+SILframe のライセンスは [GNU General Public License v3.0](LICENSE) です。
 
 インストーラーには FFmpeg（GPLv3 のビルド）、libmpv（LGPLv2.1 以降）、Microsoft Windows App SDK を同梱しています。入手元、バージョン、ハッシュ、ライセンス文書は [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md) に記載しており、ライセンス文書はインストール先の `ThirdPartyNotices` フォルダーに入ります。

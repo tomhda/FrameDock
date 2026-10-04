@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace FrameDock.Player;
+namespace SILframe.Player;
 
 internal enum PlayerDisplayMode
 {
@@ -19,7 +19,7 @@ internal enum FrameSaveLocation
 
 internal sealed class PlayerSettings
 {
-    internal const string DefaultFrameSaveSubfolder = "FrameDock";
+    internal const string DefaultFrameSaveSubfolder = "SILframe";
 
     private static readonly SemaphoreSlim SaveGate = new(1, 1);
 
@@ -45,25 +45,44 @@ internal sealed class PlayerSettings
             trimmed.IndexOfAny(Path.GetInvalidFileNameChars()) < 0 && !trimmed.EndsWith('.');
     }
 
-    // FRAMEDOCK_SETTINGS_PATH lets UI automation run against a scratch file
+    // SILFRAME_SETTINGS_PATH lets UI automation run against a scratch file
     // instead of the user's own settings.
-    public static string SettingsPath => Environment.GetEnvironmentVariable("FRAMEDOCK_SETTINGS_PATH") is { Length: > 0 } overridePath
+    public static string SettingsPath => Environment.GetEnvironmentVariable("SILFRAME_SETTINGS_PATH") is { Length: > 0 } overridePath
         ? overridePath
         : Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "SILframe",
+            "settings.json");
+
+    // Versions up to 1.0.1 were named FrameDock and kept their settings under
+    // that name. They are read once; saving writes to the current location.
+    private static string? ExistingSettingsPath()
+    {
+        if (File.Exists(SettingsPath))
+        {
+            return SettingsPath;
+        }
+
+        var legacy = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "FrameDock",
             "settings.json");
+        return string.IsNullOrEmpty(Environment.GetEnvironmentVariable("SILFRAME_SETTINGS_PATH")) && File.Exists(legacy)
+            ? legacy
+            : null;
+    }
 
     public static PlayerSettings Load()
     {
         try
         {
-            if (!File.Exists(SettingsPath))
+            var path = ExistingSettingsPath();
+            if (path is null)
             {
                 return new PlayerSettings();
             }
 
-            var loaded = JsonSerializer.Deserialize<PlayerSettings>(File.ReadAllText(SettingsPath)) ?? new PlayerSettings();
+            var loaded = JsonSerializer.Deserialize<PlayerSettings>(File.ReadAllText(path)) ?? new PlayerSettings();
             loaded.SkipSeconds = double.IsFinite(loaded.SkipSeconds) ? Math.Clamp(loaded.SkipSeconds, 1, 600) : 10;
             loaded.Volume = double.IsFinite(loaded.Volume) ? Math.Clamp(loaded.Volume, 0, 100) : 75;
             loaded.Speed = double.IsFinite(loaded.Speed) ? Math.Clamp(loaded.Speed, 0.25, 4) : 1;
@@ -97,12 +116,13 @@ internal sealed class PlayerSettings
     {
         try
         {
-            if (!File.Exists(SettingsPath))
+            var path = ExistingSettingsPath();
+            if (path is null)
             {
                 return "";
             }
 
-            using var document = JsonDocument.Parse(File.ReadAllText(SettingsPath));
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
             if (document.RootElement.TryGetProperty("Language", out var element) &&
                 element.ValueKind == JsonValueKind.String)
             {

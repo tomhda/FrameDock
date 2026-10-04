@@ -167,10 +167,10 @@
     <value>Couldn't start the video processing tool.</value>
   </data>
   <data name="Error_ToolLaunchFailedCheckFiles" xml:space="preserve">
-    <value>Couldn't start the video processing tool. Reinstall FrameDock if files are missing.</value>
+    <value>Couldn't start the video processing tool. Reinstall SILframe if files are missing.</value>
   </data>
   <data name="Error_ToolMissing" xml:space="preserve">
-    <value>{0} wasn't found. Reinstall FrameDock if files are missing.</value>
+    <value>{0} wasn't found. Reinstall SILframe if files are missing.</value>
   </data>
   <data name="Error_VideoSizeUnknown" xml:space="preserve">
     <value>Couldn't read the video's frame size.</value>

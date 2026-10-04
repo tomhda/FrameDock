@@ -4,7 +4,7 @@ param(
     [string]$CacheRoot
 )
 
-# Collects the source archives that accompany a FrameDock release: FFmpeg and
+# Collects the source archives that accompany a SILframe release: FFmpeg and
 # x264 (GPL) and mpv (LGPL) at the exact commits of the bundled binaries.
 
 $ErrorActionPreference = 'Stop'
@@ -57,7 +57,7 @@ foreach ($archive in $archives) {
         Write-Host "ソースを取得します: $($archive.Name)"
         $partial = "$cached.partial"
         # code.videolan.org answers browser-like user agents with a bot check page.
-        Invoke-WebRequest -Uri $archive.Url -OutFile $partial -UseBasicParsing -UserAgent 'FrameDock-build-source-bundle'
+        Invoke-WebRequest -Uri $archive.Url -OutFile $partial -UseBasicParsing -UserAgent 'SILframe-build-source-bundle'
         $actual = Get-Sha256 $partial
         if ($actual -ne $archive.Sha256) {
             Remove-Item -LiteralPath $partial -Force

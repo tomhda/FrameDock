@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace FrameDock.Core;
+namespace SILframe.Core;
 
 /// <summary>Display-space and crop helpers shared with the editor UI.</summary>
 public static class MediaGeometry
