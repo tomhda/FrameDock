@@ -90,6 +90,27 @@ Root: HKCU; Subkey: "Software\Classes\.ogv\OpenWithProgids"; ValueType: string; 
 Root: HKCU; Subkey: "Software\Classes\.ts\OpenWithProgids"; ValueType: string; ValueName: "FrameDock.Video"; ValueData: ""; Flags: uninsdeletevalue; Tasks: openwith
 Root: HKCU; Subkey: "Software\Classes\.webm\OpenWithProgids"; ValueType: string; ValueName: "FrameDock.Video"; ValueData: ""; Flags: uninsdeletevalue; Tasks: openwith
 Root: HKCU; Subkey: "Software\Classes\.wmv\OpenWithProgids"; ValueType: string; ValueName: "FrameDock.Video"; ValueData: ""; Flags: uninsdeletevalue; Tasks: openwith
+; Capabilities and RegisteredApplications list FrameDock under Settings > Apps > Default apps.
+; They only make it selectable there; no default is changed.
+Root: HKCU; Subkey: "Software\FrameDock"; Flags: uninsdeletekeyifempty; Tasks: openwith
+Root: HKCU; Subkey: "Software\FrameDock\Capabilities"; ValueType: string; ValueName: "ApplicationName"; ValueData: "FrameDock"; Flags: uninsdeletekey; Tasks: openwith
+Root: HKCU; Subkey: "Software\FrameDock\Capabilities"; ValueType: string; ValueName: "ApplicationDescription"; ValueData: "Video player with frame stepping, frame capture, and simple editing"; Tasks: openwith
+Root: HKCU; Subkey: "Software\FrameDock\Capabilities\FileAssociations"; ValueType: string; ValueName: ".3gp"; ValueData: "FrameDock.Video"; Tasks: openwith
+Root: HKCU; Subkey: "Software\FrameDock\Capabilities\FileAssociations"; ValueType: string; ValueName: ".avi"; ValueData: "FrameDock.Video"; Tasks: openwith
+Root: HKCU; Subkey: "Software\FrameDock\Capabilities\FileAssociations"; ValueType: string; ValueName: ".flv"; ValueData: "FrameDock.Video"; Tasks: openwith
+Root: HKCU; Subkey: "Software\FrameDock\Capabilities\FileAssociations"; ValueType: string; ValueName: ".m2ts"; ValueData: "FrameDock.Video"; Tasks: openwith
+Root: HKCU; Subkey: "Software\FrameDock\Capabilities\FileAssociations"; ValueType: string; ValueName: ".m4v"; ValueData: "FrameDock.Video"; Tasks: openwith
+Root: HKCU; Subkey: "Software\FrameDock\Capabilities\FileAssociations"; ValueType: string; ValueName: ".mkv"; ValueData: "FrameDock.Video"; Tasks: openwith
+Root: HKCU; Subkey: "Software\FrameDock\Capabilities\FileAssociations"; ValueType: string; ValueName: ".mov"; ValueData: "FrameDock.Video"; Tasks: openwith
+Root: HKCU; Subkey: "Software\FrameDock\Capabilities\FileAssociations"; ValueType: string; ValueName: ".mp4"; ValueData: "FrameDock.Video"; Tasks: openwith
+Root: HKCU; Subkey: "Software\FrameDock\Capabilities\FileAssociations"; ValueType: string; ValueName: ".mpeg"; ValueData: "FrameDock.Video"; Tasks: openwith
+Root: HKCU; Subkey: "Software\FrameDock\Capabilities\FileAssociations"; ValueType: string; ValueName: ".mpg"; ValueData: "FrameDock.Video"; Tasks: openwith
+Root: HKCU; Subkey: "Software\FrameDock\Capabilities\FileAssociations"; ValueType: string; ValueName: ".mts"; ValueData: "FrameDock.Video"; Tasks: openwith
+Root: HKCU; Subkey: "Software\FrameDock\Capabilities\FileAssociations"; ValueType: string; ValueName: ".ogv"; ValueData: "FrameDock.Video"; Tasks: openwith
+Root: HKCU; Subkey: "Software\FrameDock\Capabilities\FileAssociations"; ValueType: string; ValueName: ".ts"; ValueData: "FrameDock.Video"; Tasks: openwith
+Root: HKCU; Subkey: "Software\FrameDock\Capabilities\FileAssociations"; ValueType: string; ValueName: ".webm"; ValueData: "FrameDock.Video"; Tasks: openwith
+Root: HKCU; Subkey: "Software\FrameDock\Capabilities\FileAssociations"; ValueType: string; ValueName: ".wmv"; ValueData: "FrameDock.Video"; Tasks: openwith
+Root: HKCU; Subkey: "Software\RegisteredApplications"; ValueType: string; ValueName: "FrameDock"; ValueData: "Software\FrameDock\Capabilities"; Flags: uninsdeletevalue; Tasks: openwith
 
 [Run]
 Filename: "{app}\FrameDock.exe"; Description: "Launch FrameDock"; Flags: postinstall nowait skipifsilent
