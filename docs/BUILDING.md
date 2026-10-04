@@ -38,7 +38,7 @@ $bootstrapScript = Join-Path (Join-Path $PWD 'tools') 'bootstrap-dependencies.ps
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-installer.ps1
 ```
 
-This builds a Release and then one offline setup executable, `artifacts\installer\FrameDock-Setup-<version>-win-x64.exe`. The current app version is `1.0.0`.
+This builds a Release and then one offline setup executable, `artifacts\installer\FrameDock-Setup-<version>-win-x64.exe`. The version comes from `Version` in `FrameDock\FrameDock.csproj`.
 
 The first run downloads the pinned Inno Setup 7.1.0 from its official GitHub release, checks its SHA-256 and Authenticode signature, and extracts it into `tools\.cache\` only. Inno Setup is used at build time and is not installed with FrameDock. For commercial use, see the [Inno Setup license information](https://jrsoftware.org/isorder.php).
 

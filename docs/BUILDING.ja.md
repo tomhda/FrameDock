@@ -39,7 +39,7 @@ Windows x64 で次を実行すると、Release を作成して一つのオフラ
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-installer.ps1
 ```
 
-出力先は `artifacts\installer\FrameDock-Setup-<バージョン>-win-x64.exe` です（現在のアプリバージョンは `1.0.0`）。初回のビルドは固定バージョンの Inno Setup 7.1.0 を公式 GitHub リリースから取得し、SHA-256 と Authenticode 署名を確認して `tools\.cache\` 内だけに展開します。セットアップには Release のアプリ、WinUI リソース、libmpv、FFmpeg、ライセンス通知が入るため、インストール先で追加ダウンロードはありません。既存 Release を使う場合は `-SkipReleaseBuild` を指定できます。
+出力先は `artifacts\installer\FrameDock-Setup-<バージョン>-win-x64.exe` です（バージョンは `FrameDock\FrameDock.csproj` の `Version` で決まります）。初回のビルドは固定バージョンの Inno Setup 7.1.0 を公式 GitHub リリースから取得し、SHA-256 と Authenticode 署名を確認して `tools\.cache\` 内だけに展開します。セットアップには Release のアプリ、WinUI リソース、libmpv、FFmpeg、ライセンス通知が入るため、インストール先で追加ダウンロードはありません。既存 Release を使う場合は `-SkipReleaseBuild` を指定できます。
 
 セットアップはユーザーごとに `%LOCALAPPDATA%\Programs\FrameDock` へインストールし、スタートメニューの起動項目とアンインストーラーを作成します。デスクトップアイコンと一般的な動画形式の「プログラムから開く」登録は任意です。Windows の既定アプリは変更しません。セットアップはコード署名をしていません。
 

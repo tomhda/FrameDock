@@ -11,6 +11,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>FrameDock</RootNamespace>
     <AssemblyName>FrameDock</AssemblyName>
+    <Version>1.0.1</Version>
     <ApplicationIcon>Assets\FrameDock.ico</ApplicationIcon>
     <DefaultLanguage>en-US</DefaultLanguage>
   </PropertyGroup>
