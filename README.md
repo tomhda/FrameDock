@@ -34,7 +34,7 @@ In the maximized window and in full screen the control bar is hidden, and it app
 
 ![Playback with the controls shown](docs/images/playback-controls.jpg)
 
-"Edit and more" (the **…** button) opens the menu for copying a frame, the editor, audio and subtitle tracks, picture adjustment, repeat, the display mode, the playback speed, the properties, and the settings.
+The control bar has buttons for repeat and the playback speed. For a video with audio tracks or subtitles to choose from, it also shows an audio and subtitles button. "Edit and more" (the **…** button) opens the menu for copying a frame, the editor, picture adjustment, the display mode, the properties, and the settings.
 
 ![The menu](docs/images/menu-en.jpg)
 
@@ -61,9 +61,10 @@ The setup contains everything FrameDock needs and downloads nothing. A desktop i
 - Open a video with the **Open video** button (Ctrl+O), or drop a file onto the window.
 - The controls along the bottom play and pause, skip, step one frame, and set the volume.
 - "Edit and more" → **Display mode** switches between always showing the controls below the video, a maximized window, and full screen.
-- "Edit and more" → **Playback speed** sets the viewing speed.
-- "Edit and more" → **Repeat** turns repeating the video on or off.
-- "Edit and more" → **Audio** / **Subtitles** switch between the tracks in the video. **Open subtitle file…** loads subtitles from a separate file.
+- The speed button on the control bar (a number such as "1×") sets the viewing speed.
+- The repeat button on the control bar turns repeating the video on or off. A line under the button shows that repeat is on.
+- The audio and subtitles button on the control bar switches between the tracks in the video. It appears for a video that has two or more audio tracks, or subtitles. For other videos, "Edit and more" → **Subtitles** → **Open subtitle file…** loads subtitles from a separate file.
+- The settings choose whether repeat, playback speed, audio and subtitles, and copying a frame are shown on the control bar. Those that are turned off, and those that do not fit when the window is narrow, appear under "Edit and more".
 - "Edit and more" → **Adjust picture…** changes brightness, contrast, saturation, and hue. It applies to playback only, not to editing, exports, or saved frames, and returns to normal when FrameDock closes.
 - "Edit and more" → **Properties…** shows information about the file, the video, and the audio. The button at the end of each row copies that value, and **Copy all** copies everything as text.
 - The title bar shows the file name of the open video.
@@ -111,7 +112,7 @@ When the seek bar or the volume slider has focus, the arrow keys move that slide
 
 ### Settings
 
-"Edit and more" → **Settings…** sets the skip interval, where frames are saved, and the display language. By default FrameDock follows the Windows display language. A language change takes effect the next time FrameDock starts.
+"Edit and more" → **Settings…** sets the skip interval, the buttons on the control bar, where frames are saved, and the display language. By default FrameDock follows the Windows display language. A language change takes effect the next time FrameDock starts.
 
 Error details are written to `%LOCALAPPDATA%\FrameDock\error.log`.
 

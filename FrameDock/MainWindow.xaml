@@ -269,6 +269,32 @@
                             <FontIcon Glyph="&#xE8E5;" FontSize="18" />
                         </Button>
                         <TextBlock x:Name="TimeText" x:Uid="TimeText" Text="00:00 / 00:00" VerticalAlignment="Center" MinWidth="108" Margin="4,0,0,0" FontSize="13" />
+                        <Button x:Name="RepeatButton" Style="{StaticResource TransportButtonStyle}" Click="RepeatMenuItem_Click" Visibility="Collapsed">
+                            <Grid Width="40" Height="40">
+                                <FontIcon Glyph="&#xE8EE;" FontSize="17" />
+                                <Rectangle x:Name="RepeatOnIndicator" Width="14" Height="2" RadiusX="1" RadiusY="1" Margin="0,0,0,5" VerticalAlignment="Bottom" Fill="{ThemeResource AccentFillColorDefaultBrush}" Visibility="Collapsed" />
+                            </Grid>
+                        </Button>
+                        <Button x:Name="SpeedButton" Style="{StaticResource TransportButtonStyle}" Width="52" MinWidth="52" Visibility="Collapsed">
+                            <TextBlock x:Name="SpeedButtonText" Text="1×" FontSize="13" FontWeight="SemiBold" />
+                            <Button.Flyout>
+                                <MenuFlyout x:Name="SpeedButtonFlyout" Placement="Top">
+                                    <ToggleMenuFlyoutItem Text="0.5×" Tag="0.5" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                    <ToggleMenuFlyoutItem Text="0.75×" Tag="0.75" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                    <ToggleMenuFlyoutItem Text="1×" Tag="1" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                    <ToggleMenuFlyoutItem Text="1.25×" Tag="1.25" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                    <ToggleMenuFlyoutItem Text="1.5×" Tag="1.5" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                    <ToggleMenuFlyoutItem Text="2×" Tag="2" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                    <ToggleMenuFlyoutItem Text="4×" Tag="4" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
+                        <Button x:Name="TracksButton" Style="{StaticResource TransportButtonStyle}" Visibility="Collapsed">
+                            <FontIcon Glyph="&#xE7F0;" FontSize="18" />
+                            <Button.Flyout>
+                                <MenuFlyout x:Name="TracksButtonFlyout" Placement="Top" />
+                            </Button.Flyout>
+                        </Button>
                         <TextBlock x:Name="InlineNoticeText" MaxWidth="200" Margin="8,0,0,0" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" Visibility="Collapsed" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -310,6 +336,9 @@
                         <Button x:Name="SaveFrameButton" x:Uid="SaveFrameButton" Style="{StaticResource TransportButtonStyle}" Click="SaveFrameButton_Click">
                             <FontIcon Glyph="&#xE722;" FontSize="18" />
                         </Button>
+                        <Button x:Name="CopyFrameButton" Style="{StaticResource TransportButtonStyle}" Click="CopyFrameButton_Click" Visibility="Collapsed">
+                            <FontIcon Glyph="&#xE8C8;" FontSize="17" />
+                        </Button>
                         <Button x:Name="FullscreenButton" x:Uid="FullscreenButton" Style="{StaticResource TransportButtonStyle}" Click="FullscreenButton_Click">
                             <FontIcon x:Name="FullscreenIcon" Glyph="&#xE740;" FontSize="18" />
                         </Button>
@@ -317,7 +346,7 @@
                         <FontIcon Glyph="&#xE712;" FontSize="17" />
                         <Button.Flyout>
                             <MenuFlyout>
-                                <MenuFlyoutItem x:Uid="CopyFrameMenuItem" Click="CopyFrameButton_Click" Style="{StaticResource MenuFlyoutItemStyle}">
+                                <MenuFlyoutItem x:Name="CopyFrameMenuItem" x:Uid="CopyFrameMenuItem" Click="CopyFrameButton_Click" Style="{StaticResource MenuFlyoutItemStyle}">
                                     <MenuFlyoutItem.Icon>
                                         <FontIcon Glyph="&#xE8C8;" />
                                     </MenuFlyoutItem.Icon>
@@ -345,7 +374,7 @@
                                 </MenuFlyoutItem>
                                 <MenuFlyoutItem x:Name="RepeatMenuItem" x:Uid="RepeatMenuItem" Click="RepeatMenuItem_Click" Style="{StaticResource MenuFlyoutItemStyle}">
                                     <MenuFlyoutItem.Icon>
-                                        <FontIcon Glyph="&#xE8ED;" />
+                                        <FontIcon Glyph="&#xE8EE;" />
                                     </MenuFlyoutItem.Icon>
                                 </MenuFlyoutItem>
                                 <MenuFlyoutSeparator />

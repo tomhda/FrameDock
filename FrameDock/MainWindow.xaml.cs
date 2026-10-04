@@ -165,6 +165,7 @@ public sealed partial class MainWindow : Window
         UpdateSkipLabels();
         UpdateSpeedMenu(_settings.Speed);
         UpdateRepeatMenu();
+        UpdateControlBarButtons();
         UpdateWindowTitle();
         UpdateEditSpeedControl(_editSpeed);
         _isRestoringSettings = false;
@@ -208,6 +209,15 @@ public sealed partial class MainWindow : Window
             overflowFlyout.Opening += OverflowMenu_Opening;
             overflowFlyout.Closed += (_, _) => ControlsFlyoutClosed();
         }
+
+        SpeedButtonFlyout.Opened += (_, _) => ControlsFlyoutOpened();
+        SpeedButtonFlyout.Closed += (_, _) => ControlsFlyoutClosed();
+        TracksButtonFlyout.Opening += TracksButtonFlyout_Opening;
+        TracksButtonFlyout.Opened += (_, _) => ControlsFlyoutOpened();
+        TracksButtonFlyout.Closed += (_, _) => ControlsFlyoutClosed();
+        SetButtonLabel(TracksButton, Strings.Get("Tracks_Button"));
+        SetButtonLabel(CopyFrameButton, Strings.Get("ContextMenu_CopyFrame"));
+        RootGrid.SizeChanged += (_, _) => UpdateControlBarButtons();
         NotificationBar.RegisterPropertyChangedCallback(InfoBar.IsOpenProperty, (_, _) =>
         {
             NotificationBar.Visibility = NotificationBar.IsOpen ? Visibility.Visible : Visibility.Collapsed;
@@ -693,6 +703,8 @@ public sealed partial class MainWindow : Window
             _mediaInfo = null;
             _externalSubtitleName = null;
             _externalSubtitleTrackId = -1;
+            _hasSelectableTracks = false;
+            UpdateControlBarButtons();
             _resumeAfterRestartSeek = false;
             _playbackFailedPath = null;
             _segments.Clear();
@@ -793,6 +805,7 @@ public sealed partial class MainWindow : Window
 
                 _isCompositionFileLoaded = true;
                 SchedulePostLoadCompositionResize();
+                RefreshSelectableTracks();
 
                 RefreshStatus();
             });
@@ -1663,13 +1676,16 @@ public sealed partial class MainWindow : Window
 
     private void UpdateSpeedMenu(double speed)
     {
-        foreach (var item in SpeedMenuItem.Items.OfType<ToggleMenuFlyoutItem>())
+        foreach (var item in SpeedMenuItem.Items.Concat(SpeedButtonFlyout.Items).OfType<ToggleMenuFlyoutItem>())
         {
             item.IsChecked = double.TryParse(item.Tag?.ToString(), CultureInfo.InvariantCulture, out var itemSpeed) &&
                 Math.Abs(itemSpeed - speed) < 0.001;
         }
 
-        SpeedMenuItem.Text = Strings.Format("PlaybackSpeed_Menu", speed.ToString("0.##", CultureInfo.InvariantCulture));
+        var speedText = speed.ToString("0.##", CultureInfo.InvariantCulture);
+        SpeedMenuItem.Text = Strings.Format("PlaybackSpeed_Menu", speedText);
+        SpeedButtonText.Text = $"{speedText}×";
+        SetButtonLabel(SpeedButton, SpeedMenuItem.Text);
     }
 
     private void UpdateEditSpeedControl(double speed)
@@ -2126,8 +2142,27 @@ public sealed partial class MainWindow : Window
         var languageGroup = new StackPanel { Spacing = 8 };
         languageGroup.Children.Add(languageLabel);
         languageGroup.Children.Add(languageBox);
+        var barRepeatBox = new CheckBox { Content = Strings.Get("Settings_BarRepeat"), IsChecked = _settings.ShowRepeatButton };
+        var barSpeedBox = new CheckBox { Content = Strings.Get("Settings_BarSpeed"), IsChecked = _settings.ShowSpeedButton };
+        var barTracksBox = new CheckBox { Content = Strings.Get("Settings_BarTracks"), IsChecked = _settings.ShowTracksButton };
+        var barCopyFrameBox = new CheckBox { Content = Strings.Get("Settings_BarCopyFrame"), IsChecked = _settings.ShowCopyFrameButton };
+        var barButtonsGroup = new StackPanel { Spacing = 2 };
+        barButtonsGroup.Children.Add(new TextBlock { Text = Strings.Get("Settings_BarButtonsHeader"), Margin = new Thickness(0, 0, 0, 4) });
+        barButtonsGroup.Children.Add(barRepeatBox);
+        barButtonsGroup.Children.Add(barSpeedBox);
+        barButtonsGroup.Children.Add(barTracksBox);
+        barButtonsGroup.Children.Add(barCopyFrameBox);
+        barButtonsGroup.Children.Add(new TextBlock
+        {
+            Text = Strings.Get("Settings_BarButtonsNote"),
+            FontSize = 12,
+            Foreground = GetSecondaryBrush(),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 4, 0, 0)
+        });
         var settingsPanel = new StackPanel { Spacing = 24, MinWidth = 360, Margin = new Thickness(0, 8, 0, 4) };
         settingsPanel.Children.Add(skipBox);
+        settingsPanel.Children.Add(barButtonsGroup);
         settingsPanel.Children.Add(frameSaveGroup);
         settingsPanel.Children.Add(languageGroup);
         var dialog = new ContentDialog
@@ -2179,6 +2214,11 @@ public sealed partial class MainWindow : Window
 
                 _settings.SkipSeconds = skipSeconds;
                 UpdateSkipLabels();
+                _settings.ShowRepeatButton = barRepeatBox.IsChecked == true;
+                _settings.ShowSpeedButton = barSpeedBox.IsChecked == true;
+                _settings.ShowTracksButton = barTracksBox.IsChecked == true;
+                _settings.ShowCopyFrameButton = barCopyFrameBox.IsChecked == true;
+                UpdateControlBarButtons();
                 var selectedLanguage = (languageBox.SelectedItem as ComboBoxItem)?.Tag as string ?? "";
                 var languageChanged = !string.Equals(_settings.Language, selectedLanguage, StringComparison.Ordinal);
                 _settings.Language = selectedLanguage;
@@ -4512,7 +4552,109 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void UpdateRepeatMenu() => RepeatMenuItem.Text = Strings.Get(_settings.Repeat ? "Repeat_On" : "Repeat_Off");
+    private void UpdateRepeatMenu()
+    {
+        RepeatMenuItem.Text = Strings.Get(_settings.Repeat ? "Repeat_On" : "Repeat_Off");
+        RepeatOnIndicator.Visibility = _settings.Repeat ? Visibility.Visible : Visibility.Collapsed;
+        SetButtonLabel(RepeatButton, RepeatMenuItem.Text);
+    }
+
+    private static void SetButtonLabel(Button button, string text)
+    {
+        ToolTipService.SetToolTip(button, text);
+        button.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, text);
+    }
+
+    private bool _hasSelectableTracks;
+
+    private void RefreshSelectableTracks()
+    {
+        try
+        {
+            var tracks = _player?.GetTracks().ToList() ?? new List<MpvTrack>();
+            _hasSelectableTracks = tracks.Count(track => track.Type == "audio") > 1 || tracks.Any(track => track.Type == "sub");
+        }
+        catch (Exception ex)
+        {
+            App.WriteErrorLog(ex);
+            _hasSelectableTracks = false;
+        }
+
+        UpdateControlBarButtons();
+    }
+
+    // Shows the optional buttons chosen in the settings. When the window is
+    // too narrow they leave the bar, lowest priority first. Whatever is not on
+    // the bar is offered in the overflow menu instead.
+    private void UpdateControlBarButtons()
+    {
+        const double LeftFixed = 172;
+        const double RightFixed = 262;
+        const double CenterAndMargins = 262 + 24 + 16;
+        var show = new[]
+        {
+            _settings.ShowCopyFrameButton,
+            _settings.ShowSpeedButton,
+            _settings.ShowRepeatButton,
+            _settings.ShowTracksButton && _hasSelectableTracks,
+            true // volume slider; the mute button stays
+        };
+        double Needed() =>
+            2 * Math.Max(
+                LeftFixed + (show[1] ? 56 : 0) + (show[2] ? 44 : 0) + (show[3] ? 44 : 0),
+                RightFixed + (show[0] ? 42 : 0) - (show[4] ? 0 : 94)) + CenterAndMargins;
+        var available = RootGrid.ActualWidth;
+        // Two passes: giving up the volume slider can make a left-side button the one to drop.
+        for (var step = 0; available > 0 && step < show.Length * 2; step++)
+        {
+            var i = step % show.Length;
+            var before = Needed();
+            if (!show[i] || before <= available)
+            {
+                continue;
+            }
+
+            show[i] = false;
+            if (Needed() >= before)
+            {
+                // This button is not on the side that is short of room.
+                show[i] = true;
+            }
+        }
+
+        static Visibility When(bool visible) => visible ? Visibility.Visible : Visibility.Collapsed;
+        CopyFrameButton.Visibility = When(show[0]);
+        CopyFrameMenuItem.Visibility = When(!show[0]);
+        SpeedButton.Visibility = When(show[1]);
+        SpeedMenuItem.Visibility = When(!show[1]);
+        RepeatButton.Visibility = When(show[2]);
+        RepeatMenuItem.Visibility = When(!show[2]);
+        TracksButton.Visibility = When(show[3]);
+        AudioSubMenu.Visibility = When(!show[3]);
+        SubtitleSubMenu.Visibility = When(!show[3]);
+        VolumeSlider.Visibility = When(show[4]);
+    }
+
+    private void TracksButtonFlyout_Opening(object? sender, object e)
+    {
+        var items = TracksButtonFlyout.Items;
+        items.Clear();
+        var audioItems = new List<MenuFlyoutItemBase>();
+        AddAudioItems(audioItems);
+        if (audioItems.Count > 1)
+        {
+            items.Add(new MenuFlyoutItem { Text = Strings.Get("Menu_Audio"), IsEnabled = false });
+            foreach (var item in audioItems)
+            {
+                items.Add(item);
+            }
+
+            items.Add(new MenuFlyoutSeparator());
+        }
+
+        items.Add(new MenuFlyoutItem { Text = Strings.Get("Menu_Subtitles"), IsEnabled = false });
+        AddSubtitleItems(items);
+    }
 
     private void RepeatMenuItem_Click(object sender, RoutedEventArgs e)
     {
@@ -4561,6 +4703,11 @@ public sealed partial class MainWindow : Window
     private void BuildAudioMenu()
     {
         AudioSubMenu.Items.Clear();
+        AddAudioItems(AudioSubMenu.Items);
+    }
+
+    private void AddAudioItems(IList<MenuFlyoutItemBase> target)
+    {
         var toggleStyle = GetToggleMenuStyle();
         List<MpvTrack> tracks = new();
         if (_player is not null)
@@ -4577,7 +4724,7 @@ public sealed partial class MainWindow : Window
 
         if (tracks.Count == 0)
         {
-            AudioSubMenu.Items.Add(new MenuFlyoutItem { Text = Strings.Get("Audio_None"), IsEnabled = false });
+            target.Add(new MenuFlyoutItem { Text = Strings.Get("Audio_None"), IsEnabled = false });
             return;
         }
 
@@ -4595,7 +4742,7 @@ public sealed partial class MainWindow : Window
             }
 
             item.Click += AudioTrackMenuItem_Click;
-            AudioSubMenu.Items.Add(item);
+            target.Add(item);
         }
     }
 
@@ -4621,6 +4768,11 @@ public sealed partial class MainWindow : Window
     private void BuildSubtitleMenu()
     {
         SubtitleSubMenu.Items.Clear();
+        AddSubtitleItems(SubtitleSubMenu.Items);
+    }
+
+    private void AddSubtitleItems(IList<MenuFlyoutItemBase> target)
+    {
         var toggleStyle = GetToggleMenuStyle();
         List<MpvTrack> tracks = new();
         if (_player is not null)
@@ -4647,7 +4799,7 @@ public sealed partial class MainWindow : Window
         }
 
         offItem.Click += SubtitleTrackMenuItem_Click;
-        SubtitleSubMenu.Items.Add(offItem);
+        target.Add(offItem);
         foreach (var track in tracks)
         {
             var item = new ToggleMenuFlyoutItem
@@ -4662,15 +4814,13 @@ public sealed partial class MainWindow : Window
             }
 
             item.Click += SubtitleTrackMenuItem_Click;
-            SubtitleSubMenu.Items.Add(item);
+            target.Add(item);
         }
 
-        SubtitleSubMenu.Items.Add(new MenuFlyoutSeparator());
-        SubtitleSubMenu.Items.Add(new MenuFlyoutItem { Text = Strings.Get("Subtitle_OpenFile") });
-        if (SubtitleSubMenu.Items[^1] is MenuFlyoutItem openItem)
-        {
-            openItem.Click += SubtitleOpenFileMenuItem_Click;
-        }
+        target.Add(new MenuFlyoutSeparator());
+        var openItem = new MenuFlyoutItem { Text = Strings.Get("Subtitle_OpenFile") };
+        openItem.Click += SubtitleOpenFileMenuItem_Click;
+        target.Add(openItem);
     }
 
     private void SubtitleTrackMenuItem_Click(object sender, RoutedEventArgs e)
@@ -4732,6 +4882,7 @@ public sealed partial class MainWindow : Window
             player.AddSubtitleFile(file.Path);
             _externalSubtitleName = Path.GetFileName(file.Path);
             _externalSubtitleTrackId = player.GetTracks().FirstOrDefault(track => track.Type == "sub" && track.Selected)?.Id ?? -1;
+            RefreshSelectableTracks();
         }
         catch (Exception ex)
         {

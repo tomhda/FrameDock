@@ -687,4 +687,25 @@
   <data name="Properties_CopyValueName" xml:space="preserve">
     <value>{0} をコピー</value>
   </data>
+  <data name="Tracks_Button" xml:space="preserve">
+    <value>音声と字幕</value>
+  </data>
+  <data name="Settings_BarButtonsHeader" xml:space="preserve">
+    <value>操作バーに表示するボタン</value>
+  </data>
+  <data name="Settings_BarButtonsNote" xml:space="preserve">
+    <value>オフにしたものは「その他の操作」から使えます。</value>
+  </data>
+  <data name="Settings_BarRepeat" xml:space="preserve">
+    <value>リピート</value>
+  </data>
+  <data name="Settings_BarSpeed" xml:space="preserve">
+    <value>再生速度</value>
+  </data>
+  <data name="Settings_BarTracks" xml:space="preserve">
+    <value>音声と字幕（切り替えられる動画でのみ表示）</value>
+  </data>
+  <data name="Settings_BarCopyFrame" xml:space="preserve">
+    <value>フレームをコピー</value>
+  </data>
 </root>

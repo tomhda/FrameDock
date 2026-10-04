@@ -33,6 +33,10 @@ internal sealed class PlayerSettings
     public FrameSaveLocation FrameSaveLocation { get; set; } = FrameSaveLocation.Pictures;
     public string FrameSaveFolder { get; set; } = "";
     public string FrameSaveSubfolder { get; set; } = DefaultFrameSaveSubfolder;
+    public bool ShowRepeatButton { get; set; } = true;
+    public bool ShowSpeedButton { get; set; } = true;
+    public bool ShowTracksButton { get; set; } = true;
+    public bool ShowCopyFrameButton { get; set; }
 
     internal static bool IsValidFolderName(string? name)
     {
