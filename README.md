@@ -2,6 +2,10 @@
 
 [日本語](README.ja.md)
 
+## [⬇ Download (installer for Windows x64, 147 MB)](https://github.com/tomhda/FrameDock/releases/download/v1.0.0/FrameDock-Setup-1.0.0-win-x64.exe)
+
+Version 1.0.0. See [Install](#install) for the steps.
+
 FrameDock is a video player for Windows, made to add what the built-in Media Player app lacks.
 
 It is designed to feel like the built-in app, so you can use it without learning anything new.
@@ -55,7 +59,7 @@ The screenshots show [*Tears of Steel*](https://mango.blender.org/), (CC) Blende
 
 FrameDock runs on Windows 10 version 2004 (build 19041) or later and Windows 11, x64.
 
-1. Download `FrameDock-Setup-<version>-win-x64.exe` from the [Releases](../../releases) page.
+1. Download [`FrameDock-Setup-1.0.0-win-x64.exe`](https://github.com/tomhda/FrameDock/releases/download/v1.0.0/FrameDock-Setup-1.0.0-win-x64.exe). Earlier versions and the source of the bundled binaries are on the [Releases](../../releases) page.
 2. Run it. The setup is not code-signed, so Windows SmartScreen may show "Windows protected your PC". Select **More info**, then **Run anyway**.
 3. Follow the setup. It installs for the current user into `%LOCALAPPDATA%\Programs\FrameDock` and needs no administrator rights.
 

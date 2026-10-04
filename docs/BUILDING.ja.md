@@ -53,6 +53,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-source-bundle.
 
 同梱バイナリと同じコミットの FFmpeg、x264、mpv のソースアーカイブを取得し、SHA-256 を確認して `artifacts\sources` に書き出します。`SOURCES.md`、FFmpeg ビルドの `README.txt`、`SHA256SUMS.txt` も同じ場所に入ります。このフォルダーのファイルをすべて、セットアップ EXE と一緒にリリースへ添付します。内容の説明は [SOURCES.md](SOURCES.md) にあります。
 
+リリースを公開したら、`README.md` と `README.ja.md` にあるダウンロードリンク（冒頭と「インストール」の節）のバージョンを新しいものに書き換えます。
+
 固定している FFmpeg または mpv のビルドを変更したときは、`tools\build-source-bundle.ps1` と `docs\SOURCES.md` のコミットとハッシュも更新します。
 
 ## テスト

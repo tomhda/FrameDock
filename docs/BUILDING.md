@@ -56,6 +56,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-source-bundle.
 
 This downloads the FFmpeg, x264, and mpv source archives at the exact commits of the bundled binaries, checks their SHA-256 hashes, and writes them to `artifacts\sources` with `SOURCES.md`, the FFmpeg build's `README.txt`, and `SHA256SUMS.txt`. Attach every file in that folder to the release next to the setup executable. [SOURCES.md](SOURCES.md) describes the contents.
 
+After publishing a release, update the version in the download links of `README.md` and `README.ja.md` (at the top and in the install section).
+
 When the pinned FFmpeg or mpv build changes, update the commits and hashes in `tools\build-source-bundle.ps1` and in `docs\SOURCES.md`.
 
 ## Tests

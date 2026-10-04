@@ -2,6 +2,10 @@
 
 [English](README.md)
 
+## [⬇ ダウンロード（Windows x64 用インストーラー、147 MB）](https://github.com/tomhda/FrameDock/releases/download/v1.0.0/FrameDock-Setup-1.0.0-win-x64.exe)
+
+バージョン 1.0.0。手順は [インストール](#インストール) にあります。
+
 FrameDock は、Windows 標準の動画再生アプリ（メディア プレーヤー）に足りない機能を補う目的で作った動画プレイヤーです。
 
 なるべく Windows 標準アプリそのままの感覚で、学習無しで使えることを意識して作成しました。
@@ -55,7 +59,7 @@ FrameDock は、Windows 標準の動画再生アプリ（メディア プレー�
 
 Windows 10 バージョン 2004（ビルド 19041）以降、または Windows 11 の x64 で動作します。
 
-1. [Releases](../../releases) から `FrameDock-Setup-<バージョン>-win-x64.exe` をダウンロードします。
+1. [`FrameDock-Setup-1.0.0-win-x64.exe`](https://github.com/tomhda/FrameDock/releases/download/v1.0.0/FrameDock-Setup-1.0.0-win-x64.exe) をダウンロードします。過去のバージョンと同梱バイナリのソースは [Releases](../../releases) にあります。
 2. 実行します。セットアップはコード署名をしていないため、Windows SmartScreen が「Windows によって PC が保護されました」と表示する場合があります。**詳細情報** を選び、**実行** を選びます。
 3. 画面に従って進めます。現在のユーザー用に `%LOCALAPPDATA%\Programs\FrameDock` へインストールし、管理者権限は不要です。
 
