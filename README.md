@@ -10,7 +10,7 @@ Besides ordinary playback, it skips 10 seconds forward or back (the interval is 
 
 It also has simple editing features: you can trim, crop, rotate, zoom, change speed, and split without starting a separate video editor.
 
-![Playback with the controls hidden](docs/images/playback.jpg)
+![Playback with the controls shown](docs/images/playback-controls.jpg)
 
 ## What it does
 
@@ -31,11 +31,19 @@ It also has simple editing features: you can trim, crop, rotate, zoom, change sp
 
 ## Screenshots
 
-In the maximized window and in full screen the control bar is hidden, and it appears when you move the pointer to the bottom of the window.
+In the maximized window mode and in full screen the control bar is hidden, and it appears when you move the pointer to the bottom of the window.
+
+With the control bar hidden:
+
+![Playback with the controls hidden](docs/images/playback.jpg)
+
+Moving the pointer to the bottom of the window shows the control bar. It does not appear while the pointer is anywhere else.
 
 ![Playback with the controls shown](docs/images/playback-controls.jpg)
 
-The control bar has buttons for repeat and the playback speed. For a video with audio tracks or subtitles to choose from, it also shows an audio and subtitles button. "Edit and more" (the **…** button) opens the menu for copying a frame, the editor, picture adjustment, the display mode, the properties, and the settings. The video in this image has one audio track and no subtitles, so audio and subtitles are in the menu.
+By default the control bar has buttons for repeat and the playback speed. For a video with audio tracks or subtitles to choose from, it also shows an audio and subtitles button. You can choose which buttons the control bar shows.
+
+"Edit and more" (the **…** button) opens the menu for copying a frame, the editor, picture adjustment, the display mode, the properties, and the settings. (The video in this image has one audio track and no subtitles, so audio and subtitles are in the menu.)
 
 ![The menu](docs/images/menu-en.jpg)
 
