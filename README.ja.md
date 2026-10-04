@@ -2,9 +2,7 @@
 
 [English](README.md)
 
-## [⬇ ダウンロード（Windows x64 用インストーラー、147 MB）](https://github.com/tomhda/FrameDock/releases/download/v1.0.0/FrameDock-Setup-1.0.0-win-x64.exe)
-
-バージョン 1.0.0。手順は [インストール](#インストール) にあります。
+**[⬇ FrameDock 1.0.0 をダウンロード](https://github.com/tomhda/FrameDock/releases/download/v1.0.0/FrameDock-Setup-1.0.0-win-x64.exe)**（Windows x64 用インストーラー、147 MB）。手順は [インストール](#インストール) にあります。
 
 FrameDock は、Windows 標準の動画再生アプリ（メディア プレーヤー）に足りない機能を補う目的で作った動画プレイヤーです。
 

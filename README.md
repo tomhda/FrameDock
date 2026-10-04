@@ -2,9 +2,7 @@
 
 [日本語](README.ja.md)
 
-## [⬇ Download (installer for Windows x64, 147 MB)](https://github.com/tomhda/FrameDock/releases/download/v1.0.0/FrameDock-Setup-1.0.0-win-x64.exe)
-
-Version 1.0.0. See [Install](#install) for the steps.
+**[⬇ Download FrameDock 1.0.0](https://github.com/tomhda/FrameDock/releases/download/v1.0.0/FrameDock-Setup-1.0.0-win-x64.exe)** (installer for Windows x64, 147 MB). See [Install](#install) for the steps.
 
 FrameDock is a video player for Windows, made to add what the built-in Media Player app lacks.
 
