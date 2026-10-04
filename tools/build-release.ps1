@@ -90,6 +90,8 @@ if ($LASTEXITCODE -ne 0 -or $sdkText -notmatch '^8\.') {
 
 New-Item -ItemType Directory -Path $outputPath -Force | Out-Null
 Assert-NoReparsePath -Path $outputPath
+# Files left by an earlier build, for example under a previous assembly name, must not end up in the setup.
+Get-ChildItem -LiteralPath $outputPath -Force | Remove-Item -Recurse -Force
 Write-Host 'Release の古い中間生成物を clean します。'
 & $dotnet.Source clean $projectPath -c Release --verbosity quiet
 if ($LASTEXITCODE -ne 0) {
