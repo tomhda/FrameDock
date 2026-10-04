@@ -19,6 +19,7 @@ It also has simple editing features: you can trim, crop, rotate, zoom, change sp
 - Saves the current frame as a PNG, or copies it to the clipboard.
 - Switches audio tracks and subtitles, repeats a video, and adjusts brightness, contrast, saturation, and hue for playback.
 - Shows the properties of a video (resolution, frame rate, codec, bit rate, and more) and copies them as text.
+- Lets you choose in the settings which buttons the control bar shows.
 - Offers a normal window, a maximized window, and full screen, and keeps the play button and other bars from covering the video where it can.
 - Provides simple video editing without switching to another app.
 - Trims a range you choose.
@@ -34,7 +35,7 @@ In the maximized window and in full screen the control bar is hidden, and it app
 
 ![Playback with the controls shown](docs/images/playback-controls.jpg)
 
-The control bar has buttons for repeat and the playback speed. For a video with audio tracks or subtitles to choose from, it also shows an audio and subtitles button. "Edit and more" (the **…** button) opens the menu for copying a frame, the editor, picture adjustment, the display mode, the properties, and the settings.
+The control bar has buttons for repeat and the playback speed. For a video with audio tracks or subtitles to choose from, it also shows an audio and subtitles button. "Edit and more" (the **…** button) opens the menu for copying a frame, the editor, picture adjustment, the display mode, the properties, and the settings. The video in this image has one audio track and no subtitles, so audio and subtitles are in the menu.
 
 ![The menu](docs/images/menu-en.jpg)
 
@@ -74,7 +75,7 @@ The setup contains everything FrameDock needs and downloads nothing. A desktop i
 - The camera button (Ctrl+S) saves the current frame as a PNG. The file name contains the video name and the playback time, and an existing file is never overwritten.
 - While the editor is open, the camera button next to the play button (Ctrl+S) saves the frame as you see it, with the crop, rotation, and zoom applied, at the same size as the export.
 - A notification shows the full path, with an **Open folder** button.
-- Right-click the video to copy the current frame to the clipboard.
+- "Edit and more" → **Copy frame**, or a right-click on the video, copies the current frame to the clipboard. The settings can also put a copy button on the control bar.
 - **Settings** chooses where frames go: `Pictures\FrameDock` (the default), a folder you choose, the folder of the video, or a subfolder next to the video. If that location can't be written to, the frame is saved to `Pictures\FrameDock`.
 
 ### Edit and export
