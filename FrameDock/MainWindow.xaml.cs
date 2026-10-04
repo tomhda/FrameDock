@@ -693,6 +693,7 @@ public sealed partial class MainWindow : Window
             _mediaInfo = null;
             _externalSubtitleName = null;
             _externalSubtitleTrackId = -1;
+            _resumeAfterRestartSeek = false;
             _playbackFailedPath = null;
             _segments.Clear();
             _currentSegmentIndex = -1;
@@ -864,8 +865,27 @@ public sealed partial class MainWindow : Window
 
     }
 
+    private bool _resumeAfterRestartSeek;
+
     private void RefreshStatus()
     {
+        if (_resumeAfterRestartSeek && _player is { } restartedPlayer)
+        {
+            try
+            {
+                if (!restartedPlayer.GetFlag("eof-reached"))
+                {
+                    _resumeAfterRestartSeek = false;
+                    restartedPlayer.SetPaused(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                _resumeAfterRestartSeek = false;
+                App.WriteErrorLog(ex);
+            }
+        }
+
         if (_player is null)
         {
             return;
@@ -964,7 +984,19 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            _player?.TogglePause();
+            if (_player is { } player && player.GetFlag("pause") && player.GetFlag("eof-reached"))
+            {
+                // Stopped at the end of the file: Play starts over instead of doing nothing.
+                // Unpausing only sticks once the seek has left the end of the file,
+                // so RefreshStatus resumes playback on a later tick.
+                player.SeekAbsolute(EditorPanel.Visibility == Visibility.Visible ? GetEditorRangeStart() : 0);
+                _resumeAfterRestartSeek = true;
+            }
+            else
+            {
+                _player?.TogglePause();
+            }
+
             RefreshStatus();
         }
         catch (Exception ex)
@@ -4836,6 +4868,8 @@ public sealed partial class MainWindow : Window
                 Value = get(),
                 Tag = key
             };
+            // Screen readers need the label; the slider itself has no text.
+            slider.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, Strings.Get(labelKey));
             slider.ValueChanged += (_, args) =>
             {
                 try
