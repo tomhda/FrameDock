@@ -694,7 +694,7 @@
     <value>Buttons on the control bar</value>
   </data>
   <data name="Settings_BarButtonsNote" xml:space="preserve">
-    <value>Buttons you turn off stay available under "Edit and more".</value>
+    <value>"Audio and subtitles" appears only for videos that have tracks to choose from. Buttons you turn off stay available under "Edit and more".</value>
   </data>
   <data name="Settings_BarRepeat" xml:space="preserve">
     <value>Repeat</value>
@@ -703,7 +703,7 @@
     <value>Playback speed</value>
   </data>
   <data name="Settings_BarTracks" xml:space="preserve">
-    <value>Audio and subtitles (shown only for videos that have them)</value>
+    <value>Audio and subtitles</value>
   </data>
   <data name="Settings_BarCopyFrame" xml:space="preserve">
     <value>Copy frame</value>

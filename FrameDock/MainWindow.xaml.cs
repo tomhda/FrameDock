@@ -2046,9 +2046,17 @@ public sealed partial class MainWindow : Window
 
     private async void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
+        // Section titles are heavier than the options under them, and a rule
+        // separates the sections.
+        static TextBlock SectionTitle(string key) => new()
+        {
+            Text = Strings.Get(key),
+            FontSize = 15,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 4)
+        };
         var skipBox = new NumberBox
         {
-            Header = Strings.Get("Settings_SkipHeader"),
             Minimum = 1,
             Maximum = 600,
             Value = _settings.SkipSeconds,
@@ -2057,10 +2065,8 @@ public sealed partial class MainWindow : Window
             Width = 160,
             HorizontalAlignment = HorizontalAlignment.Left
         };
-        var languageLabel = new TextBlock
-        {
-            Text = Strings.Get("Settings_LanguageHeader")
-        };
+        skipBox.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, Strings.Get("Settings_SkipHeader"));
+        var languageLabel = SectionTitle("Settings_LanguageHeader");
         var languageBox = new ComboBox { MinWidth = 280 };
         languageBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_LanguageSystem"), Tag = "" });
         languageBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_LanguageJapanese"), Tag = "ja-JP" });
@@ -2071,10 +2077,7 @@ public sealed partial class MainWindow : Window
             "en-US" => 2,
             _ => 0
         };
-        var frameSaveLabel = new TextBlock
-        {
-            Text = Strings.Get("Settings_FrameSaveHeader")
-        };
+        var frameSaveLabel = SectionTitle("Settings_FrameSaveHeader");
         var frameSaveBox = new ComboBox { MinWidth = 280 };
         frameSaveBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_FrameSavePictures"), Tag = FrameSaveLocation.Pictures });
         frameSaveBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_FrameSaveCustom"), Tag = FrameSaveLocation.CustomFolder });
@@ -2134,37 +2137,62 @@ public sealed partial class MainWindow : Window
         frameSaveBox.SelectionChanged += (_, _) => UpdateFrameSaveFields();
         UpdateFrameSaveFields();
         // Each setting keeps its label close; settings are spaced apart from each other.
-        var frameSaveGroup = new StackPanel { Spacing = 8 };
+        var frameSaveGroup = new StackPanel { Spacing = 10 };
         frameSaveGroup.Children.Add(frameSaveLabel);
         frameSaveGroup.Children.Add(frameSaveBox);
         frameSaveGroup.Children.Add(frameSaveFolderRow);
         frameSaveGroup.Children.Add(frameSaveSubfolderBox);
-        var languageGroup = new StackPanel { Spacing = 8 };
+        var languageGroup = new StackPanel { Spacing = 10 };
         languageGroup.Children.Add(languageLabel);
         languageGroup.Children.Add(languageBox);
         var barRepeatBox = new CheckBox { Content = Strings.Get("Settings_BarRepeat"), IsChecked = _settings.ShowRepeatButton };
         var barSpeedBox = new CheckBox { Content = Strings.Get("Settings_BarSpeed"), IsChecked = _settings.ShowSpeedButton };
         var barTracksBox = new CheckBox { Content = Strings.Get("Settings_BarTracks"), IsChecked = _settings.ShowTracksButton };
         var barCopyFrameBox = new CheckBox { Content = Strings.Get("Settings_BarCopyFrame"), IsChecked = _settings.ShowCopyFrameButton };
-        var barButtonsGroup = new StackPanel { Spacing = 2 };
-        barButtonsGroup.Children.Add(new TextBlock { Text = Strings.Get("Settings_BarButtonsHeader"), Margin = new Thickness(0, 0, 0, 4) });
-        barButtonsGroup.Children.Add(barRepeatBox);
-        barButtonsGroup.Children.Add(barSpeedBox);
-        barButtonsGroup.Children.Add(barTracksBox);
-        barButtonsGroup.Children.Add(barCopyFrameBox);
+        var barButtonsGroup = new StackPanel { Spacing = 6 };
+        barButtonsGroup.Children.Add(SectionTitle("Settings_BarButtonsHeader"));
+        // Two columns keep the dialog short enough to show every section at once.
+        var barButtonsGrid = new Grid { ColumnSpacing = 16, RowSpacing = 6 };
+        barButtonsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        barButtonsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        barButtonsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        barButtonsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var barBoxes = new[] { barRepeatBox, barSpeedBox, barTracksBox, barCopyFrameBox };
+        for (var i = 0; i < barBoxes.Length; i++)
+        {
+            Grid.SetRow(barBoxes[i], i / 2);
+            Grid.SetColumn(barBoxes[i], i % 2);
+            barButtonsGrid.Children.Add(barBoxes[i]);
+        }
+
+        barButtonsGroup.Children.Add(barButtonsGrid);
         barButtonsGroup.Children.Add(new TextBlock
         {
             Text = Strings.Get("Settings_BarButtonsNote"),
             FontSize = 12,
             Foreground = GetSecondaryBrush(),
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 4, 0, 0)
+            Margin = new Thickness(0, 6, 0, 0)
         });
-        var settingsPanel = new StackPanel { Spacing = 24, MinWidth = 360, Margin = new Thickness(0, 8, 0, 4) };
-        settingsPanel.Children.Add(skipBox);
-        settingsPanel.Children.Add(barButtonsGroup);
-        settingsPanel.Children.Add(frameSaveGroup);
-        settingsPanel.Children.Add(languageGroup);
+        var skipGroup = new StackPanel { Spacing = 10 };
+        skipGroup.Children.Add(SectionTitle("Settings_SkipHeader"));
+        skipGroup.Children.Add(skipBox);
+        var settingsPanel = new StackPanel { MinWidth = 400, Margin = new Thickness(0, 12, 0, 8) };
+        foreach (var group in new[] { skipGroup, barButtonsGroup, frameSaveGroup, languageGroup })
+        {
+            if (settingsPanel.Children.Count > 0)
+            {
+                settingsPanel.Children.Add(new Border
+                {
+                    Height = 1,
+                    Margin = new Thickness(0, 22, 0, 22),
+                    Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0x33, 0x80, 0x80, 0x80))
+                });
+            }
+
+            settingsPanel.Children.Add(group);
+        }
+
         var dialog = new ContentDialog
         {
             Title = Strings.Get("Settings_Title"),
