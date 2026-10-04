@@ -5269,6 +5269,7 @@ public sealed partial class MainWindow : Window
         // A shared minimum keeps the values aligned from one section to the next.
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, MinWidth = 104 });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         for (var i = 0; i < rows.Count; i++)
         {
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -5284,13 +5285,60 @@ public sealed partial class MainWindow : Window
             };
             Grid.SetRow(value, i);
             Grid.SetColumn(value, 1);
+            var copyButton = CreatePropertyCopyButton(rows[i].Name, rows[i].Value);
+            Grid.SetRow(copyButton, i);
+            Grid.SetColumn(copyButton, 2);
             grid.Children.Add(name);
             grid.Children.Add(value);
+            grid.Children.Add(copyButton);
             copyLines.Add($"{rows[i].Name}: {rows[i].Value}");
         }
 
         section.Children.Add(grid);
         parent.Children.Add(section);
+    }
+
+    private static Button CreatePropertyCopyButton(string name, string value)
+    {
+        const string CopyGlyph = "\uE8C8";
+        const string DoneGlyph = "\uE73E";
+        var icon = new FontIcon { Glyph = CopyGlyph, FontSize = 12 };
+        var button = new Button
+        {
+            Content = icon,
+            Width = 28,
+            Height = 24,
+            MinWidth = 0,
+            Padding = new Thickness(0),
+            Margin = new Thickness(0, -2, 0, 0),
+            VerticalAlignment = VerticalAlignment.Top,
+            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            BorderThickness = new Thickness(0),
+            Foreground = GetSecondaryBrush()
+        };
+        ToolTipService.SetToolTip(button, Strings.Get("Properties_CopyValue"));
+        button.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, Strings.Format("Properties_CopyValueName", name));
+        button.Click += (_, _) =>
+        {
+            try
+            {
+                var package = new DataPackage();
+                package.SetText(value);
+                Clipboard.SetContent(package);
+                // The check mark confirms the copy without a separate notification.
+                icon.Glyph = DoneGlyph;
+                var timer = button.DispatcherQueue.CreateTimer();
+                timer.Interval = TimeSpan.FromSeconds(1.5);
+                timer.IsRepeating = false;
+                timer.Tick += (_, _) => icon.Glyph = CopyGlyph;
+                timer.Start();
+            }
+            catch (Exception ex)
+            {
+                App.WriteErrorLog(ex);
+            }
+        };
+        return button;
     }
 
     private static string FormatFileSize(long bytes)

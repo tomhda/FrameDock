@@ -65,7 +65,7 @@ The setup contains everything FrameDock needs and downloads nothing. A desktop i
 - "Edit and more" → **Repeat** turns repeating the video on or off.
 - "Edit and more" → **Audio** / **Subtitles** switch between the tracks in the video. **Open subtitle file…** loads subtitles from a separate file.
 - "Edit and more" → **Adjust picture…** changes brightness, contrast, saturation, and hue. It applies to playback only, not to editing, exports, or saved frames, and returns to normal when FrameDock closes.
-- "Edit and more" → **Properties…** shows information about the file, the video, and the audio. **Copy all** copies it as text.
+- "Edit and more" → **Properties…** shows information about the file, the video, and the audio. The button at the end of each row copies that value, and **Copy all** copies everything as text.
 - The title bar shows the file name of the open video.
 
 ### Save a frame
