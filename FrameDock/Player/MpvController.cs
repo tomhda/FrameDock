@@ -198,6 +198,56 @@ internal sealed class MpvController : IDisposable
         SetProperty("mute", muted ? "yes" : "no");
     }
 
+    public void SetRepeat(bool repeat) => SetProperty("loop-file", repeat ? "inf" : "no");
+
+    public void SetBrightness(double value) => SetPictureValue("brightness", value);
+
+    public void SetContrast(double value) => SetPictureValue("contrast", value);
+
+    public void SetSaturation(double value) => SetPictureValue("saturation", value);
+
+    public void SetHue(double value) => SetPictureValue("hue", value);
+
+    public void SetAudioTrack(long? id) => SetProperty("aid", id.HasValue ? id.Value.ToString(CultureInfo.InvariantCulture) : "no");
+
+    public void SetSubtitleTrack(long? id) => SetProperty("sid", id.HasValue ? id.Value.ToString(CultureInfo.InvariantCulture) : "no");
+
+    public void AddSubtitleFile(string path)
+    {
+        ThrowIfDisposed();
+        Execute("sub-add", Path.GetFullPath(path), "select");
+    }
+
+    public IReadOnlyList<MpvTrack> GetTracks()
+    {
+        ThrowIfDisposed();
+        var count = GetInt64("track-list/count") ?? (long?)GetNumber("track-list/count") ?? 0;
+        var total = (int)Math.Clamp(count, 0, 64);
+        var tracks = new List<MpvTrack>(total);
+        for (var index = 0; index < total; index++)
+        {
+            var prefix = $"track-list/{index}";
+            var type = GetString($"{prefix}/type") ?? string.Empty;
+            if (!string.Equals(type, "audio", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(type, "sub", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(type, "video", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var id = GetInt64($"{prefix}/id") ?? (long?)GetNumber($"{prefix}/id");
+            tracks.Add(new MpvTrack(
+                id ?? -1,
+                type.ToLowerInvariant(),
+                GetString($"{prefix}/lang"),
+                GetString($"{prefix}/title"),
+                GetString($"{prefix}/codec"),
+                GetFlag($"{prefix}/selected")));
+        }
+
+        return tracks;
+    }
+
     public bool GetFlag(string name)
     {
         ThrowIfDisposed();
@@ -210,6 +260,15 @@ internal sealed class MpvController : IDisposable
         ThrowIfDisposed();
         var value = 0d;
         return MpvNative.mpv_get_property(_handle, name, MpvNative.FormatDouble, ref value) >= 0 && double.IsFinite(value)
+            ? value
+            : null;
+    }
+
+    public long? GetInt64(string name)
+    {
+        ThrowIfDisposed();
+        long value = 0;
+        return MpvNative.mpv_get_property(_handle, name, MpvNative.FormatInt64, ref value) >= 0
             ? value
             : null;
     }
@@ -270,6 +329,17 @@ internal sealed class MpvController : IDisposable
         }
 
         return fullPath;
+    }
+
+    private void SetPictureValue(string name, double value)
+    {
+        ThrowIfDisposed();
+        if (!double.IsFinite(value) || value is < -100 or > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(value));
+        }
+
+        SetProperty(name, value.ToString("0.##", CultureInfo.InvariantCulture));
     }
 
     private void SetProperty(string name, string value)
@@ -478,6 +548,8 @@ internal sealed class MpvController : IDisposable
         public int PlaylistInsertNumEntries;
     }
 }
+
+internal sealed record MpvTrack(long Id, string Type, string? Lang, string? Title, string? Codec, bool Selected);
 
 internal static class MpvNative
 {

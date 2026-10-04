@@ -69,6 +69,29 @@ internal static class Program
             Assert(string.Equals(info.VideoCodec, "h264", StringComparison.OrdinalIgnoreCase), "video codec should be detected");
             AssertContainer(info, ExportContainer.Mp4, "fixture");
             Pass("ffprobe reads dimensions, SAR, rotation, duration, codecs, and audio");
+            Assert(info.FrameRate.HasValue && Math.Abs(info.FrameRate.Value - 30) < 0.01, $"frame rate should be 30 fps, got {info.FrameRate}");
+            Assert(info.AudioChannels == 1, $"audio channels should be 1, got {info.AudioChannels}");
+            Assert(info.AudioSampleRate == 48000, $"audio sample rate should be 48000, got {info.AudioSampleRate}");
+            Assert(info.AudioStreamCount == 1, $"audio stream count should be 1, got {info.AudioStreamCount}");
+            Assert(info.SubtitleStreamCount == 0, $"subtitle stream count should be 0, got {info.SubtitleStreamCount}");
+            Assert(info.FileSizeBytes.HasValue && info.FileSizeBytes.Value == new FileInfo(source).Length, $"file size should match the fixture bytes, got {info.FileSizeBytes}");
+            Pass("ffprobe reads frame rate, audio channels, sample rate, stream counts, and file size");
+            var editorFrame = Path.Combine(testRoot, "editor-frame.png");
+            await service.ExportFrameAsync(source, editorFrame, 2.0, new CropRect(0, 0, 48, 64), 90, 1.0, 0.5, 0.5);
+            Assert(File.Exists(editorFrame), "editor frame save should create a PNG");
+            var editorFrameSize = await ReadImageDimensionsAsync(ffprobePath, editorFrame);
+            Assert(editorFrameSize == (64, 48), $"a 48x64 display-space crop with an extra 90 degree rotation should save 64x48 pixels, got {editorFrameSize}");
+            var editorFramePixel = await ReadFirstFramePixelAsync(ffmpegPath, editorFrame, 32, 24, testRoot);
+            Assert(editorFramePixel.G > editorFramePixel.R * 1.5 && editorFramePixel.G > editorFramePixel.B * 1.5,
+                $"the crop-then-rotate frame should keep the oriented green quadrant, got RGB {editorFramePixel.R},{editorFramePixel.G},{editorFramePixel.B}");
+            var zoomFrame = Path.Combine(testRoot, "zoom-frame.png");
+            await service.ExportFrameAsync(source, zoomFrame, 2.0, null, 0, 2.0, 0.5, 0.5);
+            var zoomFrameSize = await ReadImageDimensionsAsync(ffprobePath, zoomFrame);
+            Assert(zoomFrameSize == (96, 214), $"a 2x zoom frame should keep the 96x214 export canvas, got {zoomFrameSize}");
+            var zoomFramePixel = await ReadFirstFramePixelAsync(ffmpegPath, zoomFrame, 20, 20, testRoot);
+            Assert(zoomFramePixel.G > zoomFramePixel.R * 1.5 && zoomFramePixel.G > zoomFramePixel.B * 1.5,
+                $"the zoomed frame should magnify the oriented green quadrant, got RGB {zoomFramePixel.R},{zoomFramePixel.G},{zoomFramePixel.B}");
+            Pass("editor frame save matches the export filter for crop, rotation, and zoom sizes and pixels");
 
             var specialOutput = Path.Combine(testRoot, "clip 日本 & ; ' first.mp4");
             var sourceHash = await HashFileAsync(source);
@@ -954,6 +977,40 @@ internal static class Program
 
         offset += (y * width + x) * 3;
         return (bytes[offset], bytes[offset + 1], bytes[offset + 2]);
+    }
+
+    private static async Task<(int Width, int Height)> ReadImageDimensionsAsync(string ffprobePath, string imagePath)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = ffprobePath,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        foreach (var argument in new[]
+        {
+            "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "json", imagePath
+        })
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("could not start ffprobe");
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        var output = await outputTask;
+        var error = await errorTask;
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"ffprobe exited {process.ExitCode}: {error}");
+        }
+
+        using var document = JsonDocument.Parse(output);
+        var stream = document.RootElement.GetProperty("streams").EnumerateArray().First();
+        return (stream.GetProperty("width").GetInt32(), stream.GetProperty("height").GetInt32());
     }
 
     private static async Task<double> ReadStreamDurationAsync(string ffprobePath, string videoPath, string selector)

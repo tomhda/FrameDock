@@ -199,6 +199,154 @@ public sealed class MediaExportService
         }
     }
 
+    public async Task<string> ExportFrameAsync(
+        string sourcePath,
+        string destinationPath,
+        double timeSeconds,
+        CropRect? crop,
+        int additionalRotationDegreesClockwise,
+        double zoomFactor,
+        double zoomFocusX,
+        double zoomFocusY,
+        CancellationToken cancellationToken = default)
+    {
+        var source = NormalizeExistingFile(sourcePath, Messages.Get("Error_InputFileNotFound"));
+        var destination = NormalizeDestination(destinationPath);
+        if (File.Exists(destination))
+        {
+            throw new ExportValidationException(Messages.Get("Error_DestinationExists"));
+        }
+
+        var destinationDirectory = Path.GetDirectoryName(destination);
+        if (string.IsNullOrEmpty(destinationDirectory) || !Directory.Exists(destinationDirectory))
+        {
+            throw new ExportValidationException(Messages.Get("Error_DestinationFolderMissing"));
+        }
+
+        if (!double.IsFinite(timeSeconds))
+        {
+            throw new ExportValidationException(Messages.Get("Error_TimeMustBeFinite"));
+        }
+
+        if (timeSeconds < 0)
+        {
+            throw new ExportValidationException(Messages.Get("Error_StartNonNegative"));
+        }
+
+        ValidateEncoderOptions();
+        EnsureToolExists(_options.FfmpegPath, "FFmpeg");
+        EnsureToolExists(_options.FfprobePath, "ffprobe");
+
+        var media = await InspectAsync(source, cancellationToken);
+        MediaGeometry.ValidateAdditionalRotation(additionalRotationDegreesClockwise);
+        MediaGeometry.ValidateZoom(zoomFactor, zoomFocusX, zoomFocusY);
+        if (crop is { } rectangle)
+        {
+            MediaGeometry.ValidateCrop(rectangle, media.DisplayWidth, media.DisplayHeight);
+        }
+
+        var clampedTime = Math.Clamp(timeSeconds, 0, Math.Max(0, media.DurationSeconds));
+        // Uses the same video filter as accurate export so the saved pixels
+        // match the export output (SAR, rotation, crop, zoom, extra rotation).
+        var filter = MediaGeometry.BuildVideoFilter(
+            media,
+            crop,
+            additionalRotationDegreesClockwise,
+            1.0,
+            zoomFactor,
+            zoomFocusX,
+            zoomFocusY);
+        var temporaryPath = CreateTemporaryPath(
+            destinationDirectory,
+            Path.GetFileNameWithoutExtension(destination),
+            ".png");
+        try
+        {
+            // "-update 1" writes one image to the literal path; without it a "%"
+            // in the file name would be expanded as a sequence pattern.
+            string[] output = ["-map", "0:v:0", "-an", "-sn", "-dn", "-vf", filter, "-c:v", "png", "-update", "1", "-f", "image2", temporaryPath];
+            var arguments = new List<string>
+            {
+                "-hide_banner", "-loglevel", "error", "-nostats",
+                "-n"
+            };
+            if (Math.Abs(media.StartTimeSeconds) <= 0.001)
+            {
+                arguments.AddRange(["-ss", FormatSeconds(clampedTime), "-noautorotate", "-i", source]);
+            }
+            else if (clampedTime > 15)
+            {
+                // Same two-stage seek as accurate export, so a late frame does
+                // not decode the whole file from the start.
+                arguments.AddRange(["-ss", FormatSeconds(clampedTime - 10), "-noautorotate", "-i", source, "-ss", "10"]);
+            }
+            else
+            {
+                arguments.AddRange(["-noautorotate", "-i", source, "-ss", FormatSeconds(clampedTime)]);
+            }
+
+            arguments.AddRange(["-frames:v", "1"]);
+            arguments.AddRange(output);
+            var processResult = await ProcessExecution.RunAsync(
+                _options.FfmpegPath,
+                arguments,
+                cancellationToken,
+                maxDiagnosticCharacters: MaxDiagnosticCharacters);
+            cancellationToken.ThrowIfCancellationRequested();
+            // The position can be past the last video frame (audio can run
+            // longer, and a paused player rests at the very end). Step back and
+            // keep the final frame of that stretch, as the player shows it.
+            foreach (var stepBackSeconds in new[] { 2d, 10d, 60d })
+            {
+                if (processResult.ExitCode != 0 || (File.Exists(temporaryPath) && new FileInfo(temporaryPath).Length > 0))
+                {
+                    break;
+                }
+
+                TryDelete(temporaryPath);
+                List<string> tailArguments =
+                [
+                    "-hide_banner", "-loglevel", "error", "-nostats", "-n",
+                    "-ss", FormatSeconds(Math.Max(0, clampedTime - stepBackSeconds)), "-noautorotate", "-i", source
+                ];
+                tailArguments.AddRange(output);
+                processResult = await ProcessExecution.RunAsync(
+                    _options.FfmpegPath,
+                    tailArguments,
+                    cancellationToken,
+                    maxDiagnosticCharacters: MaxDiagnosticCharacters);
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            if (processResult.ExitCode != 0)
+            {
+                throw new ExportException(
+                    Messages.Get("Error_ExportFailed"),
+                    FormatDiagnostic("FFmpeg", processResult.StandardError));
+            }
+
+            if (!File.Exists(temporaryPath) || new FileInfo(temporaryPath).Length <= 0)
+            {
+                throw new ExportException(Messages.Get("Error_ExportEmpty"));
+            }
+
+            try
+            {
+                File.Move(temporaryPath, destination, overwrite: false);
+            }
+            catch (IOException) when (File.Exists(destination))
+            {
+                throw new ExportValidationException(Messages.Get("Error_DestinationExists"));
+            }
+
+            return destination;
+        }
+        finally
+        {
+            TryDelete(temporaryPath);
+        }
+    }
+
     private static void ValidateMultiSegmentRequest(ExportRequest request, MediaInfo media)
     {
         if (request.Mode is not ExportMode.AccurateReencode and not ExportMode.StreamCopyApproximate)
@@ -653,6 +801,11 @@ public sealed class MediaExportService
         var primaries = ReadString(video, "color_primaries");
         var hdrReason = DetectHdr(video, transfer, primaries);
         var formatElement = root.TryGetProperty("format", out var foundFormat) ? foundFormat : default;
+        var audioStreamCount = streams.Count(stream => string.Equals(ReadString(stream, "codec_type"), "audio", StringComparison.OrdinalIgnoreCase));
+        var subtitleStreamCount = streams.Count(stream => string.Equals(ReadString(stream, "codec_type"), "subtitle", StringComparison.OrdinalIgnoreCase));
+        var frameRate = ParseFrameRate(ReadString(video, "avg_frame_rate")) ?? ParseFrameRate(ReadString(video, "r_frame_rate"));
+        var videoBitRate = ReadLong(video, "bit_rate");
+        var formatObject = formatElement.ValueKind == JsonValueKind.Object ? formatElement : (JsonElement?)null;
 
         return new MediaInfo
         {
@@ -674,7 +827,18 @@ public sealed class MediaExportService
             ContainerFormatNames = formatElement.ValueKind == JsonValueKind.Object ? ReadString(formatElement, "format_name") : null,
             ContainerMajorBrand = formatElement.ValueKind == JsonValueKind.Object ? ReadTag(formatElement, "major_brand") : null,
             IsHdr = hdrReason is not null,
-            HdrDescription = hdrReason
+            HdrDescription = hdrReason,
+            FrameRate = frameRate,
+            VideoBitRate = videoBitRate,
+            AudioChannels = audioExists ? ReadIntNullable(audio, "channels") : null,
+            AudioChannelLayout = audioExists ? ReadString(audio, "channel_layout") : null,
+            AudioSampleRate = audioExists ? ReadIntNullable(audio, "sample_rate") : null,
+            AudioBitRate = audioExists ? ReadLong(audio, "bit_rate") : null,
+            AudioStreamCount = audioStreamCount,
+            SubtitleStreamCount = subtitleStreamCount,
+            OverallBitRate = formatObject.HasValue ? ReadLong(formatObject.Value, "bit_rate") : null,
+            FileSizeBytes = formatObject.HasValue ? ReadLong(formatObject.Value, "size") : null,
+            ContainerLongName = formatObject.HasValue ? ReadString(formatObject.Value, "format_long_name") : null
         };
     }
 
@@ -813,6 +977,52 @@ public sealed class MediaExportService
         }
 
         return value.ValueKind == JsonValueKind.String ? value.GetString() : value.ToString();
+    }
+
+    private static double? ParseFrameRate(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        var parts = text.Split('/');
+        if (parts.Length == 2 &&
+            double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var numerator) &&
+            double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var denominator) &&
+            double.IsFinite(numerator) && double.IsFinite(denominator) && denominator != 0)
+        {
+            var rate = numerator / denominator;
+            return double.IsFinite(rate) && rate > 0 ? rate : null;
+        }
+
+        return TryParseFiniteNumber(text, out var direct) && direct > 0 ? direct : null;
+    }
+
+    private static long? ReadLong(JsonElement parent, string propertyName)
+    {
+        if (!parent.TryGetProperty(propertyName, out var value))
+        {
+            return null;
+        }
+
+        var text = value.ValueKind == JsonValueKind.String ? value.GetString() : value.ToString();
+        return long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result) && result >= 0
+            ? result
+            : null;
+    }
+
+    private static int? ReadIntNullable(JsonElement parent, string propertyName)
+    {
+        if (!parent.TryGetProperty(propertyName, out var value))
+        {
+            return null;
+        }
+
+        var text = value.ValueKind == JsonValueKind.String ? value.GetString() : value.ToString();
+        return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result) && result >= 0
+            ? result
+            : null;
     }
 
     private static int ReadInt(JsonElement parent, string propertyName)

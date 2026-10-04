@@ -110,6 +110,10 @@
                                 <Path Data="M10,3 V17" Stroke="{ThemeResource TextFillColorPrimaryBrush}" StrokeThickness="1.6" StrokeDashArray="1.6,1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
                             </Canvas></Viewbox>
                         </Button>
+                        <Rectangle Width="1" Fill="{ThemeResource ControlStrokeColorDefaultBrush}" Margin="0,8" />
+                        <Button x:Name="EditSaveFrameButton" x:Uid="EditSaveFrameButton" Width="40" Height="40" Padding="0" Click="SaveFrameButton_Click">
+                            <FontIcon Glyph="&#xE722;" FontSize="16" />
+                        </Button>
                                         </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" VerticalAlignment="Center">
                         <Button x:Name="CancelEditButton" x:Uid="CancelEditButton" Height="32" Padding="10,0" Click="ResetEditButton_Click">
@@ -324,12 +328,39 @@
                                     </MenuFlyoutItem.Icon>
                                 </MenuFlyoutItem>
                                 <MenuFlyoutSeparator />
+                                <MenuFlyoutSubItem x:Name="AudioSubMenu" x:Uid="AudioMenuItem" Style="{StaticResource MenuFlyoutSubItemStyle}">
+                                    <MenuFlyoutSubItem.Icon>
+                                        <FontIcon Glyph="&#xE8D6;" />
+                                    </MenuFlyoutSubItem.Icon>
+                                </MenuFlyoutSubItem>
+                                <MenuFlyoutSubItem x:Name="SubtitleSubMenu" x:Uid="SubtitleMenuItem" Style="{StaticResource MenuFlyoutSubItemStyle}">
+                                    <MenuFlyoutSubItem.Icon>
+                                        <FontIcon Glyph="&#xE7F0;" />
+                                    </MenuFlyoutSubItem.Icon>
+                                </MenuFlyoutSubItem>
+                                <MenuFlyoutItem x:Name="AdjustPictureMenuItem" x:Uid="AdjustPictureMenuItem" Click="AdjustPictureMenuItem_Click" Style="{StaticResource MenuFlyoutItemStyle}">
+                                    <MenuFlyoutItem.Icon>
+                                        <FontIcon Glyph="&#xE706;" />
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+                                <MenuFlyoutItem x:Name="RepeatMenuItem" x:Uid="RepeatMenuItem" Click="RepeatMenuItem_Click" Style="{StaticResource MenuFlyoutItemStyle}">
+                                    <MenuFlyoutItem.Icon>
+                                        <FontIcon Glyph="&#xE8ED;" />
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
+                                <MenuFlyoutSeparator />
                                 <MenuFlyoutSubItem x:Name="DisplayModeMenuItem" x:Uid="DisplayModeMenuItem" Style="{StaticResource MenuFlyoutSubItemStyle}">
+                                    <MenuFlyoutSubItem.Icon>
+                                        <FontIcon Glyph="&#xE740;" />
+                                    </MenuFlyoutSubItem.Icon>
                                     <ToggleMenuFlyoutItem x:Name="AlwaysVisibleModeItem" x:Uid="AlwaysVisibleModeItem" Tag="AlwaysVisible" Click="DisplayModeMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
                                     <ToggleMenuFlyoutItem x:Name="MaximizedOverlayModeItem" x:Uid="MaximizedOverlayModeItem" Tag="MaximizedOverlay" Click="DisplayModeMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
                                     <ToggleMenuFlyoutItem x:Name="FullscreenModeItem" x:Uid="FullscreenModeItem" Tag="Fullscreen" Click="DisplayModeMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
                                 </MenuFlyoutSubItem>
                                 <MenuFlyoutSubItem x:Name="SpeedMenuItem" x:Uid="SpeedMenuItem" Style="{StaticResource MenuFlyoutSubItemStyle}">
+                                    <MenuFlyoutSubItem.Icon>
+                                        <FontIcon Glyph="&#xEC4A;" />
+                                    </MenuFlyoutSubItem.Icon>
                                     <ToggleMenuFlyoutItem Text="0.5×" Tag="0.5" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
                                     <ToggleMenuFlyoutItem Text="0.75×" Tag="0.75" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
                                     <ToggleMenuFlyoutItem Text="1×" Tag="1" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
@@ -338,6 +369,12 @@
                                     <ToggleMenuFlyoutItem Text="2×" Tag="2" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
                                     <ToggleMenuFlyoutItem Text="4×" Tag="4" Click="SpeedMenuItem_Click" Style="{StaticResource ToggleMenuFlyoutItemStyle}" />
                                 </MenuFlyoutSubItem>
+                                <MenuFlyoutSeparator />
+                                <MenuFlyoutItem x:Name="PropertiesMenuItem" x:Uid="PropertiesMenuItem" Click="PropertiesMenuItem_Click" Style="{StaticResource MenuFlyoutItemStyle}">
+                                    <MenuFlyoutItem.Icon>
+                                        <FontIcon Glyph="&#xE946;" />
+                                    </MenuFlyoutItem.Icon>
+                                </MenuFlyoutItem>
                                 <MenuFlyoutItem x:Uid="SettingsMenuItem" Click="SettingsButton_Click" Style="{StaticResource MenuFlyoutItemStyle}">
                                     <MenuFlyoutItem.Icon>
                                         <FontIcon Glyph="&#xE713;" />

@@ -37,6 +37,17 @@ public sealed record MediaInfo
     public string? ContainerMajorBrand { get; init; }
     public bool IsHdr { get; init; }
     public string? HdrDescription { get; init; }
+    public double? FrameRate { get; init; }
+    public long? VideoBitRate { get; init; }
+    public int? AudioChannels { get; init; }
+    public string? AudioChannelLayout { get; init; }
+    public int? AudioSampleRate { get; init; }
+    public long? AudioBitRate { get; init; }
+    public int AudioStreamCount { get; init; }
+    public int SubtitleStreamCount { get; init; }
+    public long? OverallBitRate { get; init; }
+    public long? FileSizeBytes { get; init; }
+    public string? ContainerLongName { get; init; }
 }
 
 /// <summary>

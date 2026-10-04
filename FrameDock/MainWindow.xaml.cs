@@ -109,6 +109,11 @@ public sealed partial class MainWindow : Window
     private bool _isPointerNearControls;
     private bool _isSettingsDialogOpen;
     private int _openFlyoutCount;
+    private double _pictureBrightness;
+    private double _pictureContrast;
+    private double _pictureSaturation;
+    private double _pictureHue;
+    private string? _externalSubtitleName;
     private int _compositionWidth;
     private int _compositionHeight;
 
@@ -159,6 +164,8 @@ public sealed partial class MainWindow : Window
         UpdateMuteButton();
         UpdateSkipLabels();
         UpdateSpeedMenu(_settings.Speed);
+        UpdateRepeatMenu();
+        UpdateWindowTitle();
         UpdateEditSpeedControl(_editSpeed);
         _isRestoringSettings = false;
 
@@ -198,6 +205,7 @@ public sealed partial class MainWindow : Window
         if (OverflowButton.Flyout is { } overflowFlyout)
         {
             overflowFlyout.Opened += (_, _) => ControlsFlyoutOpened();
+            overflowFlyout.Opening += OverflowMenu_Opening;
             overflowFlyout.Closed += (_, _) => ControlsFlyoutClosed();
         }
         NotificationBar.RegisterPropertyChangedCallback(InfoBar.IsOpenProperty, (_, _) =>
@@ -672,6 +680,7 @@ public sealed partial class MainWindow : Window
             }
 
             _loadedPath = fullPath;
+            UpdateWindowTitle();
             OutputContainerComboBox.SelectedIndex = 0;
             CancelThumbnailGeneration();
             TrimThumbnailStrip.Children.Clear();
@@ -682,6 +691,9 @@ public sealed partial class MainWindow : Window
             _thumbnailBitmaps = Array.Empty<BitmapImage>();
             _thumbnailFrameCount = 0;
             _mediaInfo = null;
+            _externalSubtitleName = null;
+            _externalSubtitleTrackId = -1;
+            _playbackFailedPath = null;
             _segments.Clear();
             _currentSegmentIndex = -1;
             _crop = null;
@@ -719,6 +731,8 @@ public sealed partial class MainWindow : Window
                     if (!_isClosing && string.Equals(_loadedPath, fullPath, StringComparison.OrdinalIgnoreCase))
                     {
                         ShowError(message);
+                        _playbackFailedPath = fullPath;
+                        UpdateWindowTitle();
                     }
                 }), compositionWidth: width, compositionHeight: height));
             if (_isClosing)
@@ -740,6 +754,15 @@ public sealed partial class MainWindow : Window
             ScheduleCompositionResize(force: true);
             player.SetSpeed(_settings.Speed);
             player.SetMuted(_isMuted);
+            try
+            {
+                player.SetRepeat(_settings.Repeat);
+                ApplyPictureAdjustments();
+            }
+            catch (Exception applyException)
+            {
+                App.WriteErrorLog(applyException);
+            }
             player.SwapChainChanged += swapChain => DispatcherQueue.TryEnqueue(() =>
             {
                 if (_isClosing || !ReferenceEquals(_player, player))
@@ -829,7 +852,9 @@ public sealed partial class MainWindow : Window
             _player = null;
             SwapChainPanelInterop.Attach(MpvSwapChainPanel, IntPtr.Zero);
             MpvSwapChainPanel.Visibility = Visibility.Collapsed;
+            _loadedPath = null;
             failedPlayer?.Dispose();
+            UpdateWindowTitle();
             EmptyState.Visibility = Visibility.Visible;
             TimelineSlider.IsEnabled = false;
             _statusTimer?.Stop();
@@ -1763,11 +1788,13 @@ public sealed partial class MainWindow : Window
                 _player.SetVideoAspectOverride(null);
                 _player.SetVideoRotation(0);
                 _player.SetSpeed(_settings.Speed);
+                ApplyPictureAdjustments();
                 UpdateZoomPanOverlay();
                 return true;
             }
 
             _player.SetSpeed(_editSpeed);
+            ApplyPictureAdjustments();
             _player.SetVideoRotation(_isCropMode ? 0 : _additionalRotationDegreesClockwise);
             if (_isCropMode)
             {
@@ -2418,6 +2445,7 @@ public sealed partial class MainWindow : Window
         EditorPanel.Visibility = showEditor ? Visibility.Visible : Visibility.Collapsed;
         SetEditorLayout(showEditor);
         ApplyPlayerSpeed(showEditor ? _editSpeed : _settings.Speed);
+        UpdateLoopFromState();
         if (showEditor)
         {
             ShowControls();
@@ -4184,10 +4212,17 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        if (EditorPanel.Visibility == Visibility.Visible && _mediaInfo is not null && _loadedPath is not null)
+        {
+            await SaveEditorFrameAsync();
+            return;
+        }
+
         // Capture the name inputs before the first await; playback continues underneath.
         var screenshotBaseName = BuildScreenshotName();
         var picturesDirectory = GetPicturesFrameDirectory();
         var preferredDirectory = GetPreferredFrameDirectory(picturesDirectory);
+        var savedAdjust = ZeroPictureAdjustmentsForCapture();
         string? temporary = null;
         try
         {
@@ -4224,6 +4259,7 @@ public sealed partial class MainWindow : Window
         }
         finally
         {
+            RestorePictureAdjustments(savedAdjust);
             try
             {
                 if (temporary is not null && File.Exists(temporary))
@@ -4420,6 +4456,973 @@ public sealed partial class MainWindow : Window
 
     [DllImport("user32.dll")]
     private static extern short GetKeyState(int key);
+
+    private string? _playbackFailedPath;
+
+    private void UpdateWindowTitle()
+    {
+        string text;
+        if (_loadedPath is { Length: > 0 } path && !string.Equals(path, _playbackFailedPath, StringComparison.OrdinalIgnoreCase))
+        {
+            text = Strings.Format("Title_WithFile", Path.GetFileName(path));
+        }
+        else
+        {
+            text = "FrameDock";
+        }
+
+        Title = text;
+        // AppWindow.Title drives the taskbar and Alt+Tab label; Window.Title
+        // alone does not always propagate there, so set both to the same text.
+        if (_appWindow is not null)
+        {
+            _appWindow.Title = text;
+        }
+    }
+
+    private void UpdateRepeatMenu() => RepeatMenuItem.Text = Strings.Get(_settings.Repeat ? "Repeat_On" : "Repeat_Off");
+
+    private void RepeatMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.Repeat = !_settings.Repeat;
+        UpdateRepeatMenu();
+        ScheduleSettingsSave();
+        UpdateLoopFromState();
+    }
+
+    private void UpdateLoopFromState()
+    {
+        if (_player is null)
+        {
+            return;
+        }
+
+        try
+        {
+            // While the editor is open the range end must stop playback, so
+            // looping stays off and the saved setting is restored on close.
+            _player.SetRepeat(EditorPanel.Visibility == Visibility.Visible ? false : _settings.Repeat);
+        }
+        catch (Exception ex)
+        {
+            App.WriteErrorLog(ex);
+            ShowError(Strings.Get("Error_RepeatFailed"));
+        }
+    }
+
+    private void OverflowMenu_Opening(object? sender, object e)
+    {
+        var hasVideo = _player is not null;
+        AudioSubMenu.IsEnabled = hasVideo;
+        SubtitleSubMenu.IsEnabled = hasVideo;
+        AdjustPictureMenuItem.IsEnabled = hasVideo;
+        RepeatMenuItem.IsEnabled = hasVideo;
+        PropertiesMenuItem.IsEnabled = _loadedPath is not null;
+        UpdateRepeatMenu();
+        BuildAudioMenu();
+        BuildSubtitleMenu();
+    }
+
+    private Style? GetToggleMenuStyle() =>
+        RootGrid.Resources.TryGetValue("ToggleMenuFlyoutItemStyle", out var style) ? style as Style : null;
+
+    private void BuildAudioMenu()
+    {
+        AudioSubMenu.Items.Clear();
+        var toggleStyle = GetToggleMenuStyle();
+        List<MpvTrack> tracks = new();
+        if (_player is not null)
+        {
+            try
+            {
+                tracks = _player.GetTracks().Where(track => track.Type == "audio").ToList();
+            }
+            catch (Exception ex)
+            {
+                App.WriteErrorLog(ex);
+            }
+        }
+
+        if (tracks.Count == 0)
+        {
+            AudioSubMenu.Items.Add(new MenuFlyoutItem { Text = Strings.Get("Audio_None"), IsEnabled = false });
+            return;
+        }
+
+        foreach (var track in tracks)
+        {
+            var item = new ToggleMenuFlyoutItem
+            {
+                Text = GetTrackDisplayName(track, null),
+                IsChecked = track.Selected,
+                Tag = track.Id
+            };
+            if (toggleStyle is not null)
+            {
+                item.Style = toggleStyle;
+            }
+
+            item.Click += AudioTrackMenuItem_Click;
+            AudioSubMenu.Items.Add(item);
+        }
+    }
+
+    private void AudioTrackMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (sender is not ToggleMenuFlyoutItem item || _player is null ||
+                !long.TryParse(item.Tag?.ToString(), CultureInfo.InvariantCulture, out var id))
+            {
+                return;
+            }
+
+            _player.SetAudioTrack(id);
+        }
+        catch (Exception ex)
+        {
+            App.WriteErrorLog(ex);
+            ShowError(Strings.Get("Error_AudioSwitchFailed"));
+        }
+    }
+
+    private void BuildSubtitleMenu()
+    {
+        SubtitleSubMenu.Items.Clear();
+        var toggleStyle = GetToggleMenuStyle();
+        List<MpvTrack> tracks = new();
+        if (_player is not null)
+        {
+            try
+            {
+                tracks = _player.GetTracks().Where(track => track.Type == "sub").ToList();
+            }
+            catch (Exception ex)
+            {
+                App.WriteErrorLog(ex);
+            }
+        }
+
+        var offItem = new ToggleMenuFlyoutItem
+        {
+            Text = Strings.Get("Subtitle_Off"),
+            IsChecked = tracks.All(track => !track.Selected),
+            Tag = "off"
+        };
+        if (toggleStyle is not null)
+        {
+            offItem.Style = toggleStyle;
+        }
+
+        offItem.Click += SubtitleTrackMenuItem_Click;
+        SubtitleSubMenu.Items.Add(offItem);
+        foreach (var track in tracks)
+        {
+            var item = new ToggleMenuFlyoutItem
+            {
+                Text = GetTrackDisplayName(track, _externalSubtitleName),
+                IsChecked = track.Selected,
+                Tag = track.Id
+            };
+            if (toggleStyle is not null)
+            {
+                item.Style = toggleStyle;
+            }
+
+            item.Click += SubtitleTrackMenuItem_Click;
+            SubtitleSubMenu.Items.Add(item);
+        }
+
+        SubtitleSubMenu.Items.Add(new MenuFlyoutSeparator());
+        SubtitleSubMenu.Items.Add(new MenuFlyoutItem { Text = Strings.Get("Subtitle_OpenFile") });
+        if (SubtitleSubMenu.Items[^1] is MenuFlyoutItem openItem)
+        {
+            openItem.Click += SubtitleOpenFileMenuItem_Click;
+        }
+    }
+
+    private void SubtitleTrackMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (sender is not ToggleMenuFlyoutItem item || _player is null)
+            {
+                return;
+            }
+
+            if (string.Equals(item.Tag?.ToString(), "off", StringComparison.Ordinal))
+            {
+                _player.SetSubtitleTrack(null);
+                return;
+            }
+
+            if (long.TryParse(item.Tag?.ToString(), CultureInfo.InvariantCulture, out var id))
+            {
+                _player.SetSubtitleTrack(id);
+            }
+        }
+        catch (Exception ex)
+        {
+            App.WriteErrorLog(ex);
+            ShowError(Strings.Get("Error_SubtitleSwitchFailed"));
+        }
+    }
+
+    private async void SubtitleOpenFileMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var player = _player;
+            if (player is null)
+            {
+                return;
+            }
+
+            var picker = new FileOpenPicker();
+            picker.FileTypeFilter.Add(".srt");
+            picker.FileTypeFilter.Add(".ass");
+            picker.FileTypeFilter.Add(".ssa");
+            picker.FileTypeFilter.Add(".vtt");
+            picker.FileTypeFilter.Add(".sub");
+            InitializeWithWindow.Initialize(picker, _windowHandle);
+            var file = await picker.PickSingleFileAsync();
+            if (file is null)
+            {
+                return;
+            }
+
+            if (!ReferenceEquals(_player, player))
+            {
+                // Another video was opened while the picker was showing.
+                return;
+            }
+
+            player.AddSubtitleFile(file.Path);
+            _externalSubtitleName = Path.GetFileName(file.Path);
+            _externalSubtitleTrackId = player.GetTracks().FirstOrDefault(track => track.Type == "sub" && track.Selected)?.Id ?? -1;
+        }
+        catch (Exception ex)
+        {
+            App.WriteErrorLog(ex);
+            ShowError(Strings.Get("Error_SubtitleLoadFailed"));
+        }
+    }
+
+    private long _externalSubtitleTrackId = -1;
+
+    private string GetTrackDisplayName(MpvTrack track, string? externalFallbackName)
+    {
+        string name;
+        if (!string.IsNullOrWhiteSpace(track.Title))
+        {
+            name = track.Title.Trim();
+        }
+        else if (!string.IsNullOrWhiteSpace(track.Lang))
+        {
+            name = track.Lang.Trim().ToUpperInvariant();
+        }
+        else if (track.Type == "sub" && track.Id == _externalSubtitleTrackId && !string.IsNullOrWhiteSpace(externalFallbackName))
+        {
+            name = externalFallbackName;
+        }
+        else
+        {
+            name = Strings.Format("Track_Number", track.Id >= 0 ? track.Id : 0);
+        }
+
+        var codec = CodecDisplayName(track.Codec);
+        return string.IsNullOrEmpty(codec) ? name : $"{name} ({codec})";
+    }
+
+    internal static string CodecDisplayName(string? codec)
+    {
+        if (string.IsNullOrWhiteSpace(codec))
+        {
+            return string.Empty;
+        }
+
+        var lower = codec.Trim().ToLowerInvariant();
+        if (lower.StartsWith("pcm_", StringComparison.Ordinal))
+        {
+            return "PCM";
+        }
+
+        return lower switch
+        {
+            "h264" => "H.264",
+            "hevc" => "H.265 (HEVC)",
+            "av1" => "AV1",
+            "vp9" => "VP9",
+            "vp8" => "VP8",
+            "mpeg2video" => "MPEG-2",
+            "mpeg4" => "MPEG-4",
+            "wmv3" or "vc1" => "VC-1",
+            "prores" => "ProRes",
+            "aac" => "AAC",
+            "mp3" => "MP3",
+            "ac3" => "AC-3",
+            "eac3" => "E-AC-3",
+            "dts" => "DTS",
+            "opus" => "Opus",
+            "vorbis" => "Vorbis",
+            "flac" => "FLAC",
+            "alac" => "ALAC",
+            "subrip" => "SRT",
+            "ass" => "ASS",
+            "mov_text" => "MP4 Text",
+            "hdmv_pgs_subtitle" => "PGS",
+            "webvtt" => "WebVTT",
+            _ => codec.Trim()
+        };
+    }
+
+    private void AdjustPictureMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (_player is null)
+            {
+                return;
+            }
+
+            ShowAdjustFlyout();
+        }
+        catch (Exception ex)
+        {
+            App.WriteErrorLog(ex);
+            ShowError(Strings.Get("Error_AdjustFailed"));
+        }
+    }
+
+    private void ShowAdjustFlyout()
+    {
+        var panel = new StackPanel { Width = 280, Spacing = 14 };
+        panel.Children.Add(new TextBlock
+        {
+            Text = Strings.Get("Adjust_Title"),
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+        });
+        var entries = new (string Key, string LabelKey, Func<double> Get)[]
+        {
+            ("brightness", "Adjust_Brightness", () => _pictureBrightness),
+            ("contrast", "Adjust_Contrast", () => _pictureContrast),
+            ("saturation", "Adjust_Saturation", () => _pictureSaturation),
+            ("hue", "Adjust_Hue", () => _pictureHue),
+        };
+        var sliders = new Dictionary<string, Slider>(StringComparer.Ordinal);
+        foreach (var (key, labelKey, get) in entries)
+        {
+            var row = new StackPanel { Spacing = 2 };
+            var header = new Grid();
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var label = new TextBlock { Text = Strings.Get(labelKey), VerticalAlignment = VerticalAlignment.Center };
+            var value = new TextBlock
+            {
+                Text = Math.Round(get()).ToString("0", CultureInfo.InvariantCulture),
+                VerticalAlignment = VerticalAlignment.Center,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            };
+            header.Children.Add(label);
+            Grid.SetColumn(value, 1);
+            header.Children.Add(value);
+            var slider = new Slider
+            {
+                Minimum = -100,
+                Maximum = 100,
+                StepFrequency = 1,
+                SmallChange = 1,
+                LargeChange = 10,
+                Value = get(),
+                Tag = key
+            };
+            slider.ValueChanged += (_, args) =>
+            {
+                try
+                {
+                    var rounded = Math.Round(args.NewValue);
+                    value.Text = rounded.ToString("0", CultureInfo.InvariantCulture);
+                    SetPictureValue(key, rounded);
+                    SetPictureField(key, rounded);
+                }
+                catch (Exception ex)
+                {
+                    App.WriteErrorLog(ex);
+                    ShowError(Strings.Get("Error_AdjustFailed"));
+                }
+            };
+            sliders[key] = slider;
+            row.Children.Add(header);
+            row.Children.Add(slider);
+            panel.Children.Add(row);
+        }
+
+        panel.Children.Add(new TextBlock
+        {
+            Text = Strings.Get("Adjust_Note"),
+            FontSize = 12,
+            Foreground = GetSecondaryBrush(),
+            TextWrapping = TextWrapping.Wrap
+        });
+        var reset = new Button
+        {
+            Content = Strings.Get("Adjust_Reset"),
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+        reset.Click += (_, _) =>
+        {
+            try
+            {
+                foreach (var slider in sliders.Values)
+                {
+                    slider.Value = 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                App.WriteErrorLog(ex);
+                ShowError(Strings.Get("Error_AdjustFailed"));
+            }
+        };
+        panel.Children.Add(reset);
+        var flyout = new Flyout { Content = panel };
+        flyout.Opened += (_, _) => ControlsFlyoutOpened();
+        flyout.Closed += (_, _) => ControlsFlyoutClosed();
+        flyout.ShowAt(OverflowButton);
+    }
+
+    private void SetPictureField(string key, double value)
+    {
+        switch (key)
+        {
+            case "brightness":
+                _pictureBrightness = value;
+                break;
+            case "contrast":
+                _pictureContrast = value;
+                break;
+            case "saturation":
+                _pictureSaturation = value;
+                break;
+            case "hue":
+                _pictureHue = value;
+                break;
+        }
+    }
+
+    private void SetPictureValue(string key, double value)
+    {
+        if (_player is null)
+        {
+            return;
+        }
+
+        switch (key)
+        {
+            case "brightness":
+                _player.SetBrightness(value);
+                break;
+            case "contrast":
+                _player.SetContrast(value);
+                break;
+            case "saturation":
+                _player.SetSaturation(value);
+                break;
+            case "hue":
+                _player.SetHue(value);
+                break;
+        }
+    }
+
+    private void ApplyPictureAdjustments()
+    {
+        var player = _player;
+        if (player is null)
+        {
+            return;
+        }
+
+        // Editing previews and exports must match, so the playback-only
+        // adjustment is parked at zero while the editor is open.
+        var editing = EditorPanel.Visibility == Visibility.Visible && _mediaInfo is not null;
+        player.SetBrightness(editing ? 0 : _pictureBrightness);
+        player.SetContrast(editing ? 0 : _pictureContrast);
+        player.SetSaturation(editing ? 0 : _pictureSaturation);
+        player.SetHue(editing ? 0 : _pictureHue);
+    }
+
+    private double[]? ZeroPictureAdjustmentsForCapture()
+    {
+        if (_player is null ||
+            (_pictureBrightness == 0 && _pictureContrast == 0 && _pictureSaturation == 0 && _pictureHue == 0))
+        {
+            return null;
+        }
+
+        var saved = new[] { _pictureBrightness, _pictureContrast, _pictureSaturation, _pictureHue };
+        try
+        {
+            _player.SetBrightness(0);
+            _player.SetContrast(0);
+            _player.SetSaturation(0);
+            _player.SetHue(0);
+        }
+        catch (Exception ex)
+        {
+            App.WriteErrorLog(ex);
+            return null;
+        }
+
+        return saved;
+    }
+
+    private void RestorePictureAdjustments(double[]? saved)
+    {
+        if (saved is null || _player is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _player.SetBrightness(saved[0]);
+            _player.SetContrast(saved[1]);
+            _player.SetSaturation(saved[2]);
+            _player.SetHue(saved[3]);
+        }
+        catch (Exception ex)
+        {
+            App.WriteErrorLog(ex);
+        }
+    }
+
+    private static Brush? GetSecondaryBrush() =>
+        Application.Current.Resources.TryGetValue("TextFillColorSecondaryBrush", out var value) ? value as Brush : null;
+
+    private async void PropertiesMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await ShowPropertiesDialogAsync();
+        }
+        catch (Exception ex)
+        {
+            App.WriteErrorLog(ex);
+            ShowError(Strings.Get("Error_PropertiesFailed"));
+        }
+    }
+
+    private async Task ShowPropertiesDialogAsync()
+    {
+        var loadedPath = _loadedPath;
+        if (string.IsNullOrEmpty(loadedPath))
+        {
+            ShowError(Strings.Get("Error_PropertiesFailed"));
+            return;
+        }
+
+        var media = _mediaInfo;
+        var copyLines = new List<string>();
+        var panel = new StackPanel { Spacing = 20, MinWidth = 420 };
+        var fileRows = new List<(string Name, string Value)>
+        {
+            (Strings.Get("Properties_Name"), Path.GetFileName(loadedPath))
+        };
+        var folder = Path.GetDirectoryName(loadedPath);
+        if (!string.IsNullOrEmpty(folder))
+        {
+            fileRows.Add((Strings.Get("Properties_Folder"), folder));
+        }
+
+        try
+        {
+            var file = new FileInfo(loadedPath);
+            if (file.Exists)
+            {
+                fileRows.Add((Strings.Get("Properties_Size"), Strings.Format(
+                    "Properties_SizeFormat",
+                    FormatFileSize(file.Length),
+                    file.Length.ToString("N0", CultureInfo.CurrentUICulture))));
+                fileRows.Add((Strings.Get("Properties_Modified"), file.LastWriteTime.ToString("g", CultureInfo.CurrentUICulture)));
+            }
+        }
+        catch (Exception ex)
+        {
+            App.WriteErrorLog(ex);
+        }
+
+        AddPropertiesSection(panel, Strings.Get("Properties_File"), fileRows, copyLines);
+        if (media is not null)
+        {
+            var videoRows = new List<(string Name, string Value)>();
+            var storedWidth = media.RotationDegreesClockwise is 90 or 270 ? media.CodedHeight : media.CodedWidth;
+            var storedHeight = media.RotationDegreesClockwise is 90 or 270 ? media.CodedWidth : media.CodedHeight;
+            var resolution = $"{media.DisplayWidth} × {media.DisplayHeight}";
+            if (storedWidth != media.DisplayWidth || storedHeight != media.DisplayHeight)
+            {
+                resolution += Strings.Format("Properties_StoredSize", storedWidth, storedHeight);
+            }
+
+            videoRows.Add((Strings.Get("Properties_Resolution"), resolution));
+            if (media.FrameRate.HasValue)
+            {
+                videoRows.Add((Strings.Get("Properties_FrameRate"), FormatFrameRate(media.FrameRate.Value)));
+            }
+
+            var videoCodec = CodecDisplayName(media.VideoCodec);
+            if (!string.IsNullOrEmpty(videoCodec))
+            {
+                videoRows.Add((Strings.Get("Properties_Codec"), string.IsNullOrEmpty(media.PixelFormat)
+                    ? videoCodec
+                    : $"{videoCodec} ({media.PixelFormat})"));
+            }
+
+            if (media.VideoBitRate.HasValue)
+            {
+                videoRows.Add((Strings.Get("Properties_BitRate"), FormatBitRate(media.VideoBitRate.Value)));
+            }
+
+            if (media.RotationDegreesClockwise != 0)
+            {
+                videoRows.Add((Strings.Get("Properties_Rotation"), $"{media.RotationDegreesClockwise}°"));
+            }
+
+            if (media.IsHdr && !string.IsNullOrEmpty(media.HdrDescription))
+            {
+                videoRows.Add((Strings.Get("Properties_Hdr"), media.HdrDescription));
+            }
+
+            AddPropertiesSection(panel, Strings.Get("Properties_Video"), videoRows, copyLines);
+            var audioRows = new List<(string Name, string Value)>();
+            if (media.HasAudio || media.AudioStreamCount > 0)
+            {
+                var audioCodec = CodecDisplayName(media.AudioCodec);
+                if (!string.IsNullOrEmpty(audioCodec))
+                {
+                    audioRows.Add((Strings.Get("Properties_Codec"), audioCodec));
+                }
+
+                var channels = FormatChannels(media.AudioChannels, media.AudioChannelLayout);
+                if (channels is not null)
+                {
+                    audioRows.Add((Strings.Get("Properties_Channels"), channels));
+                }
+
+                if (media.AudioSampleRate.HasValue)
+                {
+                    audioRows.Add((Strings.Get("Properties_SampleRate"), FormatSampleRate(media.AudioSampleRate.Value)));
+                }
+
+                if (media.AudioBitRate.HasValue)
+                {
+                    audioRows.Add((Strings.Get("Properties_BitRate"), FormatBitRate(media.AudioBitRate.Value)));
+                }
+
+                if (media.AudioStreamCount >= 2)
+                {
+                    audioRows.Add((Strings.Get("Properties_TrackCount"), media.AudioStreamCount.ToString(CultureInfo.InvariantCulture)));
+                }
+            }
+
+            var audioHeading = Strings.Get("Properties_Audio");
+            AddPropertiesSection(panel, audioHeading, audioRows, copyLines);
+            if (audioRows.Count == 0)
+            {
+                var section = new StackPanel { Spacing = 6 };
+                section.Children.Add(new TextBlock { Text = audioHeading, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+                var none = new TextBlock { Text = Strings.Get("Properties_AudioNone"), IsTextSelectionEnabled = true, TextWrapping = TextWrapping.Wrap };
+                section.Children.Add(none);
+                panel.Children.Add(section);
+                copyLines.Add(audioHeading);
+                copyLines.Add(Strings.Get("Properties_AudioNone"));
+            }
+
+            var overallRows = new List<(string Name, string Value)>
+            {
+                (Strings.Get("Properties_Duration"), FormatPropertyDuration(media.DurationSeconds))
+            };
+            if (!string.IsNullOrEmpty(media.ContainerLongName))
+            {
+                overallRows.Add((Strings.Get("Properties_Container"), media.ContainerLongName));
+            }
+
+            if (media.OverallBitRate.HasValue)
+            {
+                overallRows.Add((Strings.Get("Properties_BitRate"), FormatBitRate(media.OverallBitRate.Value)));
+            }
+
+            if (media.SubtitleStreamCount >= 1)
+            {
+                overallRows.Add((Strings.Get("Properties_SubtitleCount"), media.SubtitleStreamCount.ToString(CultureInfo.InvariantCulture)));
+            }
+
+            AddPropertiesSection(panel, Strings.Get("Properties_Overall"), overallRows, copyLines);
+        }
+
+        var dialog = new ContentDialog
+        {
+            Title = Strings.Get("Properties_Title"),
+            Content = new ScrollViewer { Content = panel },
+            PrimaryButtonText = Strings.Get("Properties_CopyAll"),
+            CloseButtonText = Strings.Get("Properties_Close"),
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = RootGrid.XamlRoot
+        };
+        _isSettingsDialogOpen = true;
+        ShowControls();
+        ContentDialogResult choice;
+        try
+        {
+            choice = await dialog.ShowAsync();
+        }
+        catch (Exception ex)
+        {
+            App.WriteErrorLog(ex);
+            ShowError(Strings.Get("Error_PropertiesFailed"));
+            return;
+        }
+        finally
+        {
+            _isSettingsDialogOpen = false;
+            ScheduleControlsHide();
+        }
+
+        if (choice == ContentDialogResult.Primary)
+        {
+            try
+            {
+                var package = new DataPackage();
+                package.SetText(string.Join(Environment.NewLine, copyLines));
+                Clipboard.SetContent(package);
+                Clipboard.Flush();
+                ShowNotice(Strings.Get("Notice_PropertiesCopied"), InfoBarSeverity.Success);
+            }
+            catch (Exception ex)
+            {
+                App.WriteErrorLog(ex);
+                ShowError(Strings.Get("Error_PropertiesFailed"));
+            }
+        }
+    }
+
+    private static void AddPropertiesSection(
+        StackPanel parent,
+        string heading,
+        List<(string Name, string Value)> rows,
+        List<string> copyLines)
+    {
+        if (rows.Count == 0)
+        {
+            return;
+        }
+
+        copyLines.Add(heading);
+        var section = new StackPanel { Spacing = 6 };
+        section.Children.Add(new TextBlock { Text = heading, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        var grid = new Grid { ColumnSpacing = 16, RowSpacing = 6 };
+        // A shared minimum keeps the values aligned from one section to the next.
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, MinWidth = 104 });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        for (var i = 0; i < rows.Count; i++)
+        {
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var name = new TextBlock { Text = rows[i].Name, Foreground = GetSecondaryBrush(), VerticalAlignment = VerticalAlignment.Top };
+            Grid.SetRow(name, i);
+            Grid.SetColumn(name, 0);
+            var value = new TextBlock
+            {
+                Text = rows[i].Value,
+                IsTextSelectionEnabled = true,
+                TextWrapping = TextWrapping.Wrap,
+                VerticalAlignment = VerticalAlignment.Top
+            };
+            Grid.SetRow(value, i);
+            Grid.SetColumn(value, 1);
+            grid.Children.Add(name);
+            grid.Children.Add(value);
+            copyLines.Add($"{rows[i].Name}: {rows[i].Value}");
+        }
+
+        section.Children.Add(grid);
+        parent.Children.Add(section);
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        const double Unit = 1024;
+        if (bytes >= Unit * Unit * Unit)
+        {
+            return string.Create(CultureInfo.InvariantCulture, $"{bytes / (Unit * Unit * Unit):0.0} GB");
+        }
+
+        if (bytes >= Unit * Unit)
+        {
+            return string.Create(CultureInfo.InvariantCulture, $"{bytes / (Unit * Unit):0.0} MB");
+        }
+
+        if (bytes >= Unit)
+        {
+            return string.Create(CultureInfo.InvariantCulture, $"{bytes / Unit:0.0} KB");
+        }
+
+        return $"{bytes} B";
+    }
+
+    private static string FormatBitRate(long bitsPerSecond)
+    {
+        if (bitsPerSecond >= 1_000_000)
+        {
+            return string.Create(CultureInfo.InvariantCulture, $"{bitsPerSecond / 1_000_000.0:0.0} Mbps");
+        }
+
+        return string.Create(CultureInfo.InvariantCulture, $"{Math.Round(bitsPerSecond / 1000.0):0} kbps");
+    }
+
+    private static string FormatFrameRate(double fps) => string.Create(CultureInfo.InvariantCulture, $"{fps:0.###} fps");
+
+    private static string FormatSampleRate(int hertz) => string.Create(CultureInfo.InvariantCulture, $"{hertz / 1000.0:0.###} kHz");
+
+    private static string FormatPropertyDuration(double seconds)
+    {
+        if (!double.IsFinite(seconds) || seconds < 0)
+        {
+            seconds = 0;
+        }
+
+        var time = TimeSpan.FromSeconds(seconds);
+        return $"{(int)time.TotalHours}:{time.Minutes:00}:{time.Seconds:00}";
+    }
+
+    private static string? FormatChannels(int? channels, string? layout)
+    {
+        if (!channels.HasValue)
+        {
+            return null;
+        }
+
+        if (channels.Value == 1)
+        {
+            return Strings.Get("Channels_Mono");
+        }
+
+        if (channels.Value == 2)
+        {
+            return Strings.Get("Channels_Stereo");
+        }
+
+        if (channels.Value == 6 && (layout ?? string.Empty).StartsWith("5.1", StringComparison.OrdinalIgnoreCase))
+        {
+            return "5.1";
+        }
+
+        if (channels.Value == 8 && (layout ?? string.Empty).StartsWith("7.1", StringComparison.OrdinalIgnoreCase))
+        {
+            return "7.1";
+        }
+
+        return $"{channels.Value} ch";
+    }
+
+    private async Task SaveEditorFrameAsync()
+    {
+        var media = _mediaInfo;
+        var player = _player;
+        var source = _loadedPath;
+        if (media is null || player is null || string.IsNullOrEmpty(source))
+        {
+            ShowError(Strings.Get("Error_OpenVideoFirst"));
+            return;
+        }
+
+        CropRect? crop = _crop;
+        var rotation = _additionalRotationDegreesClockwise;
+        var zoom = _editorZoomFactor;
+        var focusX = _editorZoomFocusX;
+        var focusY = _editorZoomFocusY;
+        if (_currentSegmentIndex >= 0 && _currentSegmentIndex < _segments.Count)
+        {
+            var segment = _segments[_currentSegmentIndex];
+            crop = segment.Crop;
+            rotation = segment.AdditionalRotationDegreesClockwise;
+            zoom = segment.ZoomFactor;
+            focusX = segment.ZoomFocusX;
+            focusY = segment.ZoomFocusY;
+        }
+
+        if (_isCropMode)
+        {
+            // While the crop handles are out the preview shows the full, unzoomed frame.
+            crop = null;
+            zoom = 1;
+            focusX = 0.5;
+            focusY = 0.5;
+        }
+
+        if (_isSavingEditorFrame)
+        {
+            return;
+        }
+
+        var position = player.GetNumber("time-pos");
+        var time = position.HasValue && double.IsFinite(position.Value) ? position.Value : GetEditorRangeStart();
+        var screenshotBaseName = BuildScreenshotName();
+        var picturesDirectory = GetPicturesFrameDirectory();
+        var preferredDirectory = GetPreferredFrameDirectory(picturesDirectory);
+        _isSavingEditorFrame = true;
+        try
+        {
+            string directory;
+            string destination;
+            try
+            {
+                directory = preferredDirectory;
+                Directory.CreateDirectory(directory);
+                destination = FindAvailableFramePath(directory, screenshotBaseName);
+                await _exportService.ExportFrameAsync(source, destination, time, crop, rotation, zoom, focusX, focusY);
+            }
+            catch (Exception preferredFailure) when (
+                preferredFailure is IOException or UnauthorizedAccessException &&
+                !string.Equals(preferredDirectory, picturesDirectory, StringComparison.OrdinalIgnoreCase))
+            {
+                // A read-only disc or a removed drive must not lose the frame.
+                App.WriteErrorLog(preferredFailure);
+                directory = picturesDirectory;
+                Directory.CreateDirectory(directory);
+                destination = FindAvailableFramePath(directory, screenshotBaseName);
+                await _exportService.ExportFrameAsync(source, destination, time, crop, rotation, zoom, focusX, focusY);
+            }
+
+            var usedFallback = !string.Equals(directory, preferredDirectory, StringComparison.OrdinalIgnoreCase);
+            ShowNotice(
+                Strings.Format(usedFallback ? "Notice_FrameSavedFallback" : "Notice_FrameSaved", destination),
+                usedFallback ? InfoBarSeverity.Warning : InfoBarSeverity.Success,
+                revealPath: destination);
+        }
+        catch (Exception ex)
+        {
+            App.WriteErrorLog(ex);
+            ShowError(Strings.Get("Error_FrameSaveFailed"));
+        }
+        finally
+        {
+            _isSavingEditorFrame = false;
+        }
+    }
+
+    private bool _isSavingEditorFrame;
+
+    private static string FindAvailableFramePath(string directory, string baseName)
+    {
+        for (var collision = 0; ; collision++)
+        {
+            var suffix = collision == 0 ? string.Empty : $" ({collision + 1})";
+            var candidate = Path.Combine(directory, $"{baseName}{suffix}.png");
+            if (!File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+    }
 
     private void ShowError(string message) => ShowNotice(message, InfoBarSeverity.Error);
 

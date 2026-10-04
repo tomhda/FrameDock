@@ -26,6 +26,7 @@ internal sealed class PlayerSettings
     public double SkipSeconds { get; set; } = 10;
     public double Volume { get; set; } = 75;
     public double Speed { get; set; } = 1;
+    public bool Repeat { get; set; }
     public bool Muted { get; set; }
     public PlayerDisplayMode DisplayMode { get; set; } = PlayerDisplayMode.MaximizedOverlay;
     public string Language { get; set; } = "";

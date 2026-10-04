@@ -17,6 +17,8 @@ It also has simple editing features: you can trim, crop, rotate, zoom, change sp
 - Plays local video files with libmpv.
 - Steps one frame at a time, and skips 10 seconds forward or back (the interval can be changed in Settings).
 - Saves the current frame as a PNG, or copies it to the clipboard.
+- Switches audio tracks and subtitles, repeats a video, and adjusts brightness, contrast, saturation, and hue for playback.
+- Shows the properties of a video (resolution, frame rate, codec, bit rate, and more) and copies them as text.
 - Offers a normal window, a maximized window, and full screen, and keeps the play button and other bars from covering the video where it can.
 - Provides simple video editing without switching to another app.
 - Trims a range you choose.
@@ -32,7 +34,7 @@ In the maximized window and in full screen the control bar is hidden, and it app
 
 ![Playback with the controls shown](docs/images/playback-controls.jpg)
 
-"Edit and more" (the **…** button) opens the menu for copying a frame, the editor, the display mode, the playback speed, and the settings.
+"Edit and more" (the **…** button) opens the menu for copying a frame, the editor, audio and subtitle tracks, picture adjustment, repeat, the display mode, the playback speed, the properties, and the settings.
 
 ![The menu](docs/images/menu-en.jpg)
 
@@ -60,10 +62,16 @@ The setup contains everything FrameDock needs and downloads nothing. A desktop i
 - The controls along the bottom play and pause, skip, step one frame, and set the volume.
 - "Edit and more" → **Display mode** switches between always showing the controls below the video, a maximized window, and full screen.
 - "Edit and more" → **Playback speed** sets the viewing speed.
+- "Edit and more" → **Repeat** turns repeating the video on or off.
+- "Edit and more" → **Audio** / **Subtitles** switch between the tracks in the video. **Open subtitle file…** loads subtitles from a separate file.
+- "Edit and more" → **Adjust picture…** changes brightness, contrast, saturation, and hue. It applies to playback only, not to editing, exports, or saved frames, and returns to normal when FrameDock closes.
+- "Edit and more" → **Properties…** shows information about the file, the video, and the audio. **Copy all** copies it as text.
+- The title bar shows the file name of the open video.
 
 ### Save a frame
 
 - The camera button (Ctrl+S) saves the current frame as a PNG. The file name contains the video name and the playback time, and an existing file is never overwritten.
+- While the editor is open, the camera button next to the play button (Ctrl+S) saves the frame as you see it, with the crop, rotation, and zoom applied, at the same size as the export.
 - A notification shows the full path, with an **Open folder** button.
 - Right-click the video to copy the current frame to the clipboard.
 - **Settings** chooses where frames go: `Pictures\FrameDock` (the default), a folder you choose, the folder of the video, or a subfolder next to the video. If that location can't be written to, the frame is saved to `Pictures\FrameDock`.
@@ -110,6 +118,7 @@ Error details are written to `%LOCALAPPDATA%\FrameDock\error.log`.
 ## Limits
 
 - Input and output are local files. Output formats are MP4, MKV, and MOV.
+- An export contains the first audio track of the video. The audio track and subtitles chosen for playback do not affect the export.
 - Re-encoding uses the software encoder `libx264` (H.264) and AAC. No GPU encoder is used.
 - HDR video is not re-encoded, to avoid changing its colors. HDR can be exported with "Fast cut (original quality)", which keeps its metadata.
 - Crop positions and sizes are aligned to even pixels. An uncropped video with an odd width or height gets at most one pixel added on the right or bottom edge.
