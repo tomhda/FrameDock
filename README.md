@@ -37,13 +37,11 @@ In the maximized window mode and in full screen the control bar is hidden, and i
 
 ![Playback with the controls hidden](docs/images/playback.jpg)
 
-▼ Moving the pointer to the bottom of the window shows the control bar. It does not appear while the pointer is anywhere else.
+▼ Moving the pointer to the bottom of the window shows the control bar. It does not appear while the pointer is anywhere else. By default the control bar has buttons for repeat and the playback speed. For a video with audio tracks or subtitles to choose from, it also shows an audio and subtitles button. You can choose which buttons the control bar shows.
 
 ![Playback with the controls shown](docs/images/playback-controls.jpg)
 
-▼ By default the control bar has buttons for repeat and the playback speed. For a video with audio tracks or subtitles to choose from, it also shows an audio and subtitles button. You can choose which buttons the control bar shows.
-
-"Edit and more" (the **…** button) opens the menu for copying a frame, the editor, picture adjustment, the display mode, the properties, and the settings. (The video in this image has one audio track and no subtitles, so audio and subtitles are in the menu.)
+▼ "Edit and more" (the **…** button) opens the menu for copying a frame, the editor, picture adjustment, the display mode, the properties, and the settings. (The video in this image has one audio track and no subtitles, so audio and subtitles are in the menu.)
 
 ![The menu](docs/images/menu-en.jpg)
 
