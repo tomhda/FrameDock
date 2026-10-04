@@ -83,7 +83,8 @@ $sumLines = Get-ChildItem -LiteralPath $outputPath -File |
     Where-Object { $_.Name -ne 'SHA256SUMS.txt' } |
     Sort-Object Name |
     ForEach-Object { '{0}  {1}' -f (Get-Sha256 $_.FullName), $_.Name }
-[System.IO.File]::WriteAllLines((Join-Path $outputPath 'SHA256SUMS.txt'), $sumLines, (New-Object System.Text.UTF8Encoding($false)))
+# LF line endings, so that 'sha256sum -c' also works outside Windows.
+[System.IO.File]::WriteAllText((Join-Path $outputPath 'SHA256SUMS.txt'), (($sumLines -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding($false)))
 
 Write-Host "ソース一式を作成しました: $outputPath"
 Get-ChildItem -LiteralPath $outputPath -File | Sort-Object Name | ForEach-Object {
