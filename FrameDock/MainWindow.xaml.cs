@@ -5167,6 +5167,12 @@ public sealed partial class MainWindow : Window
                 var none = new TextBlock { Text = Strings.Get("Properties_AudioNone"), IsTextSelectionEnabled = true, TextWrapping = TextWrapping.Wrap };
                 section.Children.Add(none);
                 panel.Children.Add(section);
+                if (copyLines.Count > 0)
+                {
+                    // A blank line separates sections in the copied text.
+                    copyLines.Add(string.Empty);
+                }
+
                 copyLines.Add(audioHeading);
                 copyLines.Add(Strings.Get("Properties_AudioNone"));
             }
@@ -5248,6 +5254,12 @@ public sealed partial class MainWindow : Window
         if (rows.Count == 0)
         {
             return;
+        }
+
+        if (copyLines.Count > 0)
+        {
+            // A blank line separates sections in the copied text.
+            copyLines.Add(string.Empty);
         }
 
         copyLines.Add(heading);
