@@ -312,7 +312,9 @@ public sealed partial class MainWindow
         var seconds = ratio * TimelineSlider.Maximum;
         SeekPreviewTime.Text = FormatTime(seconds);
 
-        var index = FindNearestSeekPreview(seconds);
+        // While dragging, the video itself follows the pointer, so the
+        // thumbnail would only repeat it; the time stays.
+        var index = _isTimelineDragging ? -1 : FindNearestSeekPreview(seconds);
         if (index != _seekPreviewShownIndex)
         {
             _seekPreviewShownIndex = index;
@@ -382,6 +384,13 @@ public sealed partial class MainWindow
         {
             // Leftover temporary images are harmless.
         }
+    }
+
+    private void HideSeekPreviewImage()
+    {
+        _seekPreviewShownIndex = -1;
+        SeekPreviewImage.Source = null;
+        SeekPreviewImage.Visibility = Visibility.Collapsed;
     }
 
     private void HideSeekPreview()

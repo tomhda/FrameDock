@@ -1059,7 +1059,11 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void TimelineSlider_PointerPressed(object sender, PointerRoutedEventArgs e) => _isTimelineDragging = true;
+    private void TimelineSlider_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        _isTimelineDragging = true;
+        HideSeekPreviewImage();
+    }
 
     private void TimelineSlider_PointerReleased(object sender, PointerRoutedEventArgs e)
     {
