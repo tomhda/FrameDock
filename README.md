@@ -2,7 +2,7 @@
 
 [日本語](README.ja.md)
 
-**[⬇ Download SILframe 1.0.2](https://github.com/tomhda/SILframe/releases/download/v1.0.2/SILframe-Setup-1.0.2-win-x64.exe)** (installer for Windows x64, 147 MB). See [Install](#install) for the steps.
+**[⬇ Download SILframe 1.0.3](https://github.com/tomhda/SILframe/releases/download/v1.0.3/SILframe-Setup-1.0.3-win-x64.exe)** (installer for Windows x64, 147 MB). See [Install](#install) for the steps.
 
 SILframe is a video player for Windows, made to add what the built-in Media Player app lacks.
 
@@ -57,7 +57,7 @@ The screenshots show [*Tears of Steel*](https://mango.blender.org/), (CC) Blende
 
 SILframe runs on Windows 10 version 2004 (build 19041) or later and Windows 11, x64.
 
-1. Download [`SILframe-Setup-1.0.2-win-x64.exe`](https://github.com/tomhda/SILframe/releases/download/v1.0.2/SILframe-Setup-1.0.2-win-x64.exe). Earlier versions and the source of the bundled binaries are on the [Releases](../../releases) page.
+1. Download [`SILframe-Setup-1.0.3-win-x64.exe`](https://github.com/tomhda/SILframe/releases/download/v1.0.3/SILframe-Setup-1.0.3-win-x64.exe). Earlier versions and the source of the bundled binaries are on the [Releases](../../releases) page.
 2. Run it. The setup is not code-signed, so Windows SmartScreen may show "Windows protected your PC". Select **More info**, then **Run anyway**.
 3. Follow the setup. It installs for the current user into `%LOCALAPPDATA%\Programs\SILframe` and needs no administrator rights.
 
