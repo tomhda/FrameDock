@@ -146,10 +146,6 @@ if (-not (Test-Path -LiteralPath $compilerPath -PathType Leaf)) {
     }
 }
 
-$versionOutput = (& $compilerPath --version | Out-String).Trim()
-if ($LASTEXITCODE -ne 0 -or $versionOutput -ne $compilerVersion) {
-    throw "Inno Setup compiler のバージョンが想定と異なります: $versionOutput"
-}
 $actualCompilerExeHash = (Get-FileHash -LiteralPath $compilerPath -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actualCompilerExeHash -ne $expectedCompilerExeHash) {
     throw "Inno Setup compiler の SHA-256 が一致しません: $compilerPath"
@@ -159,6 +155,11 @@ if ($compilerSignature.Status -ne [System.Management.Automation.SignatureStatus]
     -not $compilerSignature.SignerCertificate -or
     $compilerSignature.SignerCertificate.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false) -ne 'Pyrsys B.V.') {
     throw "Inno Setup compiler の Authenticode 署名を確認できません: $($compilerSignature.StatusMessage)"
+}
+# Run the compiler only after its hash and signature are confirmed.
+$versionOutput = (& $compilerPath --version | Out-String).Trim()
+if ($LASTEXITCODE -ne 0 -or $versionOutput -ne $compilerVersion) {
+    throw "Inno Setup compiler のバージョンが想定と異なります: $versionOutput"
 }
 
 New-Item -ItemType Directory -Path $outputPath -Force | Out-Null

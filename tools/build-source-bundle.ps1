@@ -44,8 +44,32 @@ function Get-Sha256 {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
+function Assert-NoReparsePath {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    # The directory, everything in it, and every parent up to the drive root.
+    $current = $Path
+    while ($current) {
+        if (Test-Path -LiteralPath $current) {
+            $item = Get-Item -LiteralPath $current -Force
+            if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw "ジャンクションまたはシンボリックリンクは使えません: $current"
+            }
+        }
+        $current = Split-Path -Parent $current
+    }
+    if (-not (Test-Path -LiteralPath $Path -PathType Container)) { return }
+    foreach ($child in Get-ChildItem -LiteralPath $Path -Force -Recurse) {
+        if (($child.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "ジャンクションまたはシンボリックリンクは使えません: $($child.FullName)"
+        }
+    }
+}
+
 New-Item -ItemType Directory -Force -Path $cachePath | Out-Null
 New-Item -ItemType Directory -Force -Path $outputPath | Out-Null
+Assert-NoReparsePath -Path $cachePath
+Assert-NoReparsePath -Path $outputPath
 
 foreach ($archive in $archives) {
     $cached = Join-Path $cachePath $archive.Name
@@ -55,7 +79,9 @@ foreach ($archive in $archives) {
 
     if (-not (Test-Path -LiteralPath $cached -PathType Leaf)) {
         Write-Host "ソースを取得します: $($archive.Name)"
-        $partial = "$cached.partial"
+        # A new, unpredictable name each time, so that nothing placed in the
+        # cache beforehand can redirect the download.
+        $partial = Join-Path $cachePath ([System.IO.Path]::GetRandomFileName() + '.partial')
         # code.videolan.org answers browser-like user agents with a bot check page.
         Invoke-WebRequest -Uri $archive.Url -OutFile $partial -UseBasicParsing -UserAgent 'SILframe-build-source-bundle'
         $actual = Get-Sha256 $partial

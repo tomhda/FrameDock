@@ -1504,7 +1504,7 @@ internal static class ProcessExecution
         Task<string> stdoutTask;
         if (onStandardOutputLine is null)
         {
-            stdoutTask = process.StandardOutput.ReadToEndAsync();
+            stdoutTask = ReadBoundedAsync(process.StandardOutput, MaxStandardOutputCharacters, () => TryKillTree(process));
         }
         else
         {
@@ -1534,6 +1534,39 @@ internal static class ProcessExecution
         var standardOutput = await stdoutTask.ConfigureAwait(false);
         await stderrTask.ConfigureAwait(false);
         return new ToolProcessResult(process.ExitCode, standardOutput, stderrTail.ToString());
+    }
+
+    // ffprobe's JSON for an ordinary file is a few kilobytes. The limit only
+    // stops a crafted file from making the tool print without end.
+    private const int MaxStandardOutputCharacters = 16 * 1024 * 1024;
+
+    private static async Task<string> ReadBoundedAsync(StreamReader reader, int limit, Action onLimitExceeded)
+    {
+        var content = new StringBuilder();
+        var buffer = new char[8192];
+        var exceeded = false;
+        int count;
+        while ((count = await reader.ReadAsync(buffer.AsMemory()).ConfigureAwait(false)) > 0)
+        {
+            if (exceeded)
+            {
+                continue;
+            }
+
+            if (content.Length + count > limit)
+            {
+                // Stop the tool and keep draining so it can exit; the caller
+                // sees a failed exit code and reports its usual error.
+                exceeded = true;
+                content.Clear();
+                onLimitExceeded();
+                continue;
+            }
+
+            content.Append(buffer, 0, count);
+        }
+
+        return content.ToString();
     }
 
     private static async Task<string> ReadLinesAsync(StreamReader reader, Action<string> callback)

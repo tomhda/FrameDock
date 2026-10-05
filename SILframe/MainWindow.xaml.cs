@@ -1525,10 +1525,39 @@ public sealed partial class MainWindow : Window
                 }
             });
 
-            var errorTask = process.StandardError.ReadToEndAsync();
-            await process.WaitForExitAsync();
-            _ = await errorTask;
+            // The messages are not used; drain them without keeping them.
+            var errorTask = process.StandardError.BaseStream.CopyToAsync(Stream.Null);
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            deadline.CancelAfter(TimeSpan.FromSeconds(60));
+            try
+            {
+                await process.WaitForExitAsync(deadline.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        process.Kill(entireProcessTree: true);
+                    }
+                }
+                catch
+                {
+                    // The process may have exited between the check and Kill.
+                }
+
+                await process.WaitForExitAsync();
+            }
+
+            await errorTask;
             cancellationToken.ThrowIfCancellationRequested();
+            if (deadline.IsCancellationRequested)
+            {
+                DeleteThumbnailFiles(outputPaths);
+                return null;
+            }
+
             if (process.ExitCode != 0 || outputPaths.Any(path => !File.Exists(path)))
             {
                 DeleteThumbnailFiles(outputPaths);
@@ -5753,7 +5782,11 @@ public sealed partial class MainWindow : Window
             try
             {
                 // /select opens the folder with the exported file highlighted.
-                Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = false });
+                // A bare "explorer.exe" would be looked up in the current directory
+                // first, which is the folder of the video when it was opened by
+                // double-click.
+                var explorer = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+                Process.Start(new ProcessStartInfo(explorer, $"/select,\"{path}\"") { UseShellExecute = false });
             }
             catch (Exception ex)
             {
