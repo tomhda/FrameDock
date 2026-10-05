@@ -42,7 +42,7 @@ This builds a Release and then one offline setup executable, `artifacts\installe
 
 The first run downloads the pinned Inno Setup 7.1.0 from its official GitHub release, checks its SHA-256 and Authenticode signature, and extracts it into `tools\.cache\` only. Inno Setup is used at build time and is not installed with SILframe. For commercial use, see the [Inno Setup license information](https://jrsoftware.org/isorder.php).
 
-The setup contains the Release app, the WinUI resources, libmpv, FFmpeg, and the license notices, so nothing is downloaded at install time. It installs per user into `%LOCALAPPDATA%\Programs\SILframe` and creates a Start menu entry and an uninstaller. The desktop icon and the "Open with" registration for common video formats are optional tasks. Windows default apps are not changed. The setup is not code-signed.
+The setup contains the Release app, the WinUI resources, libmpv, FFmpeg, and the license notices, so nothing is downloaded at install time. It installs per user into `%LOCALAPPDATA%\Programs\SILframe` and creates a Start menu entry and an uninstaller. The desktop icon, the "Open with" registration for common video formats, and adding the folder to the user's `PATH` are optional tasks. Windows default apps are not changed. The setup is not code-signed.
 
 `-SkipReleaseBuild` reuses an existing Release.
 

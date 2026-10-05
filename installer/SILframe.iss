@@ -22,6 +22,7 @@ UninstallDisplayIcon={app}\SILframe.exe
 SetupIconFile={#PublishDir}\Assets\SILframe.ico
 PrivilegesRequired=lowest
 ChangesAssociations=yes
+ChangesEnvironment=yes
 SetupArchitecture=x64
 ArchitecturesAllowed=x64compatible
 MinVersion=10.0.19041
@@ -38,13 +39,16 @@ Name: "japanese"; MessagesFile: "compiler:Languages\Japanese.isl"
 english.AdditionalTasks=Optional tasks:
 english.DesktopIcon=Create a desktop shortcut
 english.OpenWith=Add SILframe to the Open with menu for common video formats
+english.AddToPath=Add the SILframe folder to PATH, to start silframe-cli by name (for scripts and AI agents)
 japanese.AdditionalTasks=追加タスク:
 japanese.DesktopIcon=デスクトップにショートカットを作成する
 japanese.OpenWith=一般的な動画形式の「プログラムから開く」に SILframe を追加する
+japanese.AddToPath=SILframe のフォルダーを PATH に追加し、silframe-cli を名前だけで実行できるようにする（スクリプトや AI エージェント向け）
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:DesktopIcon}"; GroupDescription: "{cm:AdditionalTasks}"; Flags: unchecked
 Name: "openwith"; Description: "{cm:OpenWith}"; GroupDescription: "{cm:AdditionalTasks}"; Flags: unchecked
+Name: "addtopath"; Description: "{cm:AddToPath}"; GroupDescription: "{cm:AdditionalTasks}"; Flags: unchecked
 
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -114,3 +118,87 @@ Root: HKCU; Subkey: "Software\RegisteredApplications"; ValueType: string; ValueN
 
 [Run]
 Filename: "{app}\SILframe.exe"; Description: "Launch SILframe"; Flags: postinstall nowait skipifsilent
+
+[Code]
+// The optional "addtopath" task puts the install folder on the current user's
+// PATH so that silframe-cli can be started by name. Uninstalling takes it out
+// again. Other entries of PATH are left exactly as they are.
+
+const
+  EnvironmentKey = 'Environment';
+
+function SameFolder(const A, B: string): Boolean;
+begin
+  Result := CompareText(RemoveBackslashUnlessRoot(Trim(A)), RemoveBackslashUnlessRoot(Trim(B))) = 0;
+end;
+
+// Returns Paths without the entries equal to Folder, and whether any was found.
+function WithoutFolder(const Paths, Folder: string; var Found: Boolean): string;
+var
+  Rest, Entry: string;
+  Separator: Integer;
+begin
+  Result := '';
+  Found := False;
+  Rest := Paths;
+  while Rest <> '' do
+  begin
+    Separator := Pos(';', Rest);
+    if Separator = 0 then
+    begin
+      Entry := Rest;
+      Rest := '';
+    end
+    else
+    begin
+      Entry := Copy(Rest, 1, Separator - 1);
+      Rest := Copy(Rest, Separator + 1, Length(Rest));
+    end;
+
+    if Trim(Entry) = '' then
+      Continue;
+
+    if SameFolder(Entry, Folder) then
+      Found := True
+    else
+    begin
+      if Result <> '' then
+        Result := Result + ';';
+      Result := Result + Entry;
+    end;
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Paths, Remaining: string;
+  Found: Boolean;
+begin
+  if (CurStep <> ssPostInstall) or not WizardIsTaskSelected('addtopath') then
+    Exit;
+
+  if not RegQueryStringValue(HKCU, EnvironmentKey, 'Path', Paths) then
+    Paths := '';
+  Remaining := WithoutFolder(Paths, ExpandConstant('{app}'), Found);
+  if Found then
+    Exit;
+
+  if Remaining <> '' then
+    Remaining := Remaining + ';';
+  RegWriteExpandStringValue(HKCU, EnvironmentKey, 'Path', Remaining + ExpandConstant('{app}'));
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Paths, Remaining: string;
+  Found: Boolean;
+begin
+  if CurUninstallStep <> usUninstall then
+    Exit;
+
+  if not RegQueryStringValue(HKCU, EnvironmentKey, 'Path', Paths) then
+    Exit;
+  Remaining := WithoutFolder(Paths, ExpandConstant('{app}'), Found);
+  if Found then
+    RegWriteExpandStringValue(HKCU, EnvironmentKey, 'Path', Remaining);
+end;

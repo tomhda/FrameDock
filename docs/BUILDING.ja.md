@@ -41,7 +41,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-installer.ps1
 
 出力先は `artifacts\installer\SILframe-Setup-<バージョン>-win-x64.exe` です（バージョンは `Directory.Build.props` の `Version` で決まり、アプリ、`silframe-cli`、セットアップで共通です）。初回のビルドは固定バージョンの Inno Setup 7.1.0 を公式 GitHub リリースから取得し、SHA-256 と Authenticode 署名を確認して `tools\.cache\` 内だけに展開します。セットアップには Release のアプリ、WinUI リソース、libmpv、FFmpeg、ライセンス通知が入るため、インストール先で追加ダウンロードはありません。既存 Release を使う場合は `-SkipReleaseBuild` を指定できます。
 
-セットアップはユーザーごとに `%LOCALAPPDATA%\Programs\SILframe` へインストールし、スタートメニューの起動項目とアンインストーラーを作成します。デスクトップアイコンと一般的な動画形式の「プログラムから開く」登録は任意です。Windows の既定アプリは変更しません。セットアップはコード署名をしていません。
+セットアップはユーザーごとに `%LOCALAPPDATA%\Programs\SILframe` へインストールし、スタートメニューの起動項目とアンインストーラーを作成します。デスクトップアイコン、一般的な動画形式の「プログラムから開く」登録、ユーザーの `PATH` への追加は任意です。Windows の既定アプリは変更しません。セットアップはコード署名をしていません。
 
 ## リリースに添付するソース一式
 

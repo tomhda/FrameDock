@@ -67,7 +67,7 @@ SILframe runs on Windows 10 version 2004 (build 19041) or later and Windows 11, 
 2. Run it. The setup is not code-signed, so Windows SmartScreen may show "Windows protected your PC". Select **More info**, then **Run anyway**.
 3. Follow the setup. It installs for the current user into `%LOCALAPPDATA%\Programs\SILframe` and needs no administrator rights.
 
-The setup contains everything SILframe needs and downloads nothing. A desktop icon and an "Open with" entry for common video formats are optional. SILframe does not change your default apps. To remove it, use **Installed apps** in Windows Settings.
+The setup contains everything SILframe needs and downloads nothing. A desktop icon, an "Open with" entry for common video formats, and adding the folder to `PATH` (to start `silframe-cli` by name) are optional. SILframe does not change your default apps. To remove it, use **Installed apps** in Windows Settings.
 
 ## Use
 
@@ -134,7 +134,7 @@ Error details are written to `%LOCALAPPDATA%\SILframe\error.log`.
 
 ### Command line
 
-`silframe-cli.exe` inspects videos, saves frames, and exports clips without opening the window. It prints its results as JSON, so scripts and AI agents can use it. It is installed in the same folder as the app.
+`silframe-cli.exe` inspects videos, saves frames, and exports clips without opening the window. It prints its results as JSON, so scripts and AI agents can use it. It is installed in the same folder as the app, and the setup can add that folder to `PATH`.
 
 ```
 silframe-cli info talk.mp4

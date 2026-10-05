@@ -14,7 +14,7 @@ The setup installs it next to the app:
 %LOCALAPPDATA%\Programs\SILframe\silframe-cli.exe
 ```
 
-The folder is not added to `PATH`. Call it by its full path, or add the folder to `PATH` yourself.
+To start it as `silframe-cli` from any folder, select the optional task that adds the SILframe folder to PATH in the setup. The option is off by default; without it, call the tool by its full path. The change applies to terminals opened after the setup finishes, and uninstalling SILframe removes the entry.
 
 ## Commands
 
