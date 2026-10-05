@@ -37,6 +37,7 @@ internal sealed class PlayerSettings
     public bool ShowSpeedButton { get; set; } = true;
     public bool ShowTracksButton { get; set; } = true;
     public bool ShowCopyFrameButton { get; set; }
+    public bool ShowSeekPreview { get; set; } = true;
 
     internal static bool IsValidFolderName(string? name)
     {

@@ -166,6 +166,7 @@ public sealed partial class MainWindow : Window
         UpdateSpeedMenu(_settings.Speed);
         UpdateRepeatMenu();
         UpdateControlBarButtons();
+        InitializeSeekPreview();
         UpdateWindowTitle();
         UpdateEditSpeedControl(_editSpeed);
         _isRestoringSettings = false;
@@ -357,6 +358,7 @@ public sealed partial class MainWindow : Window
             !_isPointerNearControls && !_isPointerOverControls && !AreControlsPinned())
         {
             ControlsBorder.Visibility = Visibility.Collapsed;
+            HideSeekPreview();
         }
     }
 
@@ -705,6 +707,8 @@ public sealed partial class MainWindow : Window
             _externalSubtitleTrackId = -1;
             _hasSelectableTracks = false;
             UpdateControlBarButtons();
+            HideSeekPreview();
+            StopSeekPreview();
             _resumeAfterRestartSeek = false;
             _playbackFailedPath = null;
             _segments.Clear();
@@ -833,6 +837,7 @@ public sealed partial class MainWindow : Window
                 }
 
                 _mediaInfo = inspected;
+                StartSeekPreview(fullPath, inspected.DurationSeconds);
                 TrimStartBox.Maximum = inspected.DurationSeconds;
                 TrimEndBox.Maximum = inspected.DurationSeconds;
                 TrimStartBox.Value = 0;
@@ -2097,6 +2102,7 @@ public sealed partial class MainWindow : Window
         skipBox.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, Strings.Get("Settings_SkipHeader"));
         var languageLabel = SectionTitle("Settings_LanguageHeader");
         var languageBox = new ComboBox { MinWidth = 280 };
+        languageBox.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, Strings.Get("Settings_LanguageHeader"));
         languageBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_LanguageSystem"), Tag = "" });
         languageBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_LanguageJapanese"), Tag = "ja-JP" });
         languageBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_LanguageEnglish"), Tag = "en-US" });
@@ -2108,6 +2114,7 @@ public sealed partial class MainWindow : Window
         };
         var frameSaveLabel = SectionTitle("Settings_FrameSaveHeader");
         var frameSaveBox = new ComboBox { MinWidth = 280 };
+        frameSaveBox.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.NameProperty, Strings.Get("Settings_FrameSaveHeader"));
         frameSaveBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_FrameSavePictures"), Tag = FrameSaveLocation.Pictures });
         frameSaveBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_FrameSaveCustom"), Tag = FrameSaveLocation.CustomFolder });
         frameSaveBox.Items.Add(new ComboBoxItem { Content = Strings.Get("Settings_FrameSaveVideoFolder"), Tag = FrameSaveLocation.VideoFolder });
@@ -2186,7 +2193,9 @@ public sealed partial class MainWindow : Window
         barButtonsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         barButtonsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         barButtonsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        var barBoxes = new[] { barRepeatBox, barSpeedBox, barTracksBox, barCopyFrameBox };
+        barButtonsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var barSeekPreviewBox = new CheckBox { Content = Strings.Get("Settings_BarSeekPreview"), IsChecked = _settings.ShowSeekPreview };
+        var barBoxes = new[] { barRepeatBox, barSpeedBox, barTracksBox, barCopyFrameBox, barSeekPreviewBox };
         for (var i = 0; i < barBoxes.Length; i++)
         {
             Grid.SetRow(barBoxes[i], i / 2);
@@ -2276,6 +2285,8 @@ public sealed partial class MainWindow : Window
                 _settings.ShowTracksButton = barTracksBox.IsChecked == true;
                 _settings.ShowCopyFrameButton = barCopyFrameBox.IsChecked == true;
                 UpdateControlBarButtons();
+                _settings.ShowSeekPreview = barSeekPreviewBox.IsChecked == true;
+                ApplySeekPreviewSetting();
                 var selectedLanguage = (languageBox.SelectedItem as ComboBoxItem)?.Tag as string ?? "";
                 var languageChanged = !string.Equals(_settings.Language, selectedLanguage, StringComparison.Ordinal);
                 _settings.Language = selectedLanguage;
@@ -5807,6 +5818,7 @@ public sealed partial class MainWindow : Window
         _compositionResizeTimer?.Stop();
         _exportCancellation?.Cancel();
         CancelThumbnailGeneration();
+        StopSeekPreview();
         var player = _player;
         _player = null;
         SwapChainPanelInterop.Attach(MpvSwapChainPanel, IntPtr.Zero);

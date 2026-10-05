@@ -38,7 +38,7 @@ $bootstrapScript = Join-Path (Join-Path $PWD 'tools') 'bootstrap-dependencies.ps
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-installer.ps1
 ```
 
-This builds a Release and then one offline setup executable, `artifacts\installer\SILframe-Setup-<version>-win-x64.exe`. The version comes from `Version` in `SILframe\SILframe.csproj`.
+This builds a Release and then one offline setup executable, `artifacts\installer\SILframe-Setup-<version>-win-x64.exe`. The version comes from `Version` in `Directory.Build.props` and is shared by the app, `silframe-cli`, and the setup.
 
 The first run downloads the pinned Inno Setup 7.1.0 from its official GitHub release, checks its SHA-256 and Authenticode signature, and extracts it into `tools\.cache\` only. Inno Setup is used at build time and is not installed with SILframe. For commercial use, see the [Inno Setup license information](https://jrsoftware.org/isorder.php).
 
@@ -95,3 +95,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\check-strings.ps1
 | `SILFRAME_SETTINGS_PATH` | Path of a settings file to use instead of `%LOCALAPPDATA%\SILframe\settings.json`. |
 | `SILFRAME_OPEN_EDITOR` | `1` opens the editor as soon as a video has loaded. |
 | `SILFRAME_MPV_LOG` | `1` writes the mpv log to `%TEMP%\SILframe-mpv.log`. |
+| `SILFRAME_SEEK_PREVIEW_AT` | A value from `0` to `1`. Keeps the seek bar thumbnail for that position on screen without pointer input. |

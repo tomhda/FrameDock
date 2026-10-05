@@ -21,7 +21,9 @@ It also has simple editing features: you can trim, crop, rotate, zoom, change sp
 - Saves the current frame as a PNG, or copies it to the clipboard.
 - Switches audio tracks and subtitles, repeats a video, and adjusts brightness, contrast, saturation, and hue for playback.
 - Shows the properties of a video (resolution, frame rate, codec, bit rate, and more) and copies them as text.
+- Shows a thumbnail and the time for the position under the pointer on the seek bar.
 - Lets you choose in the settings which buttons the control bar shows.
+- Inspects videos, saves frames, and exports clips from the command line without opening the window (`silframe-cli`).
 - Offers a normal window, a maximized window, and full screen, and keeps the play button and other bars from covering the video where it can.
 - Provides simple video editing without switching to another app.
 - Trims a range you choose.
@@ -47,6 +49,10 @@ In the maximized window mode and in full screen the control bar is hidden, and i
 
 ![The menu](docs/images/menu-en.jpg)
 
+▼ Resting the pointer on the seek bar shows a thumbnail and the time for that position.
+
+![Seek bar thumbnail](docs/images/seek-preview.jpg)
+
 ▼ The editor opens below the video. This screenshot shows a video split into three segments, with the last one deleted.
 
 ![The editor](docs/images/editor-en.jpg)
@@ -69,6 +75,7 @@ The setup contains everything SILframe needs and downloads nothing. A desktop ic
 
 - Open a video with the **Open video** button (Ctrl+O), or drop a file onto the window.
 - The controls along the bottom play and pause, skip, step one frame, and set the volume.
+- Resting the pointer on the seek bar shows a thumbnail and the time for that position. The thumbnails are made one after another once playback has started, so right after opening a video only the time is shown. The settings can turn this off.
 - "Edit and more" → **Display mode** switches between always showing the controls below the video, a maximized window, and full screen.
 - The speed button on the control bar (a number such as "1×") sets the viewing speed.
 - The repeat button on the control bar turns repeating the video on or off. A line under the button shows that repeat is on.
@@ -121,9 +128,21 @@ When the seek bar or the volume slider has focus, the arrow keys move that slide
 
 ### Settings
 
-"Edit and more" → **Settings…** sets the skip interval, the buttons on the control bar, where frames are saved, and the display language. By default SILframe follows the Windows display language. A language change takes effect the next time SILframe starts.
+"Edit and more" → **Settings…** sets the skip interval, the buttons on the control bar, the seek bar thumbnails, where frames are saved, and the display language. By default SILframe follows the Windows display language. A language change takes effect the next time SILframe starts.
 
 Error details are written to `%LOCALAPPDATA%\SILframe\error.log`.
+
+### Command line
+
+`silframe-cli.exe` inspects videos, saves frames, and exports clips without opening the window. It prints its results as JSON, so scripts and AI agents can use it. It is installed in the same folder as the app.
+
+```
+silframe-cli info talk.mp4
+silframe-cli frame talk.mp4 --time 1:23.5 --out slide.png
+silframe-cli export talk.mp4 --start 0:10 --end 0:40 --out clip.mp4
+```
+
+[docs/CLI.md](docs/CLI.md) lists the options and the output format.
 
 ## Limits
 

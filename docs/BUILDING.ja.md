@@ -39,7 +39,7 @@ Windows x64 で次を実行すると、Release を作成して一つのオフラ
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-installer.ps1
 ```
 
-出力先は `artifacts\installer\SILframe-Setup-<バージョン>-win-x64.exe` です（バージョンは `SILframe\SILframe.csproj` の `Version` で決まります）。初回のビルドは固定バージョンの Inno Setup 7.1.0 を公式 GitHub リリースから取得し、SHA-256 と Authenticode 署名を確認して `tools\.cache\` 内だけに展開します。セットアップには Release のアプリ、WinUI リソース、libmpv、FFmpeg、ライセンス通知が入るため、インストール先で追加ダウンロードはありません。既存 Release を使う場合は `-SkipReleaseBuild` を指定できます。
+出力先は `artifacts\installer\SILframe-Setup-<バージョン>-win-x64.exe` です（バージョンは `Directory.Build.props` の `Version` で決まり、アプリ、`silframe-cli`、セットアップで共通です）。初回のビルドは固定バージョンの Inno Setup 7.1.0 を公式 GitHub リリースから取得し、SHA-256 と Authenticode 署名を確認して `tools\.cache\` 内だけに展開します。セットアップには Release のアプリ、WinUI リソース、libmpv、FFmpeg、ライセンス通知が入るため、インストール先で追加ダウンロードはありません。既存 Release を使う場合は `-SkipReleaseBuild` を指定できます。
 
 セットアップはユーザーごとに `%LOCALAPPDATA%\Programs\SILframe` へインストールし、スタートメニューの起動項目とアンインストーラーを作成します。デスクトップアイコンと一般的な動画形式の「プログラムから開く」登録は任意です。Windows の既定アプリは変更しません。セットアップはコード署名をしていません。
 
@@ -92,3 +92,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\check-strings.ps1
 | `SILFRAME_SETTINGS_PATH` | `%LOCALAPPDATA%\SILframe\settings.json` の代わりに使う設定ファイルのパス。 |
 | `SILFRAME_OPEN_EDITOR` | `1` にすると、動画を読み込んだ直後に編集パネルを開きます。 |
 | `SILFRAME_MPV_LOG` | `1` にすると、mpv のログを `%TEMP%\SILframe-mpv.log` に書き出します。 |
+| `SILFRAME_SEEK_PREVIEW_AT` | `0`〜`1` の値。ポインターを使わずに、シークバーのその位置のサムネイルを表示し続けます。 |

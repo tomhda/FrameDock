@@ -103,6 +103,13 @@ if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish が失敗しました (exit=$LASTEXITCODE)"
 }
 
+# The command-line tool goes into the same folder and shares the runtime files.
+$cliProjectPath = Join-Path $repositoryRoot 'SILframe.Cli\SILframe.Cli.csproj'
+& $dotnet.Source publish $cliProjectPath -c Release -r win-x64 --self-contained true -o $outputPath
+if ($LASTEXITCODE -ne 0) {
+    throw "silframe-cli の dotnet publish が失敗しました (exit=$LASTEXITCODE)"
+}
+
 $xamlResources = @()
 foreach ($requiredResource in @('App.xbf', 'MainWindow.xbf')) {
     $resourcePath = Join-Path $binaryOutputRoot $requiredResource
@@ -148,6 +155,7 @@ Copy-Item -LiteralPath $windowsAppSdkLicense -Destination (Join-Path $noticesPat
 
 $publishedFiles = @(
     [pscustomobject]@{ Path = 'SILframe.exe'; Sha256 = $null },
+    [pscustomobject]@{ Path = 'silframe-cli.exe'; Sha256 = $null },
     [pscustomobject]@{ Path = 'libmpv-2.dll'; Sha256 = '675f8a46972bbc1ff969e54ae155f613e2f73b0190b7ed2781319d80677aeb4e' },
     [pscustomobject]@{ Path = 'Media\ffmpeg.exe'; Sha256 = '3256173f3f8bffd7df12227c68adf68025edb1832273a9530688a7bb1ed8edec' },
     [pscustomobject]@{ Path = 'Media\ffprobe.exe'; Sha256 = 'f0d36ecbbdd3bcfac3efa078c96c7271c2e68b3810595552ac3b7f17e9a65c52' }
@@ -163,6 +171,11 @@ foreach ($published in $publishedFiles) {
             throw "発行出力の依存バイナリが想定と異なります: $path"
         }
     }
+}
+
+$cliVersion = & (Join-Path $outputPath 'silframe-cli.exe') --version | Out-String
+if ($LASTEXITCODE -ne 0 -or $cliVersion -notmatch '"ok": true') {
+    throw "silframe-cli が発行出力から起動できません: $cliVersion"
 }
 
 Write-Host 'Release 出力と同梱ライセンス文書を確認しました。'

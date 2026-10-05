@@ -11,7 +11,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>SILframe</RootNamespace>
     <AssemblyName>SILframe</AssemblyName>
-    <Version>1.0.3</Version>
     <ApplicationIcon>Assets\SILframe.ico</ApplicationIcon>
     <DefaultLanguage>en-US</DefaultLanguage>
   </PropertyGroup>

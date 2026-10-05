@@ -417,5 +417,13 @@
             </Grid>
         </Border>
         <InfoBar x:Name="NotificationBar" x:Uid="NotificationBar" Grid.Row="0" Canvas.ZIndex="20" Margin="12" MaxWidth="760" HorizontalAlignment="Center" VerticalAlignment="Top" Visibility="Collapsed" IsOpen="False" IsClosable="True" Severity="Error" />
+        <Canvas x:Name="SeekPreviewLayer" Grid.Row="0" Grid.RowSpan="4" Canvas.ZIndex="30" IsHitTestVisible="False">
+            <Border x:Name="SeekPreviewBox" Visibility="Collapsed" Padding="4" CornerRadius="6" Background="#F21F1F1F" BorderBrush="#40FFFFFF" BorderThickness="1">
+                <StackPanel>
+                    <Image x:Name="SeekPreviewImage" Width="192" Height="108" Stretch="Uniform" Visibility="Collapsed" />
+                    <TextBlock x:Name="SeekPreviewTime" HorizontalAlignment="Center" Margin="6,3,6,2" FontSize="12" />
+                </StackPanel>
+            </Border>
+        </Canvas>
     </Grid>
 </Window>

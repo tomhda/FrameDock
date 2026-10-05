@@ -691,7 +691,7 @@
     <value>Audio and subtitles</value>
   </data>
   <data name="Settings_BarButtonsHeader" xml:space="preserve">
-    <value>Buttons on the control bar</value>
+    <value>Shown on the control bar</value>
   </data>
   <data name="Settings_BarButtonsNote" xml:space="preserve">
     <value>"Audio and subtitles" appears only for videos that have tracks to choose from. Buttons you turn off stay available under "Edit and more".</value>
@@ -707,5 +707,8 @@
   </data>
   <data name="Settings_BarCopyFrame" xml:space="preserve">
     <value>Copy frame</value>
+  </data>
+  <data name="Settings_BarSeekPreview" xml:space="preserve">
+    <value>Seek bar thumbnails</value>
   </data>
 </root>

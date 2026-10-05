@@ -691,10 +691,11 @@
     <value>音声と字幕</value>
   </data>
   <data name="Settings_BarButtonsHeader" xml:space="preserve">
-    <value>操作バーに表示するボタン</value>
+    <value>操作バーに表示するもの</value>
   </data>
   <data name="Settings_BarButtonsNote" xml:space="preserve">
-    <value>「音声と字幕」は、切り替えられる動画でだけ表示されます。オフにしたものは「その他の操作」から使えます。</value>
+    <value>「音声と字幕」は、切り替えられる動画でだけ表示されます。
+オフにしたボタンは「その他の操作」から使えます。</value>
   </data>
   <data name="Settings_BarRepeat" xml:space="preserve">
     <value>リピート</value>
@@ -707,5 +708,8 @@
   </data>
   <data name="Settings_BarCopyFrame" xml:space="preserve">
     <value>フレームをコピー</value>
+  </data>
+  <data name="Settings_BarSeekPreview" xml:space="preserve">
+    <value>シークバーのサムネイル</value>
   </data>
 </root>
