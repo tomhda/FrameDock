@@ -124,9 +124,31 @@ public sealed partial class MainWindow
                     return;
                 }
 
+                // Decode each image now. Handing the Image control a picture that
+                // still has to load leaves it blank for a moment, which showed as
+                // a black flicker while moving along the seek bar.
+                var bitmaps = _seekPreviewBitmaps;
                 for (var i = 0; i < batch.Length; i++)
                 {
-                    paths[batch[i]] = batchPaths[i];
+                    try
+                    {
+                        using var file = File.OpenRead(batchPaths[i]);
+                        using var stream = file.AsRandomAccessStream();
+                        var bitmap = new BitmapImage();
+                        await bitmap.SetSourceAsync(stream);
+                        if (!ReferenceEquals(_seekPreviewPaths, paths))
+                        {
+                            DeleteThumbnailFiles(batchPaths.Skip(i));
+                            return;
+                        }
+
+                        bitmaps[batch[i]] = bitmap;
+                        paths[batch[i]] = batchPaths[i];
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        DeleteThumbnailFiles(new[] { batchPaths[i] });
+                    }
                 }
             }
         }
@@ -301,7 +323,7 @@ public sealed partial class MainWindow
             }
             else
             {
-                SeekPreviewImage.Source = _seekPreviewBitmaps[index] ??= new BitmapImage(new Uri(_seekPreviewPaths[index]!));
+                SeekPreviewImage.Source = _seekPreviewBitmaps[index];
                 SeekPreviewImage.Visibility = Visibility.Visible;
             }
         }
